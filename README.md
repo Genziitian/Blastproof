@@ -4,7 +4,7 @@ On-call agents that remember previous incidents, check whether that memory still
 
 Graph Hacks 2026 · Track 02 (Agent Memory and Coordination). FalkorDB holds the memory, the shared task state between agents, the conversation history and the evidence trail; take it out and nothing works.
 
-> Work in progress: updated as each piece lands. Last update: Fri Oct 16, 2026.
+> Work in progress: updated as each piece lands. Last update: Fri Oct 16, 2026 (arm B added).
 
 ## Results so far (preliminary)
 
@@ -30,7 +30,22 @@ What this does and doesn't show:
 
 - **Same accuracy, far less work.** Claude Haiku 5.5 solves this benchmark from scratch, so memory can't raise accuracy here; what it buys is the same answer without calling the model at all whenever an earlier incident applies.
 - **Checking memory has a cost, and we report it.** On cold and novel incidents, graph memory takes more steps (recalled playbooks are checked before they are ruled out), though it still made fewer model calls on them (C 51 in total vs A 198).
-- **Synthetic benchmark only.** 15-node company, three failure families, results describe this benchmark and nothing more. Arm B (text retrieval over the same memories) lands next; the numbers are frozen once all three arms run.
+- **Synthetic benchmark only.** 15-node company, three failure families, results describe this benchmark and nothing more. The numbers above are A vs C; the three-arm run with the model is next, and the numbers are frozen once it is done.
+
+### Graph retrieval vs text retrieval (arm B, deterministic planner)
+
+Arm B gets the same memories, trust rules, precondition checks and learning as C; only *which memories to try* differs: nearest by text similarity of the alert text to each playbook's text (FalkorDB `vec.cosineDistance`), tried against the nodes each is pinned to and every datastore of its kind. Run with the rule-based planner on FalkorDB, so no model is involved:
+
+| | A: no memory | B: text memory | C: graph memory |
+|---|---|---|---|
+| Recall@5 of a memory that gives the right answer (21 incidents where one exists, same snapshot) | n/a | 52% | **100%** |
+| Steps per repeat / related incident | 6.2 / 5.3 | 7.3 / 8.0 | **3.0 / 4.8** |
+| Wrong memories checked and ruled out (same-symptom incidents) | 0 | 17 | 5 |
+| Misled | 0 | 0 | 0 |
+
+Text similarity finds the right memory about half the time and makes the agent check more wrong ones; graph proximity finds it every time, because "which node is failing near these alerts" is a question about the dependency graph, not about wording. Caveat: arm B currently embeds text with a deterministic hashed bag of words; a neural embedder (`EMBED_MODEL`, e.g. Gemini's) is supported and will be reported alongside.
+
+FalkorDB finding: on graphs this small, the HNSW vector index (`db.idx.vector.queryNodes`) returned fewer neighbours than requested (1 to 2 of 3 embedded memories for k = 10), so arm B uses exact `vec.cosineDistance` instead.
 
 ## How it works
 
@@ -85,8 +100,8 @@ make acceptance-2      # s04 after the restart, SIGKILL mid-investigation, takeo
 The benchmark:
 
 ```bash
-make eval-rules   # deterministic planner, no model calls, a few seconds
-make eval         # the configured model; results in eval/results/<timestamp>/
+make eval-rules   # arms A, B, C with the deterministic planner, no model calls, seconds
+make eval         # arms A, B, C with the configured model; eval/results/<timestamp>/
 ```
 
 ### Model
@@ -125,7 +140,7 @@ The integration suites are written once and run on two backends: FalkorDB when i
 
 ## Still to come
 
-Arm B (text retrieval via FalkorDB's vector index) and recall@5 · load and tenant-isolation benchmark · UI (Memory Lens, agent timeline, war-room chat, kill button) · final frozen numbers.
+Three-arm run with Claude · load and tenant-isolation benchmark · UI (Memory Lens, agent timeline, war-room chat, kill button) · final frozen numbers.
 
 ## AI assistance
 

@@ -52,8 +52,8 @@ scenarios:
 
 # The benchmark with the configured model (.env). Results in eval/results/<timestamp>/.
 eval:
-	$(PY) -m eval.run --arms A C
+	$(PY) -m eval.run --arms A B C
 
 # The same benchmark with the deterministic planner (no model calls).
 eval-rules:
-	LLM_MODEL= $(PY) -m eval.run --arms A C --rule-based
+	LLM_MODEL= $(PY) -m eval.run --arms A B C --rule-based

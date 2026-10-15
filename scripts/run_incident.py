@@ -41,7 +41,8 @@ _FROM_CONFIG: Any = object()
 def run_incident(g: Any, t: truth.Truth, incident_id: str, *, use_memory: bool = True,
                  planner: Planner | None = None, instance: str = "local",
                  confirmer: Confirmer | None = None, learn: bool = True,
-                 chat_model: Any = _FROM_CONFIG) -> str:
+                 chat_model: Any = _FROM_CONFIG, recall_mode: str = "graph",
+                 embedder: Any = None) -> str:
     """Triage, investigate, respond and (unless learn=False) learn, in this process.
 
     The oracle reviews the diagnosis unless another `confirmer` is given. The war
@@ -54,8 +55,8 @@ def run_incident(g: Any, t: truth.Truth, incident_id: str, *, use_memory: bool =
     oracle.watch(key, t)
 
     open_incident(g, incident_id, alerts, world.observed_at(key))
-    Investigator(g, f"{instance}-investigator", world, planner,
-                 use_memory=use_memory).run_once()
+    Investigator(g, f"{instance}-investigator", world, planner, use_memory=use_memory,
+                 recall_mode=recall_mode, embedder=embedder).run_once()
     Responder(g, f"{instance}-responder", confirmer or oracle, world,
               WarRoom(g, llm.from_config() if chat_model is _FROM_CONFIG else chat_model)
               ).run_once()

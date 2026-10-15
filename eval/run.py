@@ -6,8 +6,13 @@
 
 Arms differ ONLY in memory access (plan, Evaluation):
   A  no recall: the investigator always investigates from scratch
-  C  graph recall (A1/A1b), precondition checks, verdicts and learning
-  B  text retrieval over the same records: added on Saturday
+  B  text retrieval: nearest memories by embedding similarity (FalkorDB vector index)
+  C  graph retrieval: proximity in the dependency graph (A1/A1b)
+B and C share the same records, validity and trust rules, precondition executor,
+feedback and learning.
+
+M2 (recall@5) is measured inside arm C before each incident: both retrievers query
+the same frozen snapshot, so what each arm learned earlier can't skew it.
 
 Every arm uses the same planner, model, tools, world and oracle. Conversation memory
 (the war room) is on in every arm, so the responder behaves the same; only the
@@ -33,12 +38,15 @@ from agents.planning import Planner, RuleBasedPlanner
 from common import config, llm, logs
 from common.db import raw_graph, run
 from eval import scenarios, truth
+from memory import embed, recall, text_recall
 from scripts.run_incident import run_incident
 from scripts.seed import seed_graph
 from sim import org
+from sim import world as W
+from sim.families import Evidence
 
 RESULTS = Path(__file__).resolve().parent / "results"
-ARMS = {"A": "no memory", "C": "graph memory"}
+ARMS = {"A": "no memory", "B": "text memory", "C": "graph memory"}
 MODEL_STATS = ("calls", "retries", "errors", "cache_hits", "input_tokens", "output_tokens",
                "prompt_cache_read_tokens", "prompt_cache_write_tokens")
 
@@ -61,6 +69,8 @@ class Arm:
         self.graph = make_graph(f"eval_{name.lower()}{suffix}")
         seed_graph(self.graph, "a")
         self.applied_events: set[tuple[int, str, str]] = set()
+        self.embedder = embed.from_config()
+        self.measure_recall = name == "C" and not suffix
 
     @property
     def use_memory(self) -> bool:
@@ -84,14 +94,44 @@ class Arm:
 
     def incident(self, t: truth.Truth) -> dict[str, Any]:
         self._apply_org(t)
+        m2 = recall_at_5(self.graph, self.embedder, t) if self.measure_recall else None
         before = self._counters()
         started = time.perf_counter()
         key = run_incident(self.graph, t, f"{t.id}-{self.name.lower()}",
                            use_memory=self.use_memory, planner=self.planner,
-                           instance=f"eval-{self.name.lower()}", chat_model=self.model)
+                           instance=f"eval-{self.name.lower()}", chat_model=self.model,
+                           recall_mode="text" if self.name == "B" else "graph",
+                           embedder=self.embedder)
         seconds = time.perf_counter() - started
         delta = {k: v - before[k] for k, v in self._counters().items()}
-        return score(self.name, t, self.graph, key, seconds, delta)
+        row = score(self.name, t, self.graph, key, seconds, delta)
+        row["m2"] = m2
+        return row
+
+
+def recall_at_5(g: Any, embedder: Any, t: truth.Truth) -> dict[str, Any]:
+    """Before an incident, ask both retrievers for their top 5 on the same snapshot.
+
+    A (memory, target) pair is relevant when the memory's failure family is the
+    incident's and the target is its root, i.e. following it gives the right answer.
+    """
+    sc = t.scenario()
+    alerts = Evidence(sc).alerts()
+    alerting = sorted({a["service"] for a in alerts})
+    texts = [a["text"] for a in alerts]
+    kind = W.DATASTORES.get(t.root, "service")
+    books = run(g, "memory/queries/playbook_texts.cypher", {})
+    families = {b["id"]: b["family"] for b in books}
+    exists = any(b["family"] == t.family and (t.root in (b["about"] or [])
+                                              or (kind != "service" and b["kind"] == kind))
+                 for b in books)
+
+    def hit(found: Sequence[recall.Recalled]) -> bool:
+        return any(families.get(r.memory_id) == t.family and r.target == t.root for r in found)
+
+    graph_top = recall.recall(g, alerting, sc.now_ms)
+    text_top = text_recall.recall(g, embedder, alerting, texts, sc.now_ms)
+    return {"relevant_exists": exists, "graph_hit": hit(graph_top), "text_hit": hit(text_top)}
 
 
 def score(arm: str, t: truth.Truth, g: Any, key: str, seconds: float,
@@ -166,6 +206,13 @@ def _avg(rows: Sequence[dict[str, Any]], key: str) -> float | None:
 
 def summarize(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     out: dict[str, Any] = {}
+    measured = [r["m2"] for r in rows if r.get("m2") and r["m2"]["relevant_exists"]]
+    if measured:
+        out["m2"] = {"n": len(measured),
+                     "graph_recall_at_5": round(sum(m["graph_hit"] for m in measured)
+                                                / len(measured), 3),
+                     "text_recall_at_5": round(sum(m["text_hit"] for m in measured)
+                                               / len(measured), 3)}
     for arm in sorted({r["arm"] for r in rows}):
         mine = [r for r in rows if r["arm"] == arm]
         cats: dict[str, Any] = {}
@@ -192,9 +239,10 @@ def summarize(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
 
 def markdown(summary: dict[str, Any], m5: dict[str, Any] | None, meta: dict[str, Any]) -> str:
     lines = [f"# Eval results: {meta['name']}", "",
-             f"Model: `{meta['model']}` · run at {meta['at']} · LLM disk cache: "
+             f"Model: `{meta['model']}` · text embeddings (arm B): "
+             f"`{meta.get('embedder', 'n/a')}` · run at {meta['at']} · LLM disk cache: "
              f"{'on (timings not valid)' if meta['cached'] else 'off'}", ""]
-    arms = sorted(summary)
+    arms = sorted(a for a in summary if a in ARMS)
     cats = [c for c in summary[arms[0]] if c != "all"] + ["all"]
     lines += ["## Root-cause accuracy (M3)", "",
               "| Category | " + " | ".join(f"{a}: {ARMS.get(a, a)}" for a in arms) + " |",
@@ -213,16 +261,24 @@ def markdown(summary: dict[str, Any], m5: dict[str, Any] | None, meta: dict[str,
                              f"{s['mean_input_tokens']} | {s['mean_output_tokens']} | "
                              f"{s['mean_seconds']} |")
     lines += ["", "## Judgment (M4) and safety", "",
-              "| Arm | same-symptom: wrong memory rejected / misled | novel: memory applied | "
-              "org: right recipient | duplicate notifications | fallbacks |",
+              "| Arm | same-symptom: wrong memory rejected / misled | novel: memory applied "
+              "(misled) | org: right recipient | duplicate notifications | fallbacks |",
               "|---|---|---|---|---|---|"]
     for a in arms:
         s, all_ = summary[a], summary[a]["all"]
         same, novel, orgc = s.get("same", {}), s.get("novel", {}), s.get("org", {})
         lines.append(f"| {a} | {same.get('wrong_family_rejected', 0)} / "
-                     f"{same.get('memory_misled', 0)} | {novel.get('memory_helped', 0)} | "
+                     f"{same.get('memory_misled', 0)} | {novel.get('memory_helped', 0)} "
+                     f"({novel.get('memory_misled', 0)}) | "
                      f"{orgc.get('recipient_ok', 0)}/{orgc.get('n', 0)} | "
                      f"{all_['duplicate_notifications']} | {all_['fallbacks']} |")
+    if "m2" in summary:
+        m2 = summary["m2"]
+        lines += ["", "## Retrieval (M2): recall@5 on the same snapshot", "",
+                  f"Over the {m2['n']} incidents where a memory that gives the right answer "
+                  f"already exists: graph retrieval finds it in its top 5 "
+                  f"**{m2['graph_recall_at_5']:.0%}** of the time, text retrieval "
+                  f"**{m2['text_recall_at_5']:.0%}**."]
     if m5:
         lines += ["", "## M5: a deliberately wrong playbook", "",
                   f"Misleading uses before retirement: **{m5['misleading_uses_before_retirement']}** "
@@ -259,7 +315,7 @@ def run_eval(arm_names: Sequence[str], make_graph: GraphFactory,
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--arms", nargs="+", default=["A", "C"])
+    ap.add_argument("--arms", nargs="+", default=["A", "B", "C"])
     ap.add_argument("--name", default=None, help="results folder (default: timestamp)")
     ap.add_argument("--only", nargs="*", help="run just these incident ids")
     ap.add_argument("--rule-based", action="store_true", help="ignore LLM_MODEL")
@@ -286,6 +342,7 @@ def main() -> int:
     rows, summary, m5 = run_eval(args.arms, live_graph, model_factory, args.only,
                                  not args.no_m5, on_row=save)
     meta = {"name": name, "model": model_name, "at": at, "arms": args.arms,
+            "embedder": embed.from_config().name,
             "cached": bool(config.LLM_CACHE_DIR) and not args.rule_based,
             "truth_ids": [r["id"] for r in rows]}
     (out / "rows.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")

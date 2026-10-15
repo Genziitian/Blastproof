@@ -21,7 +21,8 @@ from agents.worker import Worker
 from common.db import run
 from coord import tasks
 from coord.tasks import Lease
-from memory import recall
+from memory import recall, text_recall
+from memory.embed import Embedder, HashEmbedder
 from memory.playbook import Observe
 from memory.use import Consideration, try_playbooks
 from tools import registry
@@ -39,12 +40,17 @@ class Investigator(Worker):
 
     def __init__(self, graph: Any, instance: str, evidence: EvidenceSource,
                  planner: Planner | None = None, use_memory: bool = True,
-                 pace_s: float = 0.0) -> None:
+                 pace_s: float = 0.0, recall_mode: str = "graph",
+                 embedder: Embedder | None = None) -> None:
         super().__init__(graph, instance)
         self.evidence = evidence
         self.planner = planner or RuleBasedPlanner()
         self.use_memory = use_memory
         self.pace_s = pace_s  # pause after each new step, so a live demo can be followed
+        if recall_mode not in ("graph", "text"):
+            raise ValueError(f"recall_mode must be 'graph' or 'text', not {recall_mode!r}")
+        self.recall_mode = recall_mode  # "text" is eval arm B
+        self.embedder = embedder or HashEmbedder()
 
     def handle(self, lease: Lease) -> None:
         incident = run(self.graph, "agents/queries/incident_context.cypher",
@@ -64,7 +70,11 @@ class Investigator(Worker):
         considered: list[Consideration] = []
         diagnosis: Diagnosis | None = None
         if self.use_memory:
-            recalled = recall.recall(self.graph, alerting, scenario_now)
+            if self.recall_mode == "text":
+                recalled = text_recall.recall(self.graph, self.embedder, alerting,
+                                              incident["alert_texts"], scenario_now)
+            else:
+                recalled = recall.recall(self.graph, alerting, scenario_now)
             records = recall.playbooks(self.graph, (r.memory_id for r in recalled))
             considered, diagnosis = try_playbooks(recalled, records, observe)
             for c in considered:

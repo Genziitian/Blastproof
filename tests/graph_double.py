@@ -461,12 +461,15 @@ def _incident_context(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]
     if i is None:
         return []
     alerting: list[str] = []
+    texts: list[str] = []
     for _, a in g.into(i, "PART_OF"):
         for _, s in g.out(a, "FIRED_ON"):
             if "Service" in s.labels and s.get("name") not in alerting:
                 alerting.append(s.get("name"))
+            if "Service" in s.labels and a.get("text") not in texts:
+                texts.append(a.get("text"))
     return [{"incident_key": i.get("key"), "incident_id": i.get("id"),
-             "observed_at": i.get("observed_at"), "alerting": alerting}]
+             "observed_at": i.get("observed_at"), "alerting": alerting, "alert_texts": texts}]
 
 
 @implements("agents/queries/record_decision.cypher")
@@ -913,6 +916,60 @@ def _who_to_page(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
                          "on_call": person.get("handle") if person else None,
                          "on_call_name": person.get("name") if person else None})
     return rows
+
+
+# ============================================== memory/ (arm B: text retrieval)
+
+@implements("memory/queries/playbook_texts.cypher")
+def _playbook_texts(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for m in g.find("Playbook"):
+        if "Memory" not in m.labels or m.get("status") != "active":
+            continue
+        about = list(dict.fromkeys(n.get("name") for _, n in g.out(m, "ABOUT")))
+        alerts: list[str] = []
+        for _, i in g.out(m, "LEARNED_FROM"):
+            for _, a in g.into(i, "PART_OF"):
+                if "Alert" in a.labels and a.get("text") not in alerts:
+                    alerts.append(a.get("text"))
+        rows.append({"id": m.get("id"), "signature": m.get("signature"),
+                     "family": m.get("family"), "kind": m.get("applies_to_kind"),
+                     "about": about, "alerts": alerts, "embed_hash": m.get("embed_hash")})
+    return rows
+
+
+@implements("memory/queries/set_embedding.cypher")
+def _set_embedding(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    m = next(iter(g.find("Memory", id=p["id"])), None)
+    if m is None:
+        return []
+    g.set(m, {"embedding": [float(v) for v in p["vector"]], "embed_hash": p["hash"]})
+    return [{"id": m.get("id")}]
+
+
+@implements("memory/queries/vector_recall.cypher")
+def _vector_recall(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    q = p["vector"]
+    scored = sorted(
+        ((1.0 - sum(a * b for a, b in zip(m.get("embedding"), q, strict=True)), m)
+         for m in g.find("Memory")
+         if m.get("embedding") is not None and _valid(m, p["scenario_now"])),
+        key=lambda dm: (dm[0], dm[1].get("id")))[: p["k"]]
+    return [{"id": m.get("id"), "distance": d, "trust": m.get("trust"),
+             "kind": m.get("applies_to_kind"),
+             "about": [n.get("name") for _, n in g.out(m, "ABOUT")]} for d, m in scored]
+
+
+@implements("memory/queries/datastores_of_kind.cypher")
+def _datastores_of_kind(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"name": n} for n in sorted(d.get("name") for d in g.find("Datastore", kind=p["kind"]))]
+
+
+@implements("memory/queries/bind_path.cypher")
+def _bind_path(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"path": [n.get("name") for n in path]}
+            for a in _alerting(g, p["alerting"])
+            for path in g.paths(a, "DEPENDS_ON", 0, 3) if path[-1].get("name") == p["target"]]
 
 
 # ======================================================== sim/ (org changes)

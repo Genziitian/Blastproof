@@ -49,7 +49,7 @@ class EvalCases:
     @classmethod
     def setUpClass(cls):
         cls.rows, cls.summary, cls.m5 = run_eval(
-            ["A", "C"], lambda name: cls.backend(f"test_{name}"), lambda: None,
+            ["A", "B", "C"], lambda name: cls.backend(f"test_{name}"), lambda: None,
             log=lambda _: None)
 
     def test_every_incident_is_diagnosed_and_routed_correctly(self):
@@ -70,6 +70,17 @@ class EvalCases:
         self.assertLess(s["C"]["repeat"]["mean_steps"], s["A"]["repeat"]["mean_steps"])
         self.assertTrue(all(r["helped"] for r in self.rows
                             if r["arm"] == "C" and r["category"] in ("repeat", "related")))
+
+    def test_text_memory_never_misleads_either(self):
+        b = [r for r in self.rows if r["arm"] == "B"]
+        self.assertEqual(len(b), 30)
+        self.assertFalse(any(r["misled"] for r in b))
+
+    def test_recall_at_5_is_measured_on_the_same_snapshot(self):
+        m2 = self.summary["m2"]
+        self.assertGreater(m2["n"], 10)
+        self.assertEqual(m2["graph_recall_at_5"], 1.0)
+        self.assertLessEqual(m2["text_recall_at_5"], m2["graph_recall_at_5"])
 
     def test_m5_wrong_playbook_misleads_twice_then_retires(self):
         assert self.m5 is not None

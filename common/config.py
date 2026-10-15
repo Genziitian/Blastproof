@@ -73,7 +73,12 @@ LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "4"))           # on 429 / 5x
 LLM_CACHE_DIR = os.getenv("LLM_CACHE_DIR", "")                     # empty = no cache
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "")                       # anthropic | openai | auto
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))          # Anthropic: includes thinking
-LLM_EFFORT = os.getenv("LLM_EFFORT", "")                           # Anthropic effort; empty = default
+LLM_EFFORT = os.getenv("LLM_EFFORT", "")
+# Arm B text embeddings: empty EMBED_MODEL = deterministic hashed bag of words.
+EMBED_MODEL = os.getenv("EMBED_MODEL", "")
+EMBED_BASE_URL = os.getenv("EMBED_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
+EMBED_API_KEY = os.getenv("EMBED_API_KEY", "")
+EMBED_DIM = int(os.getenv("EMBED_DIM", "256"))                           # Anthropic effort; empty = default
 
 
 def graph_name(company_id: str) -> str:
