@@ -31,6 +31,8 @@ class Fake(BaseHTTPRequestHandler):
         self.end_headers()
         if status == 200:
             self.wfile.write(json.dumps(OK).encode())
+        elif status == 404:
+            self.wfile.write(b'{"error": {"message": "models/nope is not found"}}')
 
     def log_message(self, *args: object) -> None:
         pass
@@ -71,6 +73,11 @@ class ClientTests(unittest.TestCase):
         with self.assertRaises(LLMError):
             self.client(max_retries=3).chat([{"role": "user", "content": "hi"}])
         self.assertEqual(Fake.hits, 1)
+
+    def test_error_message_includes_the_providers_explanation(self) -> None:
+        Fake.queue = [404]
+        with self.assertRaisesRegex(LLMError, "models/nope is not found"):
+            self.client().chat([{"role": "user", "content": "hi"}])
 
     def test_requests_are_spaced_out(self) -> None:
         c = self.client(min_interval_s=0.2)

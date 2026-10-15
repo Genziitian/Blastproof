@@ -96,7 +96,7 @@ class OpenAICompatible:
             except urllib.error.HTTPError as e:
                 if e.code not in RETRYABLE or attempt == self.max_retries:
                     self.stats["errors"] += 1
-                    raise LLMError(f"{self.url}: HTTP {e.code} {e.reason}") from e
+                    raise LLMError(f"{self.url}: HTTP {e.code} {e.reason}: {_body(e)}") from e
                 self.stats["retries"] += 1
                 time.sleep(_backoff_s(e, attempt))
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
@@ -117,6 +117,14 @@ class OpenAICompatible:
             return None
         key = hashlib.sha256(self.url.encode() + b"\n" + raw).hexdigest()
         return self.cache_dir / f"{key}.json"
+
+
+def _body(error: urllib.error.HTTPError) -> str:
+    """The provider's own explanation (e.g. which model name it did not find)."""
+    try:
+        return error.read().decode("utf-8", "replace").strip().replace("\n", " ")[:300]
+    except Exception:
+        return ""
 
 
 def _backoff_s(error: urllib.error.HTTPError, attempt: int) -> float:
