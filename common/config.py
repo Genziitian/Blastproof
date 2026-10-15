@@ -58,7 +58,7 @@ MAX_ATTEMPTS = 3
 # the rule-based planner and the rule-based preference parser take over.
 #   Gemini (free tier, the project default; see .env.example):
 #       LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-#       LLM_MODEL=gemini-2.5-flash  LLM_API_KEY=...  LLM_MIN_INTERVAL_S=6.5
+#       LLM_MODEL=gemini-3.8-flash  LLM_API_KEY=...  LLM_MIN_INTERVAL_S=6.5
 #   Ollama (local, free):  LLM_BASE_URL=http://localhost:11434/v1  LLM_MODEL=gemma4:e4b
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1").rstrip("/")
 LLM_MODEL = os.getenv("LLM_MODEL", "")
