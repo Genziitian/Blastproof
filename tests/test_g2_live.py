@@ -80,6 +80,9 @@ class StoryCases:
         seed_graph(cls.g, "a")
         cls.keys = {sid: run_incident(cls.g, truth.load(sid), f"{sid}-story")
                     for sid in ("s01", "s04", "s05")}
+        # The same s04 incident investigated without memory: the honest M1 baseline.
+        cls.baseline = run_incident(cls.g, truth.load("s04"), "s04-nomem",
+                                    use_memory=False, learn=False)
 
     @classmethod
     def tearDownClass(cls):
@@ -107,7 +110,7 @@ class StoryCases:
                    for u in memory_of(self.g, self.keys["s04"]) if u["applied"]]
         self.assertEqual(applied, [("pb-dec-s01-story", "postgres-payments", "helped")])
         self.assertLess(len(checkpoints(self.g, self.keys["s04"])),
-                        len(checkpoints(self.g, self.keys["s01"])))
+                        len(checkpoints(self.g, self.baseline)))
 
     def test_s04_applies_and_cites_the_preference_once(self):
         [(recipient, channel, payload)] = actions(self.g, self.keys["s04"])

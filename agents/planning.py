@@ -33,7 +33,8 @@ def _last(series: Sequence[float] | None) -> float | None:
 
 class RuleBasedPlanner:
     """Shared dependencies, then recent changes, then datastore health, then any
-    suspect deploy's error rate."""
+    suspect deploy's error rate. Stops checking datastores at the first one that is
+    clearly failing, so the no-memory baseline does no more work than it needs."""
 
     def next(self, alerting: Sequence[str], history: Sequence[Step]) -> Call | Diagnosis:
         done = {_key(s.tool, s.args) for s in history}
@@ -49,10 +50,12 @@ class RuleBasedPlanner:
         if candidates is None:
             return calls
         calls += [Call("inspect_recent_changes", {"service": s}) for s in alerting]
+        if _datastore_finding(history) is not None:
+            return calls  # conclusive: every remaining call is already done
         calls += [Call("inspect_metrics", {"node": name})
                   for name in _shared_datastores(candidates)]
         deploy = _latest_deploy(history)
-        if deploy and _datastore_finding(history) is None:
+        if deploy:
             calls.append(Call("inspect_metrics", {"node": deploy[1]}))
         return calls
 

@@ -111,7 +111,7 @@ class GateG1Cases:
 
         checkpoints = run(self.g, "coord/queries/read_checkpoints.cypher",
                           {"task_id": f"{key}:investigate"})
-        self.assertEqual([c["n"] for c in checkpoints], [1, 2, 3, 4, 5, 6])
+        self.assertEqual([c["n"] for c in checkpoints], [1, 2, 3, 4, 5])
         self.assertEqual({c["epoch"] for c in checkpoints[:3]}, {1})
         self.assertEqual({c["epoch"] for c in checkpoints[3:]}, {2})
         self.assertEqual(self.tasks_of(key)["respond"]["actions"], 1)

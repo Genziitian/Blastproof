@@ -6,16 +6,16 @@ import unittest
 from agents.contracts import Call, Diagnosis, Step
 from agents.planning import RuleBasedPlanner
 from eval import truth
-from sim.families import Evidence
+from sim import world as W
+from sim.families import Evidence, Scenario
 from tests.reference import upstream_candidates
 from tools import registry
 from tools.context import ToolContext
 
 
-def investigate(scenario_id: str) -> tuple[Diagnosis, list[Step], list[Call]]:
+def investigate(scenario: str | Scenario) -> tuple[Diagnosis, list[Step], list[Call]]:
     """Run the planner to a conclusion, answering graph tools from the reference."""
-    t = truth.load(scenario_id)
-    sc = t.scenario()
+    sc = truth.load(scenario).scenario() if isinstance(scenario, str) else scenario
     ctx = ToolContext(graph=None, evidence=Evidence(sc), scenario_now=sc.now_ms)
     planner, history, calls = RuleBasedPlanner(), [], []
     while True:
@@ -42,13 +42,24 @@ class RuleBasedPlannerTests(unittest.TestCase):
                 self.assertTrue(diagnosis.evidence_steps)
                 self.assertLessEqual(len(history), 12)
 
-    def test_db_saturation_takes_six_steps(self):
+    def test_db_saturation_stops_at_the_first_saturated_datastore(self):
         _, history, _ = investigate("s01")
         self.assertEqual([s.tool for s in history], [
             "find_upstream_candidates",
             "inspect_recent_changes", "inspect_recent_changes", "inspect_recent_changes",
-            "inspect_metrics", "inspect_metrics",
+            "inspect_metrics",
         ])
+        self.assertEqual(history[-1].args, {"node": "postgres-orders"})
+
+    def test_new_sibling_datastores_are_diagnosed(self):
+        """The stores added for the related-service eval category: postgres-menu, redis-sessions."""
+        t0 = W.WORLD_START_MS + 9 * 86_400_000
+        for family, root in [("db_saturation", "postgres-menu"),
+                             ("cache_failure", "redis-sessions")]:
+            diagnosis, history, _ = investigate(Scenario("sx", family, root, t0))
+            with self.subTest(root=root):
+                self.assertEqual((diagnosis.root, diagnosis.family), (root, family))
+                self.assertLessEqual(len(history), 6)
 
     def test_resumes_from_any_checkpoint(self):
         """A worker taking over after step k must ask for exactly step k + 1."""

@@ -1,5 +1,8 @@
 """The synthetic company both tenants share in shape.
 
+Three postgres stores and two redis stores, so a playbook learned on one can be
+tested on a sibling of the same kind (the eval's "related service" category).
+
 Both companies use IDENTICAL service names and keys, with different people and
 canary values, so isolation tests can't pass by accident.
 """
@@ -17,7 +20,7 @@ SERVICES = {
     "orders-svc": ("core", False),
     "menu-svc": ("core", True),
     "search-svc": ("core", True),
-    "auth-svc": ("core", False),
+    "auth-svc": ("core", True),        # login is user-facing
     "notify-svc": ("core", False),
 }
 
@@ -25,7 +28,9 @@ DATASTORES = {
     # name: kind
     "postgres-orders": "postgres",
     "postgres-payments": "postgres",
+    "postgres-menu": "postgres",
     "redis-cache": "redis",
+    "redis-sessions": "redis",
     "kafka-events": "kafka",
 }
 
@@ -40,13 +45,15 @@ DEPENDS_ON = [
     ("payments-gw", "postgres-payments"), ("payments-gw", "kafka-events"),
     ("orders-svc", "postgres-orders"), ("orders-svc", "kafka-events"),
     ("menu-svc", "redis-cache"), ("search-svc", "redis-cache"),
-    ("auth-svc", "redis-cache"), ("notify-svc", "kafka-events"),
+    ("menu-svc", "postgres-menu"), ("search-svc", "postgres-menu"),
+    ("auth-svc", "redis-sessions"), ("notify-svc", "kafka-events"),
 ]
 
 TEAMS = {
     # team: (channel, owned nodes)
     "platform-data": ("#platform-data", ["postgres-orders", "postgres-payments",
-                                         "redis-cache", "kafka-events"]),
+                                         "postgres-menu", "redis-cache", "redis-sessions",
+                                         "kafka-events"]),
     "checkout": ("#checkout", ["checkout-api", "cart-svc", "orders-svc"]),
     "payments": ("#payments", ["payments-gw"]),
     "discovery": ("#discovery", ["menu-svc", "search-svc"]),

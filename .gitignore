@@ -5,3 +5,4 @@ __pycache__/
 eval/results/*.cache.json
 .DS_Store
 .acceptance.json
+.llm-cache/

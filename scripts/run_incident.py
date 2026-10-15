@@ -92,6 +92,9 @@ def main() -> int:
                            use_memory=not args.no_memory, planner=planner)
         print(f"\n== {sid} ==")
         print("\n".join(report(g, key)))
+    if isinstance(planner, GuardedLLMPlanner):
+        stats = getattr(planner.model, "stats", {})
+        print(f"\nLLM {config.LLM_MODEL}: {stats}, rule-based fallbacks {planner.fallbacks}")
     return 0
 
 
