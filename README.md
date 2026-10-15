@@ -4,7 +4,7 @@ On-call agents that remember previous incidents, check whether that memory still
 
 Graph Hacks 2026 · Track 02 (Agent Memory and Coordination). FalkorDB holds the memory, the shared task state between agents, the conversation history and the evidence trail; take it out and nothing works.
 
-> Work in progress: updated as each piece lands. Last update: Fri Oct 16, 2026 (three-arm results with Claude).
+> Work in progress: updated as each piece lands. Last update: Fri Oct 16, 2026 (the UI: Memory Lens, agent timeline, war room, kill button).
 
 ## Results
 
@@ -99,6 +99,14 @@ make story       # s01 -> s04 -> s05: learn, transfer to a sibling, rule out on 
 
 If something else already listens on port 6379 (a local Redis), set `FALKORDB_PORT=6380` in `.env`; Docker Compose and the Python client both read it.
 
+The UI (Memory Lens, agent timeline with a kill button, war room, company graph, results):
+
+```bash
+make ui          # http://localhost:8000, demo timing: 6 s lease, 2 s heartbeat (labelled on screen)
+```
+
+It runs two investigators as separate processes (Kill sends a real SIGKILL), plus the responder and learner, and reads everything back from FalkorDB. You play the on-call engineer in the war room, or tick "scripted engineer". Panels and the demo walkthrough: [`web/README.md`](web/README.md).
+
 The acceptance test (seven checks, real process kill, full restart):
 
 ```bash
@@ -142,16 +150,17 @@ The integration suites are written once and run on two backends: FalkorDB when i
 | `chat/` | War-room sessions, preference extraction, recap |
 | `coord/` | Fenced task coordination and its queries |
 | `tools/` | Tool registry, graph tools, MCP server |
-| `sim/` | Synthetic company, incident simulator, org changes |
+| `sim/` | Synthetic company, incident simulator (in-process, or shared between processes via `sim/store.py`), org changes |
 | `eval/` | Benchmark definition, truth files, oracle, runner, results |
 | `bench/` | Load benchmark with stalled workers, tenant-isolation check |
+| `web/` | The UI: one page, a JSON API, its read queries, the investigator supervisor |
 | `scripts/` | Schema, seed, runners, acceptance test, persistence check |
 | `tests/` | Offline tests and live tests against FalkorDB |
 | `docs/` | The implementation plan |
 
 ## Still to come
 
-UI (Memory Lens, agent timeline, war-room chat, kill button) · arm B with a neural embedder · final frozen numbers (Sat 9 PM).
+Arm B with a neural embedder · demo GIF and video · final frozen numbers (Sat 9 PM).
 
 ## AI assistance
 

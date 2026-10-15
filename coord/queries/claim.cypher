@@ -6,5 +6,7 @@ WHERE (t.status = 'open' OR (t.status = 'leased' AND t.lease_until < timestamp()
 WITH t ORDER BY t.created_at LIMIT 1
 SET t.status = 'leased', t.lease_owner = $instance,
     t.lease_until = timestamp() + $ttl_ms,
-    t.attempts = t.attempts + 1, t.epoch = t.epoch + 1
+    t.attempts = t.attempts + 1, t.epoch = t.epoch + 1,
+    t.claimed_by = coalesce(t.claimed_by, []) + [$instance],
+    t.claimed_at = coalesce(t.claimed_at, []) + [timestamp()]
 RETURN t.id AS id, t.epoch AS epoch, t.attempts AS attempts

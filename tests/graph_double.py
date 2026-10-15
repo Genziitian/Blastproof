@@ -330,7 +330,9 @@ def _claim(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     t = min(ready, key=lambda t: t.get("created_at"))
     g.set(t, {"status": "leased", "lease_owner": p["instance"],
               "lease_until": now + p["ttl_ms"], "attempts": t.get("attempts") + 1,
-              "epoch": t.get("epoch") + 1})
+              "epoch": t.get("epoch") + 1,
+              "claimed_by": [*(t.get("claimed_by") or []), p["instance"]],
+              "claimed_at": [*(t.get("claimed_at") or []), now]})
     return [{"id": t.get("id"), "epoch": t.get("epoch"), "attempts": t.get("attempts")}]
 
 
@@ -349,7 +351,8 @@ def _checkpoint(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     if t is None:
         return []
     c = g.merge(["Checkpoint"], {"cid": p["cid"]}, {
-        "task_id": p["task_id"], "n": p["n"], "epoch": p["epoch"], "tool": p["tool"],
+        "task_id": p["task_id"], "n": p["n"], "epoch": p["epoch"], "agent": p["instance"],
+        "tool": p["tool"],
         "args_json": p["args_json"], "observation": p["observation"],
         "at": g.clock_ms, "scenario_at": p["scenario_now"]})
     g.merge_edge(t, "HAS_CHECKPOINT", c)
@@ -486,6 +489,15 @@ def _record_decision(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     g.merge_edge(d, "FOR", i)
     g.set(i, {"status": "diagnosed"})
     return [{"id": d.get("id"), "written_by_epoch": d.get("epoch")}]
+
+
+@implements("agents/queries/record_recall.cypher")
+def _record_recall(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    t = g.guarded(p)
+    if t is None:
+        return []
+    g.set(t, {"recalled_json": p["recalled_json"]})
+    return [{"id": t.get("id")}]
 
 
 @implements("agents/queries/record_usage.cypher")
@@ -746,6 +758,7 @@ def _feedback(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
                       / (m.get("helped") + m.get("misled") + m.get("prior_a") + m.get("prior_b"))})
             if m.get("misled") >= 2 and m.get("trust") < 0.5:
                 g.set(m, {"status": "retired"})
+            g.set(e, {"trust_after": m.get("trust")})
             out.append({"id": m.get("id"), "target": e.props.get("target"),
                         "verdict": e.props.get("verdict"), "trust": m.get("trust"),
                         "status": m.get("status")})
@@ -1044,6 +1057,220 @@ def _memory_state(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     m = next((m for m in g.find("Memory", id=p["id"])), None)
     return [{"helped": m.get("helped"), "misled": m.get("misled"), "trust": m.get("trust"),
              "status": m.get("status")}] if m else []
+
+
+# ====================================================================== web/
+
+def _decision_of(g: GraphDouble, i: Node) -> Node | None:
+    return next((d for _, d in g.into(i, "FOR") if "Decision" in d.labels), None)
+
+
+def _feedback_of(g: GraphDouble, d: Node | None) -> Node | None:
+    return next((f for _, f in g.into(d, "ON") if "Feedback" in f.labels), None) if d else None
+
+
+@implements("web/queries/incidents.cypher")
+def _web_incidents(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for i in g.find("Incident"):
+        d = _decision_of(g, i)
+        f = _feedback_of(g, d)
+        used = _usage(g, d) if d else []
+        rows.append({"key": i.get("key"), "id": i.get("id"), "status": i.get("status"),
+                     "observed_at": i.get("observed_at"), "opened_at": i.get("opened_at"),
+                     "root": d.get("root") if d else None,
+                     "family": d.get("family") if d else None,
+                     "agent": d.get("agent") if d else None,
+                     "verdict": f.get("verdict") if f else None,
+                     "considered": len(used),
+                     "applied": sum(1 for e, _ in used if e.props.get("applied"))})
+    rows.sort(key=lambda r: r["opened_at"], reverse=True)
+    return rows[: p["limit"]]
+
+
+@implements("web/queries/incident_head.cypher")
+def _web_incident_head(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    i = g.one("Incident", key=p["incident_key"])
+    if i is None:
+        return []
+    alerting: list[str] = []
+    texts: list[str] = []
+    for _, a in g.into(i, "PART_OF"):
+        if "Alert" not in a.labels:
+            continue
+        for _, s in g.out(a, "FIRED_ON"):
+            if s.get("name") not in alerting:
+                alerting.append(s.get("name"))
+            if a.get("text") not in texts:
+                texts.append(a.get("text"))
+    d = _decision_of(g, i)
+    f = _feedback_of(g, d)
+    dget = (lambda k: d.get(k)) if d else (lambda k: None)
+    return [{"key": i.get("key"), "id": i.get("id"), "status": i.get("status"),
+             "observed_at": i.get("observed_at"), "alerting": alerting, "alert_texts": texts,
+             "decision_id": dget("id"), "root": dget("root"), "family": dget("family"),
+             "summary": dget("summary"), "decided_by": dget("agent"),
+             "decided_epoch": dget("epoch"), "evidence_steps": dget("evidence_steps"),
+             "verdict": f.get("verdict") if f else None, "verdict_by": f.get("by") if f else None}]
+
+
+@implements("web/queries/lens.cypher")
+def _web_lens(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    i = g.one("Incident", key=p["incident_key"])
+    d = _decision_of(g, i) if i else None
+    rows = []
+    for e, m in (_usage(g, d) if d else []):
+        sources = [s.get("id") for _, s in g.out(m, "LEARNED_FROM") if "Incident" in s.labels]
+        rows.append({"memory": m.get("id"), "signature": m.get("signature"),
+                     "family": m.get("family"), "target": e.props.get("target"),
+                     "score": e.props.get("score"), "hops": e.props.get("hops"),
+                     "path": e.props.get("path"), "trust_at_use": e.props.get("trust_at_use"),
+                     "applied": e.props.get("applied"), "checks_json": e.props.get("checks_json"),
+                     "verdict": e.props.get("verdict"), "trust_after": e.props.get("trust_after"),
+                     "trust_now": m.get("trust"), "status": m.get("status"),
+                     "learned_from": list(dict.fromkeys(sources)),
+                     "pinned_to": list(dict.fromkeys(n.get("name") for _, n in g.out(m, "ABOUT")))})
+    return sorted(rows, key=lambda r: -r["score"])
+
+
+@implements("web/queries/tasks.cypher")
+def _web_tasks(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    _, ts = _incident_tasks(g, p["incident_key"])
+    out = []
+    for t in sorted(ts, key=lambda t: t.get("created_at")):
+        until = t.get("lease_until")
+        out.append({"id": t.get("id"), "type": t.get("type"), "status": t.get("status"),
+                    "epoch": t.get("epoch"), "attempts": t.get("attempts"),
+                    "owner": t.get("lease_owner"),
+                    "lease_left_ms": until - g.clock_ms if until is not None else None,
+                    "claimed_by": t.get("claimed_by"), "claimed_at": t.get("claimed_at"),
+                    "recalled_json": t.get("recalled_json"),
+                    "created_at": t.get("created_at"), "done_at": t.get("done_at")})
+    return out
+
+
+@implements("web/queries/checkpoints.cypher")
+def _web_checkpoints(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    _, ts = _incident_tasks(g, p["incident_key"])
+    rows = [{"task": t.get("id"), "n": c.get("n"), "epoch": c.get("epoch"),
+             "agent": c.get("agent"), "tool": c.get("tool"), "args_json": c.get("args_json"),
+             "observation": c.get("observation"), "at": c.get("at")}
+            for t in ts for _, c in g.out(t, "HAS_CHECKPOINT") if "Checkpoint" in c.labels]
+    return sorted(rows, key=lambda r: r["at"])
+
+
+@implements("web/queries/actions.cypher")
+def _web_actions(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    _, ts = _incident_tasks(g, p["incident_key"])
+    rows = [{"key": a.get("key"), "kind": a.get("kind"), "recipient": a.get("recipient"),
+             "channel": a.get("channel"), "status": a.get("status"),
+             "payload": a.get("payload"), "created_at": a.get("created_at"),
+             "sent_at": a.get("sent_at"), "task": t.get("id")}
+            for t in ts for _, a in g.out(t, "EMITTED") if "Action" in a.labels]
+    return sorted(rows, key=lambda r: r["created_at"])
+
+
+@implements("web/queries/messages.cypher")
+def _web_messages(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    i = g.one("Incident", key=p["incident_key"])
+    rows = []
+    for _, s in (g.into(i, "CONCERNS") if i else []):
+        if "Session" not in s.labels:
+            continue
+        for _, person in g.out(s, "WITH"):
+            for _, m in g.into(s, "IN"):
+                rows.append({"session": s.get("id"), "handle": person.get("handle"),
+                             "key": m.get("key"), "role": m.get("role"),
+                             "text": m.get("text"), "seq": m.get("seq")})
+    return sorted(rows, key=lambda r: r["seq"])
+
+
+@implements("web/queries/playbooks.cypher")
+def _web_playbooks(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for m in g.find("Playbook"):
+        if "Memory" not in m.labels:
+            continue
+        about = [n.get("name") for _, n in g.out(m, "ABOUT")]
+        sources = [i.get("id") for _, i in g.out(m, "LEARNED_FROM") if "Incident" in i.labels]
+        rows.append({"id": m.get("id"), "signature": m.get("signature"),
+                     "family": m.get("family"), "kind": m.get("applies_to_kind"),
+                     "trust": m.get("trust"), "helped": m.get("helped"),
+                     "misled": m.get("misled"), "status": m.get("status"),
+                     "source": m.get("source"), "preconditions_json": m.get("preconditions_json"),
+                     "steps_json": m.get("steps_json"), "recorded_at": m.get("recorded_at"),
+                     "about": list(dict.fromkeys(about)),
+                     "learned_from": list(dict.fromkeys(sources))})
+    return sorted(rows, key=lambda r: r["recorded_at"])
+
+
+@implements("web/queries/facts.cypher")
+def _web_facts(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for f in g.find("Fact"):
+        if "Memory" not in f.labels:
+            continue
+        for _, person in g.out(f, "ABOUT"):
+            if "Person" not in person.labels:
+                continue
+            sources: list[tuple[Node | None, Node | None]] = [
+                (m, i) for _, m in g.out(f, "LEARNED_FROM") if "Message" in m.labels
+                for _, s in g.out(m, "IN") for _, i in g.out(s, "CONCERNS")]
+            old = [o.get("id") for _, o in g.out(f, "SUPERSEDES")]
+            for m, i in sources or [(None, None)]:
+                rows.append({"id": f.get("id"), "handle": person.get("handle"),
+                             "predicate": f.get("predicate"), "value": f.get("object"),
+                             "condition_family": f.get("condition_family"),
+                             "source": f.get("source"), "approved_by": f.get("approved_by"),
+                             "trust": f.get("trust"), "valid_from": f.get("valid_from"),
+                             "valid_to": f.get("valid_to"), "recorded_at": f.get("recorded_at"),
+                             "said": m.get("text") if m else None,
+                             "learned_in": i.get("id") if i else None, "supersedes": old})
+    return sorted(rows, key=lambda r: r["recorded_at"])
+
+
+@implements("web/queries/service_map.cypher")
+def _web_service_map(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    nodes = [n for n in g.nodes.values() if n.labels & {"Service", "Datastore"}]
+    return sorted(({"name": n.get("name"), "kind": n.get("kind"),
+                    "customer_facing": n.get("customer_facing"),
+                    "depends_on": [m.get("name") for _, m in g.out(n, "DEPENDS_ON")]}
+                   for n in nodes), key=lambda r: r["name"])
+
+
+@implements("web/queries/org.cypher")
+def _web_org(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    at, rows = p["at"], []
+    for t in g.find("Team"):
+        on_call = [person.get("handle") for e, person in g.into(t, "ON_CALL")
+                   if "Person" in person.labels and _holds(e, at)]
+        owns = [n.get("name") for e, n in g.into(t, "OWNED_BY") if _holds(e, at)]
+        rows.append({"team": t.get("name"), "on_call": list(dict.fromkeys(on_call)),
+                     "owns": list(dict.fromkeys(owns))})
+    return sorted(rows, key=lambda r: r["team"])
+
+
+@implements("web/queries/last_observed.cypher")
+def _web_last_observed(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    seen = [i.get("observed_at") for i in g.find("Incident") if i.get("observed_at") is not None]
+    return [{"last": max(seen) if seen else None}]
+
+
+@implements("web/queries/root_count.cypher")
+def _web_root_count(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    n = g.entity(p["node"])
+    hits = {i.id for e, i in (g.into(n, "TOUCHED") if n else [])
+            if "Incident" in i.labels and e.props.get("role") == "root"}
+    return [{"n": len(hits)}]
+
+
+@implements("web/queries/mark_planted.cypher")
+def _web_mark_planted(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    i = g.one("Incident", key=p["incident_key"])
+    if i is None:
+        return []
+    g.set(i, {"status": "planted"})
+    return [{"key": i.get("key")}]
 
 
 # ============================================================ seed (inline)

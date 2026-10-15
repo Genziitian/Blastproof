@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import asdict
 from typing import Any
 
 from agents.contracts import Diagnosis, Step
@@ -75,6 +76,8 @@ class Investigator(Worker):
                                               incident["alert_texts"], scenario_now)
             else:
                 recalled = recall.recall(self.graph, alerting, scenario_now)
+            if recalled:
+                self._record_recall(lease, recalled)
             records = recall.playbooks(self.graph, (r.memory_id for r in recalled))
             considered, diagnosis = try_playbooks(recalled, records, observe)
             for c in considered:
@@ -136,6 +139,14 @@ class Investigator(Worker):
         if not rows:
             return tasks.Result(tasks.Outcome.LEASE_LOST)
         return tasks.Result(tasks.Outcome.OK, rows[0])
+
+    def _record_recall(self, lease: Lease, recalled: list[recall.Recalled]) -> None:
+        rows = run(self.graph, "agents/queries/record_recall.cypher", {
+            "task_id": lease.task_id, "epoch": lease.epoch, "instance": lease.instance,
+            "recalled_json": json.dumps([asdict(r) for r in recalled]),
+        })
+        if not rows:
+            self.require(tasks.Result(tasks.Outcome.LEASE_LOST))
 
     def _record_usage(self, lease: Lease, decision: str,
                       considered: list[Consideration]) -> None:

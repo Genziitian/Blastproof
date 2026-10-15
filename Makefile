@@ -1,6 +1,6 @@
 PY ?= python3
 
-.PHONY: install db schema seed test test-live eval eval-rules scenarios bench isolation lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
+.PHONY: install db schema seed test test-live ui eval eval-rules scenarios bench isolation lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
 
 install:
 	$(PY) -m pip install -r requirements.txt
@@ -19,13 +19,13 @@ test:
 	LLM_MODEL= $(PY) -m unittest discover -s tests -p "test_*.py" -v
 
 test-live:
-	LLM_MODEL= $(PY) -m unittest tests.test_coord_live tests.test_g1_live tests.test_g2_live tests.test_eval tests.test_bench -v
+	LLM_MODEL= $(PY) -m unittest tests.test_coord_live tests.test_g1_live tests.test_g2_live tests.test_eval tests.test_bench tests.test_web -v
 
 lint:
 	ruff check .
 
 typecheck:
-	mypy common coord sim tools agents eval scripts memory chat tests/graph_double.py tests/backends.py
+	mypy common coord sim tools agents eval scripts memory chat web tests/graph_double.py tests/backends.py
 
 check: lint typecheck test
 
@@ -34,6 +34,10 @@ incident:
 
 story:
 	$(PY) -m scripts.run_incident --company a --scenario s01 s04 s05
+
+# The UI on http://localhost:8000 with demo timing (6 s lease). COMPANY=b for the other tenant.
+ui:
+	TIMING_PROFILE=demo $(PY) -m web.app --company $(or $(COMPANY),a)
 
 acceptance-1:
 	TIMING_PROFILE=demo $(PY) -m scripts.acceptance part1 --reset

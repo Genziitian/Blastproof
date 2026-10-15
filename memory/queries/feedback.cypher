@@ -13,6 +13,7 @@ SET u.verdict = v.verdict,
 WITH u, m
 SET m.trust = (m.helped + m.prior_a) * 1.0 / (m.helped + m.misled + m.prior_a + m.prior_b)
 WITH u, m
-SET m.status = CASE WHEN m.misled >= 2 AND m.trust < 0.5 THEN 'retired' ELSE m.status END
+SET m.status = CASE WHEN m.misled >= 2 AND m.trust < 0.5 THEN 'retired' ELSE m.status END,
+    u.trust_after = m.trust
 RETURN m.id AS id, u.target AS target, u.verdict AS verdict, m.trust AS trust,
        m.status AS status
