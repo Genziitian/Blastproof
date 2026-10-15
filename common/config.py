@@ -1,4 +1,5 @@
-"""Settings read from the environment (see .env.example).
+"""Settings read from the environment, and from a `.env` file next to this package
+(see .env.example). Real environment variables win over `.env`.
 
 The company a worker serves comes ONLY from here or from a task envelope created
 by trusted server code. No LLM-facing tool accepts a graph name as an argument.
@@ -6,6 +7,36 @@ by trusted server code. No LLM-facing tool accepts a graph name as an argument.
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
+
+def parse_env(text: str) -> dict[str, str]:
+    """KEY=VALUE lines; blank lines, # comments and trailing ' # comments' ignored."""
+    values = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        if value[:1] in ("'", '"') and value.count(value[0]) >= 2:
+            value = value[1:value.index(value[0], 1)]
+        elif value.startswith("#"):
+            value = ""
+        elif " #" in value:
+            value = value.split(" #", 1)[0].rstrip()
+        values[key.removeprefix("export ").strip()] = value
+    return values
+
+
+def load_env_file(path: Path = ENV_FILE) -> None:
+    if path.is_file():
+        for key, value in parse_env(path.read_text(encoding="utf-8")).items():
+            os.environ.setdefault(key, value)
+
+
+load_env_file()
 
 FALKORDB_HOST = os.getenv("FALKORDB_HOST", "localhost")
 FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))

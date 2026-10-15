@@ -14,11 +14,12 @@ schema:
 seed:
 	$(PY) -m scripts.seed
 
+# Tests never call a model: LLM_MODEL is blanked so .env cannot switch it on.
 test:
-	$(PY) -m unittest discover -s tests -p "test_*.py" -v
+	LLM_MODEL= $(PY) -m unittest discover -s tests -p "test_*.py" -v
 
 test-live:
-	$(PY) -m unittest tests.test_coord_live tests.test_g1_live tests.test_g2_live -v
+	LLM_MODEL= $(PY) -m unittest tests.test_coord_live tests.test_g1_live tests.test_g2_live -v
 
 lint:
 	ruff check .
