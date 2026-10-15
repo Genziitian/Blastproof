@@ -6,6 +6,9 @@
 
 part1: incident s01 (DB saturation on postgres-orders). The engineer confirms and
        asks for tickets with raw lines. The learner writes a sourced playbook.
+       Needs a graph with no earlier incidents: if s01 can already be solved from
+       memory, nothing new is learned. `--reset` wipes, re-creates the schema and
+       reseeds the company graph first (make acceptance-1 passes it).
 part2: after the restart, incident s04 (postgres-payments, new wording). The
        investigator runs as a separate process and is SIGKILLed after checkpoint 3;
        a second worker takes over. Then all seven acceptance checks are reported.
@@ -13,6 +16,7 @@ part2: after the restart, incident s04 (postgres-payments, new wording). The
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import subprocess
 import sys
@@ -29,6 +33,7 @@ from common import config, logs
 from common.db import graph
 from eval import truth
 from eval.oracle import Oracle
+from scripts import seed, setup_schema
 from scripts.run_incident import make_planner, run_incident
 from sim.runtime import SimulatedWorld
 
@@ -40,8 +45,28 @@ def q(g: Any, cypher: str, params: dict[str, Any] | None = None) -> list[list[An
     return g.query(cypher, params or {}).result_set
 
 
-def part1(company: str) -> int:
+def fresh_graph(company: str) -> bool:
+    """Delete the company graph, then recreate its schema and seed it."""
+    with contextlib.suppress(Exception):  # nothing to delete on a brand-new database
+        graph(company).delete()
+    print(f"company_{company}: deleted; recreating schema and seed")
+    if not setup_schema.setup(company):
+        return False
+    seed.seed_company(company)
+    return True
+
+
+def part1(company: str, reset: bool) -> int:
+    if reset and not fresh_graph(company):
+        print("FAIL: schema constraints did not become OPERATIONAL")
+        return 1
     g = graph(company)
+    earlier = q(g, "MATCH (i:Incident) RETURN count(i)")[0][0]
+    if earlier:
+        print(f"FAIL: company_{company} already has {earlier} incident(s), so s01 would be "
+              "solved from memory and teach nothing new.\n"
+              "Rerun on a clean graph:  make acceptance-1   (passes --reset)")
+        return 1
     incident_id = f"s01-{uuid.uuid4().hex[:6]}"
     key = run_incident(g, truth.load("s01"), incident_id)
     playbooks = q(g, "MATCH (p:Memory:Playbook)-[:LEARNED_FROM]->(:Incident {key: $k}) "
@@ -140,11 +165,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("part", choices=["part1", "part2"])
     ap.add_argument("--company", default="a", choices=config.COMPANIES)
+    ap.add_argument("--reset", action="store_true",
+                    help="part1 only: delete, re-schema and reseed the company graph first")
     args = ap.parse_args()
     logs.setup()
     if config.TIMING_PROFILE != "demo":
         print("note: TIMING_PROFILE is not 'demo'; the takeover waits for a 30 s lease")
-    return part1(args.company) if args.part == "part1" else part2()
+    return part1(args.company, args.reset) if args.part == "part1" else part2()
 
 
 if __name__ == "__main__":

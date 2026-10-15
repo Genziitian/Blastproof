@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "On-call agents with graph memory on FalkorDB (Graph Hacks 2026, Track 02)"
 requires-python = ">=3.10"
 dependencies = [
-    "falkordb",
-    "mcp",
+    "falkordb==1.8.0",
+    "mcp>=1.20,<2",
 ]
 
 [project.optional-dependencies]

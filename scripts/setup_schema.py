@@ -71,20 +71,25 @@ def wait_operational(g, timeout_s: int = 60) -> bool:
     return False
 
 
+def setup(cid: str) -> bool:
+    """Indexes and unique constraints for one company; True once all are OPERATIONAL."""
+    gname = config.graph_name(cid)
+    print(f"[{gname}]")
+    g = graph(cid)
+    for label, prop in UNIQUE + PLAIN:
+        create_index(g, label, prop)
+    for label, prop in UNIQUE:
+        create_unique(gname, label, prop)
+    return wait_operational(g)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--company", choices=config.COMPANIES)
     args = ap.parse_args()
     ok = True
     for cid in ([args.company] if args.company else config.COMPANIES):
-        gname = config.graph_name(cid)
-        print(f"[{gname}]")
-        g = graph(cid)
-        for label, prop in UNIQUE + PLAIN:
-            create_index(g, label, prop)
-        for label, prop in UNIQUE:
-            create_unique(gname, label, prop)
-        ok = wait_operational(g) and ok
+        ok = setup(cid) and ok
     return 0 if ok else 1
 
 

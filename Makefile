@@ -35,7 +35,7 @@ story:
 	$(PY) -m scripts.run_incident --company a --scenario s01 s04 s05
 
 acceptance-1:
-	TIMING_PROFILE=demo $(PY) -m scripts.acceptance part1
+	TIMING_PROFILE=demo $(PY) -m scripts.acceptance part1 --reset
 
 acceptance-2:
 	TIMING_PROFILE=demo $(PY) -m scripts.acceptance part2
