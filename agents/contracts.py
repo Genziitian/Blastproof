@@ -47,6 +47,11 @@ class Verdict:
 
 
 class Confirmer(Protocol):
-    """Whoever approves a diagnosis: the on-call engineer, or the oracle in eval runs."""
+    """Whoever approves a diagnosis: the on-call engineer, or the oracle in eval runs.
+
+    A confirmer may also define `answer(incident_key, question) -> str | None`, used to
+    read back what the agent understood; without it, read-backs go unanswered and
+    what was understood stays an unconfirmed, agent-extracted reading.
+    """
 
     def review(self, incident_key: str, diagnosis: Diagnosis) -> Verdict: ...

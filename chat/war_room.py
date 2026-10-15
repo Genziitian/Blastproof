@@ -8,6 +8,7 @@ preferences that match the new incident and cites where each came from.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,6 +18,13 @@ from common.llm import ChatModel
 from memory import facts
 
 Q = "chat/queries/"
+DIAGNOSIS_LABELS = {"db_saturation": "database saturation", "bad_deploy": "a bad deploy",
+                    "cache_failure": "a cache failure"}
+AFFIRMATIVE = re.compile(r"\s*(yes|yep|yeah|correct|right|confirmed|that's right|sure)\b", re.I)
+
+
+def affirms(reply: str | None) -> bool:
+    return bool(reply and AFFIRMATIVE.match(reply))
 
 
 @dataclass(frozen=True)
@@ -61,11 +69,18 @@ class WarRoom:
         return extract(text, self.model)
 
     def remember(self, handle: str, message_key: str, prefs: list[Preference],
-                 approved_by: str | None, scenario_now: int) -> None:
-        """Write each preference as a fact sourced to the message it came from."""
+                 approved_by: str | None, scenario_now: int,
+                 version_key: str | None = None, valid_from: int | None = None) -> None:
+        """Write each preference as a fact sourced to the message it came from.
+
+        Unconfirmed, it is the agent's reading (agent prior). Once the engineer
+        confirms the read-back, a human-approved version supersedes it (A3), still
+        sourced to the engineer's own words; `version_key` names that version.
+        """
+        version = (version_key or message_key).removeprefix("message:")
         for i, pref in enumerate(prefs):
             facts.write(self.graph, facts.FactWrite(
-                id=f"fact:{message_key.removeprefix('message:')}:{i}",
+                id=f"fact:{version}:{i}",
                 lineage=pref.lineage(person_key(handle)),
                 subject=person_key(handle),
                 predicate=pref.predicate,
@@ -74,7 +89,7 @@ class WarRoom:
                 source_key=message_key,
                 source_kind="human" if approved_by else "agent",
                 approved_by=approved_by,
-                valid_from=scenario_now,
+                valid_from=scenario_now if valid_from is None else valid_from,
             ), scenario_now)
 
     def preferences(self, handle: str, family: str, scenario_now: int) -> list[AppliedPreference]:
@@ -92,9 +107,25 @@ class WarRoom:
             prefs.append(AppliedPreference(r["predicate"], r["value"], r["said"], r["learned_in"]))
         return prefs
 
+    def recap(self, incident_id: str) -> str:
+        """Answer "where did we leave <incident>?" from what the graph stored."""
+        rows = run(self.graph, Q + "incident_recap.cypher",
+                   {"incident_key": f"incident:{incident_id}"})
+        if not rows:
+            return f"I have no conversation stored for incident {incident_id}."
+        first = rows[0]
+        label = DIAGNOSIS_LABELS.get(first["family"] or "", first["family"] or "unknown")
+        lines = [f"Incident {incident_id}: {first['root'] or 'no diagnosis'}, {label} "
+                 f"({first['status']}, verdict {first['verdict'] or 'pending'})."]
+        for r in rows:
+            who = "You" if r["role"] == "engineer" else "I"
+            text = r["text"].splitlines()[0] if r["role"] == "agent" else r["text"]
+            lines.append(f'{who} said: "{text}"')
+        return "\n".join(lines)
+
     def recent(self, handle: str, limit: int = 6) -> list[dict[str, Any]]:
         return run(self.graph, Q + "recent_messages.cypher",
                    {"person_key": person_key(handle), "limit": limit})
 
 
-__all__ = ["AppliedPreference", "WarRoom", "readback"]
+__all__ = ["AppliedPreference", "WarRoom", "affirms", "readback"]

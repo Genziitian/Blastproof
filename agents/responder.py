@@ -17,7 +17,7 @@ from typing import Any
 from agents.contracts import Confirmer, Diagnosis, Verdict
 from agents.worker import LeaseLost, Worker
 from chat.preferences import readback
-from chat.war_room import AppliedPreference, WarRoom
+from chat.war_room import AppliedPreference, WarRoom, affirms
 from common.db import run
 from coord import tasks
 from coord.tasks import Lease, Outcome
@@ -111,9 +111,20 @@ class Responder(Worker):
         prefs = room.understand(verdict.message or "")
         if not prefs:
             return
-        room.say(session, 3, "agent", readback(prefs), now)
-        room.remember(handle, said, prefs, approved_by=handle, scenario_now=now)
-        self.log.info("%s: saved %d preference(s) from %s", key, len(prefs), handle)
+        question = readback(prefs)
+        room.say(session, 3, "agent", question, now)
+        # Saved at once as the agent's reading; approved only if the engineer agrees.
+        room.remember(handle, said, prefs, approved_by=None, scenario_now=now)
+        answer_fn = getattr(self.confirmer, "answer", None)
+        reply = answer_fn(key, question) if answer_fn else None
+        if reply is None:
+            self.log.info("%s: %d preference(s) from %s saved unconfirmed", key, len(prefs), handle)
+            return
+        confirmed = room.say(session, 4, "engineer", reply, now)
+        if affirms(reply):
+            room.remember(handle, said, prefs, approved_by=handle, scenario_now=now,
+                          version_key=confirmed, valid_from=now + 4)
+            self.log.info("%s: %s confirmed %d preference(s)", key, handle, len(prefs))
 
     def _close(self, lease: Lease, decision_id: str, verdict: Verdict, now: int) -> None:
         params = {

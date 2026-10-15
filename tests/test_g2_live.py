@@ -140,8 +140,26 @@ class StoryCases:
 
     def test_a_new_session_can_resume_the_conversation(self):
         recent = WarRoom(self.g).recent("priya", limit=3)
-        self.assertEqual([m["role"] for m in recent], ["agent", "engineer", "agent"])
+        self.assertEqual([m["role"] for m in recent], ["engineer", "agent", "engineer"])
         self.assertEqual({m["incident"] for m in recent}, {"s01-story"})
+
+    def test_where_did_we_leave_it(self):
+        recap = WarRoom(self.g).recap("s01-story")
+        self.assertIn("postgres-orders, database saturation", recap)
+        self.assertIn(truth.load("s01").engineer_says, recap)
+        self.assertIn("Yes, that's right.", recap)
+
+    def test_read_back_turns_the_agents_reading_into_an_approved_preference(self):
+        """v1 (agent's reading) is superseded by v2 (approved) once Priya confirms."""
+        later = truth.load("s04").scenario().now_ms
+        rows = run(self.g, "chat/queries/preferences_for.cypher",
+                   {"person_key": "person:priya", "family": "db_saturation", "scenario_now": later})
+        self.assertEqual({(r["predicate"], r["value"], r["source"]) for r in rows},
+                         {("preferred_channel", "ticket", "human"),
+                          ("wants_detail", "raw_logs", "human")})
+        facts = q(self.g, "MATCH (f:Memory:Fact)-[:ABOUT]->(:Person {key: 'person:priya'}) "
+                          "RETURN f.predicate, f.object, f.condition_family, f.source")
+        self.assertEqual(sorted(s for *_, s in facts), ["agent", "agent", "human", "human"])
 
     def test_every_parameter_is_read(self):
         if not isinstance(self.g, GraphDouble):
@@ -151,7 +169,7 @@ class StoryCases:
     def test_conversation_is_stored_verbatim(self):
         said = q(self.g, "MATCH (m:Message {role: 'engineer'})-[:IN]->(:Session)-[:CONCERNS]->"
                          "(:Incident {key: $k}) RETURN m.text", k=self.keys["s01"])
-        self.assertEqual(said, [[truth.load("s01").engineer_says]])
+        self.assertEqual(said, [[truth.load("s01").engineer_says], ["Yes, that's right."]])
 
 
 class AcceptanceCases:

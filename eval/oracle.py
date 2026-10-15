@@ -22,6 +22,11 @@ class Oracle:
     def watch(self, incident_key: str, truth: Truth) -> None:
         self._truth[incident_key] = truth
 
+    def answer(self, incident_key: str, question: str) -> str | None:
+        """The scripted engineer confirms a read-back of what they asked for."""
+        truth = self._truth.get(incident_key)
+        return "Yes, that's right." if truth and truth.engineer_says and question else None
+
     def review(self, incident_key: str, diagnosis: Diagnosis) -> Verdict:
         truth = self._truth[incident_key]
         correct = diagnosis.root == truth.root and diagnosis.family == truth.family

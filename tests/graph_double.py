@@ -831,6 +831,26 @@ def _preferences_for(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+@implements("chat/queries/incident_recap.cypher")
+def _incident_recap(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    i = g.one("Incident", key=p["incident_key"])
+    if i is None:
+        return []
+    d = next((d for _, d in g.into(i, "FOR")
+              if "Decision" in d.labels and d.get("kind") == "root_cause"), None)
+    f = next((f for _, f in g.into(d, "ON")), None) if d else None
+    rows = []
+    for _, s in g.into(i, "CONCERNS"):
+        if "Session" not in s.labels:
+            continue
+        for _, m in g.into(s, "IN"):
+            rows.append({"status": i.get("status"), "root": d.get("root") if d else None,
+                         "family": d.get("family") if d else None,
+                         "verdict": f.get("verdict") if f else None,
+                         "role": m.get("role"), "text": m.get("text"), "seq": m.get("seq")})
+    return sorted(rows, key=lambda r: r["seq"])
+
+
 @implements("chat/queries/recent_messages.cypher")
 def _recent_messages(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     person = g.one("Person", key=p["person_key"])
