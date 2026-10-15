@@ -9,10 +9,26 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import ClassVar
 
-from common.llm import LLMError, OpenAICompatible
+from common.llm import AnthropicMessages, LLMError, OpenAICompatible
 
 OK = {"choices": [{"message": {"content": "", "tool_calls": [
     {"function": {"name": "inspect_metrics", "arguments": "{\"node\": \"postgres-orders\"}"}}]}}]}
+
+
+CLAUDE = {
+    "content": [
+        {"type": "thinking", "thinking": "metrics first", "signature": "x"},
+        {"type": "text", "text": "Checking the database."},
+        {"type": "tool_use", "id": "t1", "name": "inspect_metrics",
+         "input": {"node": "postgres-orders"}},
+    ],
+    "usage": {"input_tokens": 40, "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 900, "output_tokens": 30},
+}
+TOOLS = [{"type": "function", "function": {
+    "name": "inspect_metrics", "description": "Recent metrics",
+    "parameters": {"type": "object", "properties": {"node": {"type": "string"}},
+                   "required": ["node"]}}}]
 
 
 class Fake(BaseHTTPRequestHandler):
@@ -20,17 +36,21 @@ class Fake(BaseHTTPRequestHandler):
 
     queue: ClassVar[list[int]] = []
     hits: ClassVar[int] = 0
+    last: ClassVar[dict] = {}
 
     def do_POST(self) -> None:
         type(self).hits += 1
-        self.rfile.read(int(self.headers["Content-Length"]))
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        type(self).last = {"path": self.path, "headers": {k.lower(): v for k, v in self.headers.items()},
+                            "body": body}
         status = self.queue.pop(0) if self.queue else 200
         self.send_response(status)
-        if status in (429, 503):
+        if status in (429, 503, 529):
             self.send_header("Retry-After", "0")
         self.end_headers()
         if status == 200:
-            self.wfile.write(json.dumps(OK).encode())
+            reply = CLAUDE if self.path == "/v1/messages" else OK
+            self.wfile.write(json.dumps(reply).encode())
         elif status == 404:
             self.wfile.write(b'{"error": {"message": "models/nope is not found"}}')
 
@@ -95,6 +115,67 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(first, again)
         self.assertEqual(other.tool_calls[0].name, "inspect_metrics")
         self.assertEqual((Fake.hits, c.stats["cache_hits"]), (2, 1))
+
+
+class AnthropicClientTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.server = HTTPServer(("127.0.0.1", 0), Fake)
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.base = f"http://127.0.0.1:{cls.server.server_address[1]}"
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.server.shutdown()
+
+    def setUp(self) -> None:
+        Fake.queue, Fake.hits, Fake.last = [], 0, {}
+        self.client = AnthropicMessages(self.base, "claude-haiku-5-5", api_key="k")
+
+    def ask(self, **kw: object):
+        messages = [{"role": "system", "content": "You investigate."},
+                    {"role": "user", "content": [{"type": "text", "text": "Alerting: cart-svc"},
+                                                 {"type": "text", "text": "1. step"}]}]
+        return self.client.chat(messages, **kw)  # type: ignore[arg-type]
+
+    def test_request_uses_messages_api_with_prompt_caching(self) -> None:
+        self.ask(tools=TOOLS)
+        sent = Fake.last
+        self.assertEqual(sent["path"], "/v1/messages")
+        self.assertEqual(sent["headers"]["x-api-key"], "k")
+        self.assertEqual(sent["headers"]["anthropic-version"], "2023-06-01")
+        body = sent["body"]
+        self.assertEqual(body["cache_control"], {"type": "ephemeral"})
+        self.assertEqual(body["system"], [{"type": "text", "text": "You investigate."}])
+        self.assertEqual([b["text"] for b in body["messages"][0]["content"]],
+                         ["Alerting: cart-svc", "1. step"])
+        self.assertEqual(body["tools"][0]["name"], "inspect_metrics")
+        self.assertIn("input_schema", body["tools"][0])
+        self.assertTrue(body["tool_choice"]["disable_parallel_tool_use"])
+        self.assertNotIn("temperature", body)
+
+    def test_reply_keeps_text_and_tool_use_and_skips_thinking(self) -> None:
+        reply = self.ask(tools=TOOLS)
+        self.assertEqual(reply.content, "Checking the database.")
+        self.assertEqual([(c.name, c.arguments) for c in reply.tool_calls],
+                         [("inspect_metrics", {"node": "postgres-orders"})])
+
+    def test_usage_counts_prompt_cache_reads(self) -> None:
+        self.ask(tools=TOOLS)
+        s = self.client.stats
+        self.assertEqual((s["input_tokens"], s["prompt_cache_read_tokens"], s["output_tokens"]),
+                         (940, 900, 30))
+
+    def test_overloaded_is_retried(self) -> None:
+        Fake.queue = [529]
+        self.ask()
+        self.assertEqual(self.client.stats["retries"], 1)
+
+    def test_openai_client_flattens_text_parts(self) -> None:
+        OpenAICompatible(self.base, "m").chat(
+            [{"role": "user", "content": [{"type": "text", "text": "a"},
+                                          {"type": "text", "text": "b"}]}])
+        self.assertEqual(Fake.last["body"]["messages"][0]["content"], "a\nb")
 
 
 if __name__ == "__main__":

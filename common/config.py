@@ -54,8 +54,12 @@ else:
 
 MAX_ATTEMPTS = 3
 
-# Any OpenAI-compatible chat endpoint. Leave LLM_MODEL empty to run without a model:
-# the rule-based planner and the rule-based preference parser take over.
+# Any OpenAI-compatible chat endpoint, or Anthropic's Messages API (chosen
+# automatically when LLM_BASE_URL is api.anthropic.com, or set LLM_PROVIDER).
+# Leave LLM_MODEL empty to run without a model: the rule-based planner and the
+# rule-based preference parser take over.
+#   Claude (with prompt caching):
+#       LLM_BASE_URL=https://api.anthropic.com  LLM_MODEL=claude-haiku-5-5  LLM_API_KEY=...
 #   Gemini (free tier, the project default; see .env.example):
 #       LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 #       LLM_MODEL=gemini-3.5-flash  LLM_API_KEY=...  LLM_MIN_INTERVAL_S=6.5
@@ -67,6 +71,9 @@ LLM_TIMEOUT_S = float(os.getenv("LLM_TIMEOUT_S", "60"))
 LLM_MIN_INTERVAL_S = float(os.getenv("LLM_MIN_INTERVAL_S", "0"))   # 6.5 keeps under ~10 RPM
 LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "4"))           # on 429 / 5xx
 LLM_CACHE_DIR = os.getenv("LLM_CACHE_DIR", "")                     # empty = no cache
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "")                       # anthropic | openai | auto
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))          # Anthropic: includes thinking
+LLM_EFFORT = os.getenv("LLM_EFFORT", "")                           # Anthropic effort; empty = default
 
 
 def graph_name(company_id: str) -> str:

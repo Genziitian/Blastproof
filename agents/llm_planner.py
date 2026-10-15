@@ -77,14 +77,18 @@ class GuardedLLMPlanner:
         return move
 
     def _messages(self, alerting: Sequence[str], history: Sequence[Step]) -> list[dict[str, Any]]:
-        lines = [f"Alerting services: {', '.join(sorted(alerting))}", "", "Steps so far:"]
+        """One text part per step. Each turn's parts start with the previous turn's,
+        so a provider with prompt caching (Claude) re-reads earlier steps from cache;
+        OpenAI-compatible clients join the parts into one string."""
+        head = [f"Alerting services: {', '.join(sorted(alerting))}", "", "Steps so far:"]
         if not history:
-            lines.append("(none)")
+            head.append("(none)")
+        parts = ["\n".join(head)]
         for s in history:
             observed = json.dumps(s.observation, sort_keys=True)[:MAX_OBSERVATION_CHARS]
-            lines.append(f"{s.n}. {s.tool}({json.dumps(s.args, sort_keys=True)}) -> {observed}")
+            parts.append(f"{s.n}. {s.tool}({json.dumps(s.args, sort_keys=True)}) -> {observed}")
         return [{"role": "system", "content": SYSTEM},
-                {"role": "user", "content": "\n".join(lines)}]
+                {"role": "user", "content": [{"type": "text", "text": p} for p in parts]}]
 
     def _accept(self, reply: Reply, alerting: Sequence[str],
                 history: Sequence[Step]) -> Call | Diagnosis | None:
