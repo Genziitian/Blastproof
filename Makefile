@@ -1,4 +1,4 @@
-PY ?= python
+PY ?= python3
 
 .PHONY: install db schema seed test test-live lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
 
