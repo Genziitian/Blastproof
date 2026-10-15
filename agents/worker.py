@@ -49,6 +49,8 @@ class Heartbeat:
 
 class Worker(ABC):
     task_type: str
+    lease_losses = 0  # across all workers in this process (load benchmark)
+    _losses_lock = threading.Lock()
 
     def __init__(self, graph: Any, instance: str) -> None:
         self.graph = graph
@@ -71,6 +73,8 @@ class Worker(ABC):
             try:
                 self.handle(lease)
             except LeaseLost:
+                with Worker._losses_lock:
+                    Worker.lease_losses += 1
                 self.log.warning("lost the lease on %s; stopping", lease.task_id)
             finally:
                 self._heartbeat = None

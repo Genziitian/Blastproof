@@ -1,6 +1,6 @@
 PY ?= python3
 
-.PHONY: install db schema seed test test-live eval eval-rules scenarios lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
+.PHONY: install db schema seed test test-live eval eval-rules scenarios bench isolation lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
 
 install:
 	$(PY) -m pip install -r requirements.txt
@@ -19,7 +19,7 @@ test:
 	LLM_MODEL= $(PY) -m unittest discover -s tests -p "test_*.py" -v
 
 test-live:
-	LLM_MODEL= $(PY) -m unittest tests.test_coord_live tests.test_g1_live tests.test_g2_live tests.test_eval -v
+	LLM_MODEL= $(PY) -m unittest tests.test_coord_live tests.test_g1_live tests.test_g2_live tests.test_eval tests.test_bench -v
 
 lint:
 	ruff check .
@@ -57,3 +57,11 @@ eval:
 # The same benchmark with the deterministic planner (no model calls).
 eval-rules:
 	LLM_MODEL= $(PY) -m eval.run --arms A B C --rule-based
+
+# Load benchmark (M8): 2 companies, 1 and 2 worker pairs, then 2 pairs with stalled workers.
+bench:
+	LLM_MODEL= $(PY) -m bench.load
+
+# Tenant isolation (M9): identical ids in two companies; any trace of the other is a failure.
+isolation:
+	LLM_MODEL= $(PY) -m bench.isolation

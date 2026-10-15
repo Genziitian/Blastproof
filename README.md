@@ -4,7 +4,7 @@ On-call agents that remember previous incidents, check whether that memory still
 
 Graph Hacks 2026 · Track 02 (Agent Memory and Coordination). FalkorDB holds the memory, the shared task state between agents, the conversation history and the evidence trail; take it out and nothing works.
 
-> Work in progress: updated as each piece lands. Last update: Fri Oct 16, 2026 (arm B added).
+> Work in progress: updated as each piece lands. Last update: Fri Oct 16, 2026 (arm B, load and isolation added).
 
 ## Results so far (preliminary)
 
@@ -44,6 +44,18 @@ Arm B gets the same memories, trust rules, precondition checks and learning as C
 | Misled | 0 | 0 | 0 |
 
 Text similarity finds the right memory about half the time and makes the agent check more wrong ones; graph proximity finds it every time, because "which node is failing near these alerts" is a question about the dependency graph, not about wording. Caveat: arm B currently embeds text with a deterministic hashed bag of words; a neural embedder (`EMBED_MODEL`, e.g. Gemini's) is supported and will be reported alongside.
+
+### Concurrency and tenant isolation (M8, M9)
+
+Two companies, every agent in its own claim loop, 20 incidents fired at once, FalkorDB in Docker on one laptop-class machine, deterministic planner (this measures FalkorDB and the coordination protocol, not a model). `make bench`, `make isolation`.
+
+| Worker pairs per company | Stalled workers | Done | Incidents / min | Memory reads p50 / p95 | Memory writes p50 / p95 | Duplicate notifications | Takeovers |
+|---|---|---|---|---|---|---|---|
+| 1 | none | 20/20 | ~1,900–2,600 | ~2 / 5–7 ms | ~2–3 / 5–7 ms | 0 | 0 |
+| 2 | none | 20/20 | ~2,500–3,100 | ~2–3 / 7–9 ms | ~3 / 9 ms | 0 | 0 |
+| 2 | a held lease expired every 50 ms | 20/20 | ~2,000–2,600 | ~3 / 8–9 ms | ~3 / 8–10 ms | **0** | 6–7 |
+
+Ranges are across runs. With stalled workers, another worker takes the task over at the next checkpoint and the stalled one's next write is rejected by the fence (6–8 lost leases per run), and still nothing is sent twice. Isolation: identical service names, keys and incident ids in both companies; every stored string in each graph is searched for the other company's canary and people: 0 found. Priya's "tickets for DB saturation" in company A never reaches the Priya of company B. No tool the model can call takes a graph or company argument.
 
 FalkorDB finding: on graphs this small, the HNSW vector index (`db.idx.vector.queryNodes`) returned fewer neighbours than requested (1 to 2 of 3 embedded memories for k = 10), so arm B uses exact `vec.cosineDistance` instead.
 
@@ -134,13 +146,14 @@ The integration suites are written once and run on two backends: FalkorDB when i
 | `tools/` | Tool registry, graph tools, MCP server |
 | `sim/` | Synthetic company, incident simulator, org changes |
 | `eval/` | Benchmark definition, truth files, oracle, runner, results |
+| `bench/` | Load benchmark with stalled workers, tenant-isolation check |
 | `scripts/` | Schema, seed, runners, acceptance test, persistence check |
 | `tests/` | Offline tests and live tests against FalkorDB |
 | `docs/` | The implementation plan |
 
 ## Still to come
 
-Three-arm run with Claude · load and tenant-isolation benchmark · UI (Memory Lens, agent timeline, war-room chat, kill button) · final frozen numbers.
+Three-arm run with Claude · UI (Memory Lens, agent timeline, war-room chat, kill button) · final frozen numbers.
 
 ## AI assistance
 

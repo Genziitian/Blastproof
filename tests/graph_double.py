@@ -1254,4 +1254,60 @@ def _t_actions_to(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
              "a.payload": a.get("payload")} for a in _actions(g, p["k"])]
 
 
+# ================================================ bench/ (inline)
+
+@exact("MATCH (t:Task {type: 'learn', status: 'done'}) RETURN count(t)")
+def _b_learn_done(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"count(t)": len(g.find("Task", type="learn", status="done"))}]
+
+
+@exact("MATCH (i:Incident)<-[:FOR]-(:Task)-[:EMITTED]->(a:Action) "
+       "WITH i, count(a) AS n WHERE n > 1 RETURN count(i)")
+def _b_duplicates(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    n = sum(1 for i in g.find("Incident") if len(_actions(g, i.get("key"))) > 1)
+    return [{"count(i)": n}]
+
+
+@exact("MATCH (t:Task) WHERE t.epoch > 1 RETURN count(t)")
+def _b_takeovers(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"count(t)": sum(1 for t in g.find("Task") if (t.get("epoch") or 0) > 1)}]
+
+
+@exact("MATCH (t:Task {status: 'leased'}) WITH t ORDER BY t.id LIMIT 1 "
+       "SET t.lease_until = timestamp() - 1 RETURN t.id AS id")
+def _b_chaos(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    leased = sorted(g.find("Task", status="leased"), key=lambda t: t.get("id"))[:1]
+    for t in leased:
+        g.set(t, {"lease_until": g.clock_ms - 1})
+    return [{"id": t.get("id")} for t in leased]
+
+
+@exact("MATCH (t:Task) WHERE t.status <> 'done' AND t.attempts >= 3 RETURN count(t)")
+def _b_stuck(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"count(t)": sum(1 for t in g.find("Task")
+                             if t.get("status") != "done" and (t.get("attempts") or 0) >= 3)}]
+
+
+@exact("MATCH (n) RETURN properties(n) AS p")
+def _b_all_nodes(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"p": dict(n.props)} for n in list(g.nodes.values())]
+
+
+@exact("MATCH ()-[r]->() RETURN properties(r) AS p")
+def _b_all_edges(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"p": dict(e.props)} for e in list(g.edges)]
+
+
+@exact("MATCH (:Incident {key: $k})<-[:FOR]-(:Task)-[:EMITTED]->(a:Action) "
+       "RETURN a.channel AS channel, a.payload AS payload")
+def _b_action_of(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"channel": a.get("channel"), "payload": a.get("payload")}
+            for a in _actions(g, p["k"])]
+
+
+@exact("MATCH (m:Memory) RETURN m.id AS id")
+def _b_memory_ids(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"id": m.get("id")} for m in g.find("Memory")]
+
+
 __all__ = ["ContractError", "GraphDouble", "query_params", "return_columns"]

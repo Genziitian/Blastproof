@@ -6,6 +6,8 @@ the files can carry comments even if the engine rejects them.
 """
 from __future__ import annotations
 
+import threading
+import time
 from functools import cache, lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -44,8 +46,33 @@ def load_query(relpath: str) -> str:
     return "\n".join(lines).strip()
 
 
+class Timings:
+    """Optional per-query latency recorder (the load benchmark switches it on)."""
+
+    def __init__(self) -> None:
+        self.samples: list[tuple[str, float]] = []
+        self._lock = threading.Lock()
+
+    def add(self, relpath: str, seconds: float) -> None:
+        with self._lock:
+            self.samples.append((relpath, seconds))
+
+
+_timings: Timings | None = None
+
+
+def record_timings(timings: Timings | None) -> None:
+    """Start (or, with None, stop) recording how long each query file takes."""
+    global _timings
+    _timings = timings
+
+
 def run(g: Any, relpath: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Run a query file and return rows as dicts keyed by column name."""
+    started = time.perf_counter() if _timings is not None else 0.0
     res = g.query(load_query(relpath), params or {})
     header = [h[1] if isinstance(h, (list, tuple)) else h for h in (res.header or [])]
-    return [dict(zip(header, row, strict=True)) for row in (res.result_set or [])]
+    rows = [dict(zip(header, row, strict=True)) for row in (res.result_set or [])]
+    if _timings is not None:
+        _timings.add(relpath, time.perf_counter() - started)
+    return rows
