@@ -125,7 +125,8 @@ def score(arm: str, t: truth.Truth, g: Any, key: str, seconds: float,
     }
 
 
-def run_m5(make_graph: GraphFactory, model: Any) -> dict[str, Any]:
+def run_m5(make_graph: GraphFactory, model: Any,
+           on_row: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
     """Seed a wrong playbook, replay three cache failures, watch it retire (arm C)."""
     arm = Arm("C", make_graph, model, suffix="_m5")
     seed_key = "incident:m5-seed"
@@ -143,6 +144,8 @@ def run_m5(make_graph: GraphFactory, model: Any) -> dict[str, Any]:
                     {"id": scenarios.M5_PLAYBOOK_ID})[0]
         row["wrong_playbook"] = state
         rows.append(row)
+        if on_row:
+            on_row(row)
     misled = [r for r in rows if any(u["memory"] == scenarios.M5_PLAYBOOK_ID
                                      and u["verdict"] == "misled" for u in r["memories"])]
     retired_after = next((i + 1 for i, r in enumerate(rows)
@@ -231,8 +234,11 @@ def markdown(summary: dict[str, Any], m5: dict[str, Any] | None, meta: dict[str,
 
 def run_eval(arm_names: Sequence[str], make_graph: GraphFactory,
              model_factory: Callable[[], Any], only: Sequence[str] | None = None,
-             with_m5: bool = True, log: Callable[[str], None] = print
+             with_m5: bool = True, log: Callable[[str], None] = print,
+             on_row: Callable[[dict[str, Any]], None] | None = None,
              ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any] | None]:
+    """Replay the benchmark. `on_row` sees each incident's row as soon as it is scored,
+    so a long run that dies part-way keeps everything it finished."""
     ids = [i for i in scenarios.ids() if not only or i in only]
     rows: list[dict[str, Any]] = []
     for name in arm_names:
@@ -242,10 +248,12 @@ def run_eval(arm_names: Sequence[str], make_graph: GraphFactory,
         for sid in ids:
             row = arm.incident(truth.load(sid))
             rows.append(row)
+            if on_row:
+                on_row(row)
             log(f"{name} {sid} {row['category']:<8} {'ok ' if row['correct'] else 'BAD'} "
                 f"steps={row['steps']} llm={row['llm_requests']} "
                 f"{'helped' if row['helped'] else 'misled' if row['misled'] else ''}")
-    m5 = run_m5(make_graph, model_factory()) if with_m5 and "C" in arm_names else None
+    m5 = run_m5(make_graph, model_factory(), on_row) if with_m5 and "C" in arm_names else None
     return rows, summarize(rows), m5
 
 
@@ -265,14 +273,23 @@ def main() -> int:
     model_name = "rule-based" if args.rule_based or not config.LLM_MODEL else config.LLM_MODEL
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
     name = args.name or f"{at}-{model_name.replace('/', '_')}"
+    out = RESULTS / name
+    out.mkdir(parents=True, exist_ok=True)
+    partial = out / "rows.partial.jsonl"
+    partial.write_text("", encoding="utf-8")
+
+    def save(row: dict[str, Any]) -> None:
+        with partial.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+
+    print(f"saving each incident to {partial} as it finishes")
     rows, summary, m5 = run_eval(args.arms, live_graph, model_factory, args.only,
-                                 not args.no_m5)
+                                 not args.no_m5, on_row=save)
     meta = {"name": name, "model": model_name, "at": at, "arms": args.arms,
             "cached": bool(config.LLM_CACHE_DIR) and not args.rule_based,
             "truth_ids": [r["id"] for r in rows]}
-    out = RESULTS / name
-    out.mkdir(parents=True, exist_ok=True)
     (out / "rows.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+    partial.unlink()
     (out / "summary.json").write_text(json.dumps(
         {"meta": meta, "summary": summary, "m5": m5}, indent=2, default=str), encoding="utf-8")
     (out / "summary.md").write_text(markdown(summary, m5, meta), encoding="utf-8")

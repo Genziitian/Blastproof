@@ -83,6 +83,16 @@ class EvalCases:
         self.assertIn("Misleading uses before retirement: **2**", text)
 
 
+class PartialSaveTests(unittest.TestCase):
+    def test_each_row_is_handed_over_as_soon_as_it_is_scored(self):
+        seen: list[str] = []
+        _, _, m5 = run_eval(["A"], lambda n: double(f"partial_{n}"), lambda: None,
+                            only=["e01", "e02"], log=lambda _: None,
+                            on_row=lambda r: seen.append(r["id"]))
+        self.assertEqual(seen, ["e01", "e02"])
+        self.assertIsNone(m5)
+
+
 class EvalOnDouble(EvalCases, unittest.TestCase):
     backend = staticmethod(double)
 
