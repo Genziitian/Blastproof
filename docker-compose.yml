@@ -10,7 +10,9 @@ services:
   falkordb:
     image: falkordb/falkordb:latest   # pin the exact tag once G1 passes
     ports:
-      - "6379:6379"   # database (Redis protocol)
+      # Host port comes from FALKORDB_PORT in .env (default 6379). Use another port,
+      # e.g. 6380, if a local Redis already listens on 6379.
+      - "${FALKORDB_PORT:-6379}:6379"   # database (Redis protocol)
       - "3000:3000"   # FalkorDB Browser
     environment:
       # Append-only file on top of snapshots; check the durability docs and adjust.
