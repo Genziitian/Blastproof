@@ -1,0 +1,9 @@
+{
+  "id": "s02",
+  "family": "bad_deploy",
+  "root": "checkout-api",
+  "onset": "2026-10-07T14:40:00Z",
+  "wording": 1,
+  "expected_owner_team": "checkout",
+  "expected_recipient": "rohan"
+}

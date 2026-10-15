@@ -1,0 +1,9 @@
+{
+  "id": "s04",
+  "family": "db_saturation",
+  "root": "postgres-payments",
+  "onset": "2026-10-09T21:35:00Z",
+  "wording": 1,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "s03",
+  "family": "cache_failure",
+  "root": "redis-cache",
+  "onset": "2026-10-08T09:05:00Z",
+  "wording": 2,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya"
+}

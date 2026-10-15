@@ -1,0 +1,35 @@
+# Blast Radius local stack.
+# Start the database:   docker compose up -d falkordb
+# FalkorDB Browser:     http://localhost:3000
+#
+# Data lives in the named volume below, so it survives `docker compose down`
+# (but NOT `docker compose down -v`, which deletes volumes).
+# Seeding is a separate command (python -m scripts.seed); nothing reseeds on startup.
+
+services:
+  falkordb:
+    image: falkordb/falkordb:latest   # pin the exact tag once G1 passes
+    ports:
+      - "6379:6379"   # database (Redis protocol)
+      - "3000:3000"   # FalkorDB Browser
+    environment:
+      # Append-only file on top of snapshots; check the durability docs and adjust.
+      REDIS_ARGS: "--appendonly yes --appendfsync everysec"
+    volumes:
+      - falkordb_data:/var/lib/falkordb/data
+    restart: unless-stopped
+
+  # Added on Friday (G2): one container per worker so a kill is a real process exit.
+  # investigator:
+  #   build: .
+  #   command: python -m agents.investigator
+  #   env_file: .env
+  #   depends_on: [falkordb]
+  # responder:
+  #   build: .
+  #   command: python -m agents.responder
+  #   env_file: .env
+  #   depends_on: [falkordb]
+
+volumes:
+  falkordb_data:

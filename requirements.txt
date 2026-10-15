@@ -1,0 +1,6 @@
+# Pin exact versions with `pip freeze > requirements.lock` once G1 passes.
+falkordb          # official Python client
+mcp               # serve evidence + graph tools over MCP (G1)
+fastapi           # UI backend (G3)
+uvicorn           # UI backend (G3)
+# Add ONE LLM SDK for the agents, e.g. `anthropic` or `openai`, and name the model in the README.
