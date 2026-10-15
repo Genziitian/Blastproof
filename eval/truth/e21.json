@@ -1,0 +1,11 @@
+{
+  "id": "e21",
+  "category": "repeat",
+  "family": "bad_deploy",
+  "root": "search-svc",
+  "onset": "2026-10-09T16:00:00Z",
+  "wording": 4,
+  "expected_owner_team": "discovery",
+  "expected_recipient": "vikram",
+  "expected_channel": "page"
+}

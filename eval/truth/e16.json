@@ -1,0 +1,11 @@
+{
+  "id": "e16",
+  "category": "repeat",
+  "family": "cache_failure",
+  "root": "redis-cache",
+  "onset": "2026-10-08T00:00:00Z",
+  "wording": 7,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "kabir",
+  "expected_channel": "page"
+}

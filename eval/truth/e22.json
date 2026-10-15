@@ -1,0 +1,11 @@
+{
+  "id": "e22",
+  "category": "related",
+  "family": "cache_failure",
+  "root": "redis-sessions",
+  "onset": "2026-10-10T00:00:00Z",
+  "wording": 5,
+  "expected_owner_team": "identity",
+  "expected_recipient": "meera",
+  "expected_channel": "page"
+}

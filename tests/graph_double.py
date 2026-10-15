@@ -719,9 +719,11 @@ def _write_playbook(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
 @implements("memory/queries/add_provenance.cypher")
 def _add_provenance(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     pb, i = g.one("Playbook", id=p["id"]), g.one("Incident", key=p["incident_key"])
-    if pb is None or i is None:
+    root = g.entity(p["root"])
+    if pb is None or i is None or root is None:
         return []
     g.merge_edge(pb, "LEARNED_FROM", i)
+    g.merge_edge(pb, "ABOUT", root)
     return [{"id": pb.get("id")}]
 
 
@@ -891,6 +893,80 @@ def _who_to_page(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
                          "on_call": person.get("handle") if person else None,
                          "on_call_name": person.get("name") if person else None})
     return rows
+
+
+# ======================================================== sim/ (org changes)
+
+def _open_now(e: Edge, at: int) -> bool:
+    valid_to = e.props.get("valid_to")
+    return int(e.props.get("valid_from", at)) < at and (valid_to is None or valid_to > at)
+
+
+@implements("sim/queries/close_on_call.cypher")
+def _close_on_call(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    closed = 0
+    for t in g.find("Team", name=p["team"]):
+        for e, person in g.into(t, "ON_CALL"):
+            if "Person" in person.labels and _open_now(e, p["at"]):
+                g.set(e, {"valid_to": p["at"]})
+                closed += 1
+    return [{"closed": closed}]
+
+
+@implements("sim/queries/open_on_call.cypher")
+def _open_on_call(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    person, t = g.one("Person", handle=p["handle"]), g.one("Team", name=p["team"])
+    if person is None or t is None:
+        return []
+    g.merge_edge(person, "ON_CALL", t, {"valid_from": p["at"]})
+    return [{"on_call": person.get("handle")}]
+
+
+@implements("sim/queries/close_owner.cypher")
+def _close_owner(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    n, closed = g.entity(p["node"]), 0
+    for e, team in (g.out(n, "OWNED_BY") if n else []):
+        if "Team" in team.labels and _open_now(e, p["at"]):
+            g.set(e, {"valid_to": p["at"]})
+            closed += 1
+    return [{"closed": closed}]
+
+
+@implements("sim/queries/open_owner.cypher")
+def _open_owner(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    n, t = g.entity(p["node"]), g.one("Team", name=p["team"])
+    if n is None or t is None:
+        return []
+    g.merge_edge(n, "OWNED_BY", t, {"valid_from": p["at"]})
+    return [{"team": t.get("name")}]
+
+
+# ===================================================================== eval/
+
+@implements("eval/queries/incident_usage.cypher")
+def _incident_usage(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    i = g.one("Incident", key=p["incident_key"])
+    rows = []
+    for _, d in (g.into(i, "FOR") if i else []):
+        if "Decision" in d.labels:
+            rows += [{"memory": m.get("id"), "family": m.get("family"),
+                      "target": e.props.get("target"), "applied": e.props.get("applied"),
+                      "verdict": e.props.get("verdict")} for e, m in _usage(g, d)]
+    return rows
+
+
+@implements("eval/queries/incident_actions.cypher")
+def _incident_actions(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    _, ts = _incident_tasks(g, p["incident_key"])
+    return [{"recipient": a.get("recipient"), "channel": a.get("channel")}
+            for t in ts for _, a in g.out(t, "EMITTED") if "Action" in a.labels]
+
+
+@implements("eval/queries/memory_state.cypher")
+def _memory_state(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    m = next((m for m in g.find("Memory", id=p["id"])), None)
+    return [{"helped": m.get("helped"), "misled": m.get("misled"), "trust": m.get("trust"),
+             "status": m.get("status")}] if m else []
 
 
 # ============================================================ seed (inline)

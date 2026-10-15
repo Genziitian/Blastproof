@@ -1,0 +1,19 @@
+{
+  "id": "e23",
+  "category": "org",
+  "family": "db_saturation",
+  "root": "postgres-menu",
+  "onset": "2026-10-10T08:00:00Z",
+  "wording": 6,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya",
+  "expected_channel": "ticket",
+  "org_events": [
+    {
+      "kind": "on_call",
+      "team": "platform-data",
+      "person": "priya",
+      "at": "2026-10-10T07:00:00Z"
+    }
+  ]
+}

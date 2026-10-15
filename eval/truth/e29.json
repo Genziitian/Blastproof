@@ -1,0 +1,11 @@
+{
+  "id": "e29",
+  "category": "repeat",
+  "family": "cache_failure",
+  "root": "redis-cache",
+  "onset": "2026-10-12T08:00:00Z",
+  "wording": 4,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya",
+  "expected_channel": "page"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "e24",
+  "category": "same",
+  "family": "bad_deploy",
+  "root": "checkout-api",
+  "onset": "2026-10-10T16:00:00Z",
+  "wording": 7,
+  "expected_owner_team": "checkout",
+  "expected_recipient": "rohan",
+  "expected_channel": "page"
+}

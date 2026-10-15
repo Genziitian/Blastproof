@@ -1,0 +1,11 @@
+{
+  "id": "e13",
+  "category": "novel",
+  "family": "bad_deploy",
+  "root": "menu-svc",
+  "onset": "2026-10-07T00:00:00Z",
+  "wording": 4,
+  "expected_owner_team": "discovery",
+  "expected_recipient": "vikram",
+  "expected_channel": "page"
+}

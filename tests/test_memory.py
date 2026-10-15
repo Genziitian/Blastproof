@@ -140,6 +140,13 @@ class RecallRankingTests(unittest.TestCase):
         ], self.NOW)
         self.assertEqual(ranked[0].path[0], "checkout-api")
 
+    def test_equal_routes_from_one_service_bind_the_same_way_in_any_order(self):
+        """FalkorDB and the double may return the two 2-hop routes in either order."""
+        routes = [self.row("pb", "checkout-api", "db", 2, path=["checkout-api", "orders-svc", "db"]),
+                  self.row("pb", "checkout-api", "db", 2, path=["checkout-api", "cart-svc", "db"])]
+        for rows in (routes, routes[::-1]):
+            self.assertEqual(rank(rows, self.NOW)[0].path, ("checkout-api", "cart-svc", "db"))
+
     def test_keeps_top_k(self):
         rows = [self.row(f"m{i}", "a", "db", 0) for i in range(9)]
         self.assertEqual(len(rank(rows, self.NOW, k=5)), 5)

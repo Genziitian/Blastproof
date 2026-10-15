@@ -19,6 +19,9 @@ Q = "memory/queries/"
 DAY_MS = 86_400_000
 HALF_LIFE_DAYS = 30.0
 TOP_K = 5
+# One playbook can be pinned to many nodes (a bad-deploy playbook learned on four
+# services). Without a cap its targets crowd every other memory out of the top K.
+MAX_TARGETS_PER_MEMORY = 2
 
 
 @dataclass(frozen=True)
@@ -44,7 +47,10 @@ def rank(rows: Iterable[Mapping[str, Any]], scenario_now: int, k: int = TOP_K) -
         contribution = float(row["weight"]) * 0.5 ** int(row["hops"])
         per_alerting = best.setdefault((row["id"], row["target"]), {})
         current = per_alerting.get(row["alerting"])
-        if current is None or contribution > current[0]:
+        # Equal contributions (two 2-hop routes to the same node) are broken by the
+        # path itself, so the binding never depends on the order the database returns.
+        if current is None or contribution > current[0] or (
+                contribution == current[0] and list(row["path"]) < list(current[1]["path"])):
             per_alerting[row["alerting"]] = (contribution, row)
 
     ranked = []
@@ -57,7 +63,13 @@ def rank(rows: Iterable[Mapping[str, Any]], scenario_now: int, k: int = TOP_K) -
         ranked.append(Recalled(memory_id, target, round(score, 6), float(top["trust"]),
                                int(top["hops"]), tuple(top["path"]), float(top["weight"]) < 1.0))
     ranked.sort(key=lambda r: (-r.score, r.memory_id, r.target))
-    return ranked[:k]
+    kept: list[Recalled] = []
+    per_memory: dict[str, int] = {}
+    for r in ranked:
+        if per_memory.get(r.memory_id, 0) < MAX_TARGETS_PER_MEMORY:
+            per_memory[r.memory_id] = per_memory.get(r.memory_id, 0) + 1
+            kept.append(r)
+    return kept[:k]
 
 
 def recall(graph: Any, alerting: list[str], scenario_now: int, k: int = TOP_K) -> list[Recalled]:

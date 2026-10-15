@@ -1,0 +1,11 @@
+{
+  "id": "e07",
+  "category": "related",
+  "family": "db_saturation",
+  "root": "postgres-payments",
+  "onset": "2026-10-05T00:00:00Z",
+  "wording": 6,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya",
+  "expected_channel": "ticket"
+}

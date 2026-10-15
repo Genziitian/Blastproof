@@ -1,6 +1,6 @@
 PY ?= python3
 
-.PHONY: install db schema seed test test-live lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
+.PHONY: install db schema seed test test-live eval eval-rules scenarios lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
 
 install:
 	$(PY) -m pip install -r requirements.txt
@@ -19,7 +19,7 @@ test:
 	LLM_MODEL= $(PY) -m unittest discover -s tests -p "test_*.py" -v
 
 test-live:
-	LLM_MODEL= $(PY) -m unittest tests.test_coord_live tests.test_g1_live tests.test_g2_live -v
+	LLM_MODEL= $(PY) -m unittest tests.test_coord_live tests.test_g1_live tests.test_g2_live tests.test_eval -v
 
 lint:
 	ruff check .
@@ -46,3 +46,14 @@ persist-write:
 
 persist-verify:
 	$(PY) -m scripts.persistence_check verify
+
+scenarios:
+	$(PY) -m eval.scenarios --write
+
+# The benchmark with the configured model (.env). Results in eval/results/<timestamp>/.
+eval:
+	$(PY) -m eval.run --arms A C
+
+# The same benchmark with the deterministic planner (no model calls).
+eval-rules:
+	LLM_MODEL= $(PY) -m eval.run --arms A C --rule-based

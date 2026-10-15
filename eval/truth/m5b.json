@@ -1,0 +1,11 @@
+{
+  "id": "m5b",
+  "category": "m5",
+  "family": "cache_failure",
+  "root": "redis-cache",
+  "onset": "2026-10-03T08:00:00Z",
+  "wording": 1,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya",
+  "expected_channel": "page"
+}

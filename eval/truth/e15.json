@@ -1,0 +1,11 @@
+{
+  "id": "e15",
+  "category": "same",
+  "family": "bad_deploy",
+  "root": "payments-gw",
+  "onset": "2026-10-07T16:00:00Z",
+  "wording": 6,
+  "expected_owner_team": "payments",
+  "expected_recipient": "ananya",
+  "expected_channel": "page"
+}

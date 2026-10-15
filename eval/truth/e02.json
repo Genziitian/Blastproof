@@ -1,0 +1,12 @@
+{
+  "id": "e02",
+  "category": "cold",
+  "family": "bad_deploy",
+  "root": "checkout-api",
+  "onset": "2026-10-03T08:00:00Z",
+  "wording": 1,
+  "expected_owner_team": "checkout",
+  "expected_recipient": "rohan",
+  "expected_channel": "page",
+  "engineer_says": "For bad deploys, page me and keep it to just a summary."
+}

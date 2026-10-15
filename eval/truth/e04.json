@@ -1,0 +1,11 @@
+{
+  "id": "e04",
+  "category": "cold",
+  "family": "bad_deploy",
+  "root": "search-svc",
+  "onset": "2026-10-04T00:00:00Z",
+  "wording": 3,
+  "expected_owner_team": "discovery",
+  "expected_recipient": "vikram",
+  "expected_channel": "page"
+}

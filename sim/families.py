@@ -108,7 +108,11 @@ class Evidence:
         return "caller" if node in self._affected else "healthy"
 
     def alerts(self) -> list[dict]:
-        verbs = ["p95 latency above SLO", "slow responses breaching SLO", "latency alarm"]
+        # Eight phrasings, so a repeat incident can arrive in wording never seen before.
+        verbs = ["p95 latency above SLO", "slow responses breaching SLO", "latency alarm",
+                 "response times degraded", "requests timing out for users",
+                 "SLO burn rate high on latency", "user-facing slowness detected",
+                 "tail latency spiking"]
         return [{"service": s, "signal": "latency",
                  "text": f"{s}: {verbs[self._s.wording % len(verbs)]}",
                  "fired_at": self._s.onset_ms + 3 * MIN}

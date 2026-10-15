@@ -1,0 +1,11 @@
+{
+  "id": "e20",
+  "category": "novel",
+  "family": "bad_deploy",
+  "root": "auth-svc",
+  "onset": "2026-10-09T08:00:00Z",
+  "wording": 3,
+  "expected_owner_team": "identity",
+  "expected_recipient": "meera",
+  "expected_channel": "page"
+}

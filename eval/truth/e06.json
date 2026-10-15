@@ -1,0 +1,11 @@
+{
+  "id": "e06",
+  "category": "cold",
+  "family": "bad_deploy",
+  "root": "cart-svc",
+  "onset": "2026-10-04T16:00:00Z",
+  "wording": 5,
+  "expected_owner_team": "checkout",
+  "expected_recipient": "rohan",
+  "expected_channel": "page"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "e17",
+  "category": "related",
+  "family": "db_saturation",
+  "root": "postgres-payments",
+  "onset": "2026-10-08T08:00:00Z",
+  "wording": 0,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "kabir",
+  "expected_channel": "page"
+}

@@ -35,12 +35,18 @@ def make_planner() -> Planner:
     return GuardedLLMPlanner(model) if model else RuleBasedPlanner()
 
 
+_FROM_CONFIG: Any = object()
+
+
 def run_incident(g: Any, t: truth.Truth, incident_id: str, *, use_memory: bool = True,
                  planner: Planner | None = None, instance: str = "local",
-                 confirmer: Confirmer | None = None, learn: bool = True) -> str:
+                 confirmer: Confirmer | None = None, learn: bool = True,
+                 chat_model: Any = _FROM_CONFIG) -> str:
     """Triage, investigate, respond and (unless learn=False) learn, in this process.
 
-    The oracle reviews the diagnosis unless another `confirmer` is given.
+    The oracle reviews the diagnosis unless another `confirmer` is given. The war
+    room reads the engineer's words with `chat_model` (default: the configured model;
+    None means the rule-based parser).
     """
     world, oracle = SimulatedWorld(), Oracle()
     key = incident_key(incident_id)
@@ -51,7 +57,8 @@ def run_incident(g: Any, t: truth.Truth, incident_id: str, *, use_memory: bool =
     Investigator(g, f"{instance}-investigator", world, planner,
                  use_memory=use_memory).run_once()
     Responder(g, f"{instance}-responder", confirmer or oracle, world,
-              WarRoom(g, llm.from_config())).run_once()
+              WarRoom(g, llm.from_config() if chat_model is _FROM_CONFIG else chat_model)
+              ).run_once()
     if learn:
         Learner(g, f"{instance}-learner").run_once()
     return key

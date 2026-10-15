@@ -1,0 +1,11 @@
+{
+  "id": "e05",
+  "category": "cold",
+  "family": "bad_deploy",
+  "root": "payments-gw",
+  "onset": "2026-10-04T08:00:00Z",
+  "wording": 4,
+  "expected_owner_team": "payments",
+  "expected_recipient": "ananya",
+  "expected_channel": "page"
+}

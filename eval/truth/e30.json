@@ -1,0 +1,11 @@
+{
+  "id": "e30",
+  "category": "same",
+  "family": "bad_deploy",
+  "root": "menu-svc",
+  "onset": "2026-10-12T16:00:00Z",
+  "wording": 5,
+  "expected_owner_team": "discovery",
+  "expected_recipient": "vikram",
+  "expected_channel": "page"
+}

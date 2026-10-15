@@ -1,0 +1,12 @@
+{
+  "id": "e01",
+  "category": "cold",
+  "family": "db_saturation",
+  "root": "postgres-orders",
+  "onset": "2026-10-03T00:00:00Z",
+  "wording": 0,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya",
+  "expected_channel": "page",
+  "engineer_says": "For DB saturation, don't ping me on Slack. Open a ticket and paste the raw slow-query lines, not a summary."
+}

@@ -66,7 +66,7 @@ class Learner(Worker):
                        {"signature": playbook.signature})
         if existing:
             run(self.graph, Q + "add_provenance.cypher",
-                {"id": existing[0]["id"], "incident_key": c["incident_key"]})
+                {"id": existing[0]["id"], "incident_key": c["incident_key"], "root": c["root"]})
             self.log.info("%s also supports %s", c["incident_key"], existing[0]["id"])
             return
 

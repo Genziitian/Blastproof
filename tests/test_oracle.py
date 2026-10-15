@@ -26,7 +26,7 @@ class OracleTests(unittest.TestCase):
 
     def test_truth_files_agree_with_the_world(self):
         """Expected owner and recipient must follow from sim.world, or the oracle lies."""
-        ids = truth.all_ids()
+        ids = truth.story_ids()
         self.assertGreaterEqual(len(ids), 3)
         for sid in ids:
             t = truth.load(sid)

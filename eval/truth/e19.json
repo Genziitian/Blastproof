@@ -1,0 +1,19 @@
+{
+  "id": "e19",
+  "category": "org",
+  "family": "cache_failure",
+  "root": "redis-sessions",
+  "onset": "2026-10-09T00:00:00Z",
+  "wording": 2,
+  "expected_owner_team": "identity",
+  "expected_recipient": "meera",
+  "expected_channel": "page",
+  "org_events": [
+    {
+      "kind": "owner",
+      "node": "redis-sessions",
+      "team": "identity",
+      "at": "2026-10-08T23:00:00Z"
+    }
+  ]
+}

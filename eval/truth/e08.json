@@ -1,0 +1,11 @@
+{
+  "id": "e08",
+  "category": "repeat",
+  "family": "db_saturation",
+  "root": "postgres-orders",
+  "onset": "2026-10-05T08:00:00Z",
+  "wording": 7,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya",
+  "expected_channel": "ticket"
+}

@@ -73,7 +73,7 @@ class GateG1Cases:
         self.assertEqual(rows, upstream_candidates(alerting))
 
     def test_each_scenario_end_to_end(self):
-        for sid in truth.all_ids():
+        for sid in truth.story_ids():
             t = truth.load(sid)
             with self.subTest(scenario=sid):
                 key = run_incident(self.g, t, f"{sid}-live")

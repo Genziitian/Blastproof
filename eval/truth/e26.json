@@ -1,0 +1,11 @@
+{
+  "id": "e26",
+  "category": "related",
+  "family": "db_saturation",
+  "root": "postgres-menu",
+  "onset": "2026-10-11T08:00:00Z",
+  "wording": 1,
+  "expected_owner_team": "platform-data",
+  "expected_recipient": "priya",
+  "expected_channel": "ticket"
+}

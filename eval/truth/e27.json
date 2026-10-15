@@ -1,0 +1,11 @@
+{
+  "id": "e27",
+  "category": "novel",
+  "family": "bad_deploy",
+  "root": "web-gateway",
+  "onset": "2026-10-11T16:00:00Z",
+  "wording": 2,
+  "expected_owner_team": "edge",
+  "expected_recipient": "arjun",
+  "expected_channel": "page"
+}
