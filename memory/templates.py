@@ -61,7 +61,10 @@ def candidate(family: str, root: str, root_kind: str, history: Sequence[Step]) -
     bindings = {"target": root}
     for check in playbook.steps:
         args = check.bound_args(bindings)
-        seen = [s for s in history if s.tool == check.tool and s.args == args]
+        # A planner may add optional arguments (an LLM asked for window_min=30): the
+        # step counts if it made the same call with at least the check's arguments.
+        seen = [s for s in history if s.tool == check.tool
+                and all(s.args.get(k) == v for k, v in args.items())]
         if not seen or not check.passes(check.measure_of(seen[-1].observation, bindings)):
             return None
     return playbook

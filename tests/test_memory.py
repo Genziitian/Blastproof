@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import unittest
 
+from agents.contracts import Step
 from eval import truth
 from memory.playbook import BindingError, Playbook, bind, check_applies
 from memory.recall import DAY_MS, rank
@@ -38,6 +39,14 @@ class TemplateTests(unittest.TestCase):
                 pb = candidate(diagnosis.family, diagnosis.root, kind, history)
                 self.assertIsNotNone(pb)
                 self.assertEqual(pb.signature, signature)
+
+    def test_extra_optional_arguments_still_count_as_evidence(self):
+        """An LLM planner called inspect_metrics with window_min=30; that run must still teach."""
+        _, history, _ = investigate("s01")
+        widened = [Step(s.n, s.tool, {**s.args, "window_min": 30}, s.observation)
+                   if s.tool == "inspect_metrics" else s for s in history]
+        pb = candidate("db_saturation", "postgres-orders", "postgres", widened)
+        self.assertIsNotNone(pb)
 
     def test_no_candidate_without_confirming_evidence(self):
         self.assertIsNone(candidate("db_saturation", "postgres-orders", "postgres", []))
