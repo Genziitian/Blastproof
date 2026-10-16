@@ -21,24 +21,27 @@ The UI plays only the two outside roles: the world (break a service, change the 
 
 - **Company graph:** the dependency graph as stored. Alerting services red, 1 hop orange, 2 hops yellow, the diagnosed root ringed, active playbooks shown as trust badges on the node they are pinned to. The paths recall followed are drawn green (applied) or dashed (ruled out). Click a node to break it or move its ownership.
 - **Memory Lens:** while the investigation runs, the memories recall returned and why. After the decision, every memory considered: what (signature, target), why (pinned here or same kind, path, hops, score, trust at use), the evidence (each precondition and step, pass or fail, with the observed value and the step it came from), and what changed (verdict, trust before → after, retired).
-- **Agent timeline:** tasks, claims, takeovers, checkpoints and sends in database-clock order, with the worker and fencing epoch of each. The task holding a lease shows a live countdown and a **Kill** button that sends SIGKILL to that worker process.
-- **War room:** the notification, what the engineer says, the read-back and the reply, all stored as messages. "Where did we leave …?" answers from the stored conversation.
+- **Agent timeline:** tasks, claims, takeovers, checkpoints and sends in database-clock order, with the worker and fencing epoch of each. The task holding a lease shows a live countdown and a **Kill** button that sends SIGKILL to that worker process. A task that failed three times is flagged *stuck* by the stuck sweep (every 2 s), in the timeline and the incident feed.
+- **Armed kill** (Agents panel): "Kill the investigator after step N" sends the same real SIGKILL to whichever investigator holds a fresh lease right after it checkpoints step N. One shot; it makes the takeover repeatable on camera.
+- **War room:** the notification, what the engineer says, the read-back and the reply, all stored as messages; the engineer's earlier conversations from other incidents are one click away. "Where did we leave …?" answers from the stored conversation and checkpoints.
 - **Pager log:** every action sent for the incident (there should be exactly one).
 - **Memory tab:** every playbook (trust, helped, misled, pins, sources, checks) and every preference fact, including superseded versions. "Plant a deliberately wrong playbook" sets up the M5 demo.
 - **Results tab:** the newest eval run in `eval/results/` and the load benchmark.
+- **Cypher** buttons on every panel show the query files behind it (the panel's read query and the agent-side writes), and the header shows the FalkorDB version and live node and edge counts, linking to the FalkorDB Browser.
 
 ## The demo, from the UI
 
 1. **s01**: the investigator works from scratch. Confirm, and keep Priya's line ("for DB saturation, open a ticket with the raw slow-query lines"). Reply yes to the read-back.
 2. The learner writes a playbook (Memory tab, and a badge on `postgres-orders`).
 3. Optional: restart FalkorDB (`docker compose down && docker compose up -d falkordb`) and `make ui` again.
-4. **s04**: the playbook is recalled by kind for `postgres-payments`. After step 3, press **Kill** on the lease; the countdown runs out and the other worker resumes at step 4 under epoch 2. One ticket, citing s01.
+4. **s04**: tick *Kill the investigator after step 3* first (or press **Kill** on the lease yourself). The playbook is recalled by kind for `postgres-payments`; after step 3 the holder is SIGKILLed, the countdown runs out, and the other worker resumes at step 4 under epoch 2. One ticket, citing s01.
 5. **s05**: same checkout symptoms, a bad deploy. The Lens shows the DB playbook ruled out (`deploys == 0`, observed 1), trust unchanged.
 6. **Results** tab.
 
 ## API
 
 `GET /api/settings · /api/state · /api/incident/{key} · /api/memory · /api/map · /api/results · /api/recap/{id}`  
-`POST /api/break {node | story} · /api/review/{key} {confirmed, message} · /api/reply/{key} {text} · /api/autopilot {on} · /api/workers/{name}/kill · /api/workers/{name}/start · /api/org/on-call {team, person} · /api/org/owner {node, team} · /api/plant-wrong-memory · /api/reset`
+`GET /api/db · /api/cypher?path=…`  
+`POST /api/break {node | story} · /api/arm-kill {after} · /api/review/{key} {confirmed, message} · /api/reply/{key} {text} · /api/autopilot {on} · /api/workers/{name}/kill · /api/workers/{name}/start · /api/org/on-call {team, person} · /api/org/owner {node, team} · /api/plant-wrong-memory · /api/reset`
 
 Tests: `tests/test_web.py` drives the same story through `web.demo.Demo` on the graph double and on FalkorDB, including a takeover, and checks every panel's read model and the HTTP API.

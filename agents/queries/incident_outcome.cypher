@@ -1,3 +1,4 @@
+// Report: an incident's status, diagnosis, verdict and who was notified.
 MATCH (i:Incident {key: $incident_key})
 OPTIONAL MATCH (i)<-[:FOR]-(d:Decision)
 OPTIONAL MATCH (d)<-[:ON]-(f:Feedback)

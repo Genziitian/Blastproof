@@ -1,10 +1,44 @@
 # Blast Radius
 
-On-call agents that remember previous incidents, check whether that memory still applies, and show how it changed the next investigation, even after a restart.
+**On-call agents that remember previous incidents, check whether that memory still applies, and show how it changed the next investigation, even after a restart.**
 
-Graph Hacks 2026 · Track 02 (Agent Memory and Coordination). FalkorDB holds the memory, the shared task state between agents, the conversation history and the evidence trail; take it out and nothing works.
+Built for Graph Hacks 2026 on FalkorDB, **Track 02: Agent Memory and Coordination**. Its agent tools are multi-hop graph queries also served over MCP (Track 01). FalkorDB holds the agents' memory, the shared task state they coordinate through, the conversation history and the evidence trail. Take it out and nothing works.
 
-> Work in progress: updated as each piece lands. Last update: Fri Oct 16, 2026 (the UI: Memory Lens, agent timeline, war room, kill button).
+![The UI after a worker was killed mid-investigation: the replacement took over at step 4 under a new fencing epoch, the playbook learned from an earlier incident was recalled by kind and checked against live evidence, and exactly one ticket went out, citing the engineer's earlier request](docs/img/ui-takeover.png)
+
+*The UI after demo moment 4 (deterministic planner, demo timing). inv-2 was SIGKILLed after step 3; inv-1 took over at step 4 under epoch 2. The playbook learned on `postgres-orders` was recalled for `postgres-payments`, and all its checks held. Exactly one ticket went to Priya, the way she asked in the earlier incident.*
+
+## Contents
+
+[The idea](#the-idea) · [Track 02](#track-02-what-it-asks-and-where-we-do-it) · [Results](#results) · [How memory works](#how-memory-works) · [Crash safety](#crash-safety-and-coordination) · [Graph data model](#graph-data-model) · [Queries](#queries) · [FalkorDB findings](#falkordb-findings) · [Run it](#run-it) · [Limits](#limits-and-what-didnt-work) · [AI assistance](#ai-assistance)
+
+## The idea
+
+When an incident is confirmed, its investigation becomes a **playbook** pinned to the failing node in the company's dependency graph: what to rule out first, what to expect, and where it came from. The next time alerts fire, agents recall the playbooks pinned **near the alerting services in the graph**, check each against live evidence before trusting it, and investigate from scratch only if none holds. Memory that misleads loses trust and retires. What engineers say in the war room ("for DB saturation, open a ticket with the raw lines") becomes a sourced, conditional preference that changes the next notification. All of it survives restarts, and a worker can die mid-investigation without anything being done twice.
+
+```mermaid
+flowchart LR
+  A["1 · Alerts fire<br/>triage opens an incident and a task"] --> B["2 · Recall by graph<br/>playbooks pinned downstream of the alerts"]
+  B --> C["3 · Check evidence<br/>preconditions vs live metrics, logs, deploys"]
+  C -->|"holds: diagnosis"| E
+  C -->|"fails: rule it out"| D["4 · Investigate<br/>LLM planner, every step checkpointed and fenced"]
+  D --> E["5 · Engineer confirms<br/>war room; preferences read back"]
+  E --> F["6 · Learn<br/>verdict per memory, trust, new or extended playbook"]
+  F ==>|"next incident, even after a restart"| B
+```
+
+## Track 02: what it asks and where we do it
+
+> *"Build agents that remember across sessions and share state with each other. Memory should persist, update over time, and be available to every agent that needs it."*
+
+| Focus point | Feature | Proof |
+|---|---|---|
+| Episodic, semantic, procedural memory | Incidents, checkpoints and immutable decisions; time-valid preference facts; playbooks with machine-checked preconditions | Eval M1–M5; Memory Lens |
+| Persistent conversation history | War room: verbatim messages per engineer and incident, read-back before saving, preferences cited later, earlier sessions shown | Acceptance check 6 after a full restart; `tests/test_g2_live.py` |
+| Shared state and handoffs | Fenced tasks in the graph: investigator → responder → learner, derived-id handoffs, intent-keyed actions | Acceptance checks 4–7 with a real SIGKILL; agent timeline |
+| High-concurrency reads and writes | Two companies, every agent in its own claim loop, leases expired at random | `make bench`: 0 duplicate notifications |
+| Separate memory per user or tenant | One graph per company; per-engineer preferences; no tool takes a graph argument | `make isolation`; the UI API test; canary search: 0 found |
+| Persist, update over time | RDB snapshots + restart test; trust moves on verdicts; facts superseded, never edited; a wrong playbook retires | Acceptance part 1 → restart → part 2; M5 |
 
 ## Results
 
@@ -14,7 +48,7 @@ A 30-incident synthetic benchmark replayed in time order. Three setups, each in 
 - **B, text memory:** tries the memories whose text is most similar to the alerts (embedding similarity, FalkorDB `vec.cosineDistance`).
 - **C, graph memory:** tries the memories pinned near the alerting services in the dependency graph.
 
-Run on Oct 16 (results in `eval/results/2026-10-15T19-15-28Z-claude-haiku-5-5/`, uncached):
+Run on Oct 16 (`eval/results/2026-10-15T19-15-28Z-claude-haiku-5-5/`, uncached):
 
 | | A: no memory | B: text memory | C: graph memory |
 |---|---|---|---|
@@ -38,21 +72,13 @@ What this does and doesn't show:
 
 - **Same accuracy, far less work.** Claude Haiku 5.5 already solves this benchmark from scratch, so memory can't raise accuracy here. Graph memory gives the same answers with 72% fewer model requests, and with no model call at all for 21 of 30 incidents.
 - **Text memory finds the right memory half as often.** When a memory that gives the right answer exists, text similarity ranks it in the top 5 for 48% of incidents, graph proximity for 100%: "which node is failing near these alerts" is a question about the dependency graph, not about wording.
-- **Checking the wrong memories has a cost.** Every recalled memory is checked against live evidence before it is trusted, so no arm was ever misled; but checks take steps. Arm B lost one incident (e20) this way: it checked five wrong memories, and the model ran out of the 12-step budget before concluding. On cold and novel incidents, graph memory also takes more steps than no memory (about 8 vs 6), though fewer model calls.
-- **Caveat on B:** text is embedded with a deterministic hashed bag of words; a neural embedder (`EMBED_MODEL`, e.g. Gemini's) is supported and a fairer opponent.
-- **Synthetic benchmark only.** A 15-node company and three failure families; the results describe this benchmark and nothing more. The same run with the deterministic planner (no model) is in `eval/results/` too.
-
-**FalkorDB findings** (details and reproductions in [`docs/FALKORDB-FINDINGS.md`](docs/FALKORDB-FINDINGS.md)):
-
-- **AOF replay diverged on 4.22.1** after a day of graph deletes and re-creates (`GRAPH.EFFECT references label/relationship-type 'Memory' (id 0) which doesn't match local schema state`), and the server shut itself down on every start. We persist with RDB snapshots instead; the restart test passes.
-- **Each unique-constraint creation is written to the AOF three times** (28 commands, 84 entries), and replay logs `Constraint already exists` errors (4.18.3).
-- **A later `SET` clause reads the values from before an earlier `SET` clause** (`SET m.h = m.h + 1 SET m.t = m.h` leaves `t` at the old `h`); a `WITH` between them fixes it. This silently broke our trust update until a FalkorDB run caught it.
-
-Arm B ranks memories with exact `vec.cosineDistance` (exact, and cheap for a few hundred memories) rather than the HNSW index.
+- **Checking the wrong memories has a cost.** Every recalled memory is checked against live evidence before it is trusted, so no arm was ever misled; but checks take steps. Arm B lost one incident (e20) this way: it checked five wrong memories, and the model ran out of the 12-step budget. On cold and novel incidents, graph memory also takes more steps than no memory (about 8 vs 6), though fewer model calls.
+- **Caveat on B:** text is embedded with a deterministic hashed bag of words; a neural embedder (`EMBED_MODEL`) is supported and would be a fairer opponent.
+- **Synthetic benchmark only.** A 15-node company and three failure families; the results describe this benchmark and nothing more. The same run with the deterministic planner (no model) is in `eval/results/` too: 30/30 in every arm, repeat/related steps A 6.2/5.3, B 7.3/8.0, C 3.0/4.8.
 
 ### Concurrency and tenant isolation (M8, M9)
 
-Two companies, every agent in its own claim loop, 20 incidents fired at once, FalkorDB in Docker on one laptop-class machine, deterministic planner (this measures FalkorDB and the coordination protocol, not a model). `make bench`, `make isolation`.
+Two companies, every agent in its own claim loop, 20 incidents fired at once, FalkorDB in Docker on one laptop, deterministic planner (this measures FalkorDB and the coordination protocol, not a model). `make bench`, `make isolation`.
 
 | Worker pairs per company | Stalled workers | Done | Incidents / min | Memory reads p50 / p95 | Memory writes p50 / p95 | Duplicate notifications | Takeovers |
 |---|---|---|---|---|---|---|---|
@@ -60,31 +86,154 @@ Two companies, every agent in its own claim loop, 20 incidents fired at once, Fa
 | 2 | none | 20/20 | ~2,500–3,100 | ~2–3 / 7–9 ms | ~3 / 9 ms | 0 | 0 |
 | 2 | a held lease expired every 50 ms | 20/20 | ~2,000–2,600 | ~3 / 8–9 ms | ~3 / 8–10 ms | **0** | 6–7 |
 
-Ranges are across runs. With stalled workers, another worker takes the task over at the next checkpoint and the stalled one's next write is rejected by the fence (6–8 lost leases per run), and still nothing is sent twice. Isolation: identical service names, keys and incident ids in both companies; every stored string in each graph is searched for the other company's canary and people: 0 found. Priya's "tickets for DB saturation" in company A never reaches the Priya of company B. No tool the model can call takes a graph or company argument.
+Ranges are across runs. With stalled workers, another worker takes the task over at its next checkpoint and the stalled one's next write is rejected by the fence (6–8 lost leases per run), and still nothing is sent twice. Isolation: identical service names, keys and incident ids in both companies; every stored string in each graph, and every UI API response, is searched for the other company's canary and people: 0 found.
 
-
-## How it works
+## How memory works
 
 1. **Triage** turns alerts into an `Incident` and an `investigate` task.
-2. **Investigator** recalls playbooks pinned near the alerting services by walking the dependency graph downstream (A1), or pinned to another datastore of the same kind (A1b). It checks each recalled playbook's preconditions and steps against live evidence, without the model; the first that holds is the diagnosis. Otherwise it investigates with the LLM planner (guard-railed by a rule-based planner). Every tool call is checkpointed before the next one, so a replacement worker resumes at the next step.
-3. **Responder** notifies whoever owns the failing node and is on call *at the incident's time*, the way that person asked for this kind of incident, citing the message where they asked. The notification is keyed by intent, so it is sent once. What the engineer says is stored verbatim; instructions are read back and only become approved preferences after a yes.
-4. **Learner** gives each memory used a verdict (helped, misled, not applicable), updates trust, retires memories that keep misleading, and turns a confirmed investigation into a sourced playbook (or pins an existing one to the new root).
+2. **Investigator** recalls playbooks pinned near the alerting services (A1, A1b) and records what it recalled before checking anything. It checks each against live evidence without the model; the first whose preconditions and expected observations all hold is the diagnosis. Otherwise it investigates with the LLM planner, guard-railed by a rule-based planner. Every tool call is checkpointed before the next one.
+3. **Responder** notifies whoever owns the failing node and is on call *at the incident's time*, the way that person asked for this kind of incident, citing the message where they asked. What the engineer says is stored verbatim; instructions become approved preferences only after a read-back and a yes.
+4. **Learner** gives each memory used a verdict, updates trust, retires memories that keep misleading, and turns a confirmed investigation into a sourced playbook, or adds the new incident as a source of an existing one.
 
-The `Decision` records every memory considered, with the evidence for and against, so "what did the agent believe then, and why?" is a query, not a guess.
+The `Decision` and its `USED` edges record every memory considered, with the evidence for and against, so "what did the agent believe then, and why?" is a query, not a guess. That is what the Memory Lens shows:
 
-### Memory algorithms (all Cypher in `*/queries/`)
+![Memory Lens on the same-symptom, different-cause incident: the DB playbook was recalled twice (pinned, and by kind), and each copy was ruled out by a failed precondition, with the observed value; trust unchanged](docs/img/ui-lens-ruled-out.png)
 
-| | What | Where |
+| | Algorithm | Where |
 |---|---|---|
-| A1 | Downstream recall with paths; score = trust × age decay × Σ over alerting services of 0.5^hops | `memory/queries/recall*.cypher`, `memory/recall.py` |
-| A2 | Trust from per-memory verdicts; retire when misled ≥ 2 and trust < 0.5 | `memory/queries/feedback.cypher` |
-| A3 | Facts change by supersession, never by edit (preferences, approvals) | `memory/queries/fact_*.cypher` |
-| A4 | Candidate playbook from a confirmed run, with machine-checkable preconditions | `memory/templates.py`, `memory/queries/write_playbook.cypher` |
-| Org | On-call and ownership changes close the old edge and open a new one | `sim/queries/` |
+| A1 | **Graph recall, downstream only, with paths.** Playbooks `ABOUT` a node 0–2 `DEPENDS_ON` hops downstream of an alerting service. Score = trust × e^(−age / 30 days) × Σ over alerting services of 0.5^hops; top 5 with their paths. | `memory/queries/recall*.cypher`, `memory/recall.py` |
+| A1b | **Kind transfer.** Playbooks learned on another datastore of the same kind (any `postgres`), at half weight. | `memory/queries/recall_kind.cypher` |
+| A2 | **Trust from per-memory verdicts:** helped (followed and right), misled (followed and wrong), not applicable (a precondition failed; no change). trust = (helped + α) / (helped + misled + α + β), agent prior 1/1, human prior 2/1. Retire when misled ≥ 2 and trust < 0.5. | `memory/queries/feedback.cypher` |
+| A3 | **Facts change by supersession, never by edit.** Validate first, then create one new version that closes the old one's `valid_to`; conditional lineage, so "DB saturation → ticket" and "bad deploy → page" coexist. | `memory/queries/fact_*.cypher` |
+| A4 | **Candidate playbook from a confirmed run:** the rule-outs that held and the observation that confirmed the cause, parameterised (`$alerting`, `$caller`, `$target`), machine-checkable, with a stop rule. | `memory/templates.py`, `memory/queries/write_playbook.cypher` |
+| Org | On-call and ownership changes close the old edge and open a new one, so `who_to_page` is right for any moment. | `sim/queries/` |
 
-### Coordination
+## Crash safety and coordination
 
-Fenced leases (status, epoch, owner, `lease_until >= timestamp()`), synchronous idempotent checkpoints, intent-keyed actions, derived-id handoffs, an attempts limit and a stuck sweep. Every write returns `ok`, `already_done` or `lease_lost`. The acceptance test SIGKILLs a real worker process after checkpoint 3; the replacement resumes at 4 and exactly one notification goes out.
+FalkorDB makes each query atomic; the agents add three rules on top:
+
+- **Fence every task write.** Claims start a new epoch using the database clock; every write checks status, epoch, owner and `lease_until >= timestamp()`, and returns `ok`, `already_done` or `lease_lost`. A worker that lost its lease stops at once.
+- **Checkpoint synchronously.** Each tool call is written before the next starts. A replacement worker reads the checkpoints and continues at step n + 1.
+- **Key every action by intent.** `incident:<id>:initial-notification` is sent once, whoever sends it; the recipient is fixed at the first write.
+
+Plus derived-id handoffs, an attempts limit and a stuck sweep. The acceptance test SIGKILLs a real worker process after checkpoint 3, after a full `docker compose down && up`; the replacement resumes at step 4 under epoch 2, and exactly one notification goes out.
+
+## Graph data model
+
+One graph per company (`company_a`, `company_b`), identical in shape. Read off a populated graph:
+
+```mermaid
+flowchart LR
+  subgraph World
+    Service -->|DEPENDS_ON| Service
+    Service -->|DEPENDS_ON| Datastore
+    Service -->|OWNED_BY| Team
+    Datastore -->|OWNED_BY| Team
+    Person -->|MEMBER_OF| Team
+    Person -->|ON_CALL| Team
+    Person -->|AUTHORED| Change -->|MODIFIED| Service
+  end
+  subgraph Incidents
+    Alert -->|FIRED_ON| Service
+    Alert -->|PART_OF| Incident
+    Incident -->|TOUCHED role| Datastore
+    Decision -->|FOR| Incident
+    Feedback -->|ON| Decision
+  end
+  subgraph Coordination
+    Task -->|FOR| Incident
+    Task -->|HAS_CHECKPOINT| Checkpoint
+    Task -->|NEXT| Task
+    Task -->|EMITTED| Action
+  end
+  subgraph Conversation
+    Session -->|WITH| Person
+    Session -->|CONCERNS| Incident
+    Message -->|IN| Session
+  end
+  subgraph Memory
+    Playbook["Memory:Playbook"] -->|ABOUT| Datastore
+    Playbook -->|LEARNED_FROM| Incident
+    Fact["Memory:Fact"] -->|ABOUT| Person
+    Fact -->|LEARNED_FROM| Message
+    Fact -->|SUPERSEDES| Fact
+    Decision -->|USED| Playbook
+  end
+```
+
+**Nodes**
+
+| Label | Layer | Key properties |
+|---|---|---|
+| `Service`, `Datastore` | World | `key`, `name`, `tier`, `customer_facing`; datastores `kind` (postgres, redis, kafka) |
+| `Team`, `Person` | World | `key`, `name`, `channel`; `handle` |
+| `Change` | World | `key`, `kind` (deploy, config), `at`, `summary` |
+| `Alert` | Incident | `key`, `signal`, `text`, `fired_at` |
+| `Incident` | Episodic | `key`, `id`, `status`, `observed_at`, `opened_at`, `resolved_at`, `signature` (family + root kind, set on confirm) |
+| `Decision` | Audit, immutable | `id`, `kind`, `root`, `family`, `summary`, `evidence_steps`, `agent`, `task_id`, `epoch` |
+| `Feedback` | Incident | `id` (stable), `verdict`, `by`, `at` |
+| `Memory:Playbook` | Procedural | `signature`, `family`, `applies_to_kind`, `params_json`, `preconditions_json`, `steps_json`, `conclusion`, `stop_if`, `payload_hash` + shared memory fields |
+| `Memory:Fact` | Semantic | `subject`, `predicate`, `condition_family`, `object`, `approved_by` + shared memory fields |
+| `Session`, `Message` | Conversation | `id`, `started_at`; `key`, `role`, `text`, `seq`, `at` |
+| `Task` | Coordination | `id`, `type`, `status`, `epoch`, `attempts`, `lease_owner`, `lease_until`, `claimed_by[]`, `claimed_at[]`, `recalled_json` |
+| `Checkpoint` | Coordination | `cid` (task + n), `n`, `epoch`, `agent`, `tool`, `args_json`, `observation`, `at`, `scenario_at` |
+| `Action` | Coordination | `key` (intent), `kind`, `recipient`, `channel`, `payload`, `status`, `sent_at` |
+| `Canary` | Isolation test | `value` (per company) |
+
+Shared memory fields: `id`, `lineage_id`, `version`, `source` (agent or human), `valid_from`, `valid_to` (absent means open-ended), `recorded_at`, `status` (active, retired), `helped`, `misled`, `prior_a`, `prior_b`, `trust`. FalkorDB can't store maps, so nested playbook parts are validated JSON strings.
+
+**Edges**
+
+| Type | From → to | Properties |
+|---|---|---|
+| `DEPENDS_ON` | Service → Service, Datastore | |
+| `OWNED_BY`, `ON_CALL`, `MEMBER_OF` | Service/Datastore → Team; Person → Team | `valid_from`, `valid_to`: closed and reopened, never edited |
+| `AUTHORED`, `MODIFIED` | Person → Change → Service | deploy history |
+| `FIRED_ON`, `PART_OF` | Alert → Service; Alert → Incident | |
+| `TOUCHED` | Incident → Service, Datastore | `role`: alerting, root |
+| `FOR` | Task, Decision → Incident | |
+| `HAS_CHECKPOINT`, `NEXT`, `EMITTED` | Task → Checkpoint, Task, Action | |
+| `ABOUT` | Memory → Service, Datastore, Person | where a memory applies |
+| `LEARNED_FROM` | Memory → Incident, Message | provenance |
+| `SUPERSEDES` | Fact → Fact | new version → old |
+| `USED` | Decision → Memory | `target`, `score`, `hops`, `path`, `trust_at_use`, `applied`, `checks_json`, `verdict` (set once), `trust_after` |
+| `ON` | Feedback → Decision | |
+| `WITH`, `CONCERNS`, `IN` | Session → Person, Incident; Message → Session | |
+
+**Indexes and constraints** (`make schema`): unique on `Memory.id`, `Task.id`, `Decision.id`, `Action.key`, `Feedback.id`, `Checkpoint.cid`, `Session.id`, `Message.key`, `Incident.key`, `Alert.key`, `Change.key` and the world nodes' `key`; plain indexes on `Service.name`, `Task.status`, `Task.type`, `Memory.lineage_id`, `Playbook.signature`, `Incident.status`. Constraints are polled until `OPERATIONAL` before any worker starts.
+
+**Rules the code keeps:**
+- **One graph per company**, chosen from trusted config, never by the model.
+- **Two clocks:** `timestamp()` inside queries for leases; scenario time for evidence, validity and `recorded_at`, so a replayed incident never sees memory from its future.
+- **Memory is never edited:** facts are superseded, playbooks gain sources, trust moves only on verdicts.
+- **Ground truth lives only in `eval/truth/`.** `tests/test_boundaries.py` fails if agent-side code imports it.
+
+## Queries
+
+All 73 queries are `.cypher` files, indexed with what each does in **[`docs/QUERIES.md`](docs/QUERIES.md)** (generated from the files; a test keeps it current). In the UI, every panel's **Cypher** button shows the queries behind it. The ones the product depends on most:
+
+| Query | Does |
+|---|---|
+| [`memory/queries/recall.cypher`](memory/queries/recall.cypher) | A1: playbooks 1–2 hops downstream of the alerting services, with paths |
+| [`memory/queries/recall_kind.cypher`](memory/queries/recall_kind.cypher) | A1b: playbooks learned on another datastore of the same kind |
+| [`memory/queries/feedback.cypher`](memory/queries/feedback.cypher) | A2: one verdict per `USED` edge, trust and retirement |
+| [`memory/queries/fact_supersede.cypher`](memory/queries/fact_supersede.cypher) | A3: a new fact version that closes the old one |
+| [`memory/queries/write_playbook.cypher`](memory/queries/write_playbook.cypher) | A4: a sourced candidate playbook |
+| [`coord/queries/claim.cypher`](coord/queries/claim.cypher) | Claim the oldest claimable task, new fencing epoch, database clock |
+| [`coord/queries/checkpoint.cypher`](coord/queries/checkpoint.cypher) | Fenced, idempotent checkpoint |
+| [`coord/queries/send_action.cypher`](coord/queries/send_action.cypher) | Send once per intent, report `already_done` on retry |
+| [`agents/queries/confirm.cypher`](agents/queries/confirm.cypher) | One write: feedback, resolve the incident, queue learning |
+| [`chat/queries/preferences_for.cypher`](chat/queries/preferences_for.cypher) | Preferences in force at incident time, with the message they came from |
+| [`tools/queries/who_to_page.cypher`](tools/queries/who_to_page.cypher) | Owner and on-call *at scenario time* |
+| [`tools/queries/upstream_candidates.cypher`](tools/queries/upstream_candidates.cypher) | Shared downstream dependencies of the alerting services |
+
+## FalkorDB findings
+
+Details and reproductions in [`docs/FALKORDB-FINDINGS.md`](docs/FALKORDB-FINDINGS.md):
+
+- **AOF replay diverged on 4.22.1** after a day of graph deletes and re-creates (`GRAPH.EFFECT references label/relationship-type 'Memory' (id 0) which doesn't match local schema state`), and the server shut itself down on every start. We persist with RDB snapshots instead; the restart test passes.
+- **Each unique-constraint creation is written to the AOF three times** (28 commands, 84 entries), and replay logs `Constraint already exists` errors (4.18.3).
+- **A later `SET` clause reads the values from before an earlier `SET` clause** (`SET m.h = m.h + 1 SET m.t = m.h` leaves `t` at the old `h`); a `WITH` between them fixes it. This silently broke our trust update until a FalkorDB run caught it.
 
 ## Run it
 
@@ -95,25 +244,17 @@ python3 -m venv .venv && source .venv/bin/activate
 make install
 cp .env.example .env     # settings are read from .env automatically
 
-make db          # FalkorDB (Browser on http://localhost:3000)
+make db          # FalkorDB 4.22.1, pinned by digest (Browser on http://localhost:3000)
 make schema      # indexes + unique constraints; waits until all are OPERATIONAL
 make seed        # explicit; nothing reseeds on startup
-make test        # unit tests + every integration suite on the in-memory graph double
-make test-live   # the integration suites and the benchmark on FalkorDB too
-make story       # s01 -> s04 -> s05: learn, transfer to a sibling, rule out on evidence
+make ui          # the UI on http://localhost:8000
 ```
 
 If something else already listens on port 6379 (a local Redis), set `FALKORDB_PORT=6380` in `.env`; Docker Compose and the Python client both read it.
 
-The UI (Memory Lens, agent timeline with a kill button, war room, company graph, results):
+**The UI** runs two investigators as separate processes (Kill sends a real SIGKILL), plus the responder and learner, and reads everything back from FalkorDB. You play the on-call engineer in the war room, or tick "scripted engineer". Demo timing (6 s lease, 2 s heartbeat; production 30 s / 10 s) is labelled on screen. Panels and the demo walkthrough: [`web/README.md`](web/README.md).
 
-```bash
-make ui          # http://localhost:8000, demo timing: 6 s lease, 2 s heartbeat (labelled on screen)
-```
-
-It runs two investigators as separate processes (Kill sends a real SIGKILL), plus the responder and learner, and reads everything back from FalkorDB. You play the on-call engineer in the war room, or tick "scripted engineer". Panels and the demo walkthrough: [`web/README.md`](web/README.md).
-
-The acceptance test (seven checks, real process kill, full restart):
+**The acceptance test** (seven checks, real process kill, full restart):
 
 ```bash
 make acceptance-1      # resets company_a, runs s01, learns a playbook
@@ -121,35 +262,29 @@ docker compose down && docker compose up -d falkordb
 make acceptance-2      # s04 after the restart, SIGKILL mid-investigation, takeover
 ```
 
-Persistence: FalkorDB writes an RDB snapshot every 30 s if anything changed and on every shutdown, into a named Docker volume; nothing reseeds on startup. `make acceptance-2` (and the UI) wait until FalkorDB has finished loading after a restart. We started with the append-only file (AOF) and switched: see the FalkorDB findings above.
+**Persistence:** FalkorDB writes an RDB snapshot every 30 s if anything changed and on every shutdown, into a named Docker volume. `make acceptance-2` and the UI wait until FalkorDB has finished loading after a restart.
 
-The benchmark:
+**Benchmarks and tests:**
 
 ```bash
-make eval-rules   # arms A, B, C with the deterministic planner, no model calls, seconds
-make eval         # arms A, B, C with the configured model; eval/results/<timestamp>/
+make test        # every suite on the in-memory graph double (offline)
+make test-live   # the integration suites on FalkorDB too
+make eval-rules  # arms A, B, C with the deterministic planner, no model calls
+make eval        # arms A, B, C with the configured model; eval/results/<timestamp>/
+make bench       # concurrency with 1, 2 and 4 worker pairs, then with stalled workers
+make isolation   # tenant isolation
+make story       # s01 -> s04 -> s05 in the terminal
 ```
 
-### Model
+The integration suites are written once and run on two backends: FalkorDB when it is reachable, and `tests/graph_double.py` always. The double runs each query's Python twin and checks every call against the real `.cypher` file (parameters, RETURN columns, property types). Only FalkorDB proves the Cypher itself, and it caught what the double could not (the `SET` finding above).
 
-Everything runs without a model (rule-based planner and preference parser). With a model, the investigator plans with it and the war room reads the engineer's messages with it; any invalid answer falls back to the rule-based step.
-
-- **Claude** (what the results above use): `LLM_BASE_URL=https://api.anthropic.com`, `LLM_MODEL=claude-haiku-5-5`, `LLM_API_KEY=...`. Uses the native Messages API with prompt caching: tools, instructions and every earlier step are re-read from cache on each turn.
+**Model.** Everything runs without a model (rule-based planner and preference parser). With a model, the investigator plans with it and the war room reads the engineer's messages with it; any invalid answer falls back to the rule-based step.
+- **Claude** (what the results use): `LLM_BASE_URL=https://api.anthropic.com`, `LLM_MODEL=claude-haiku-5-5`, `LLM_API_KEY=...`. Native Messages API with prompt caching: tools, instructions and earlier steps are re-read from cache on each turn.
 - **Any OpenAI-compatible endpoint** (Gemini, DeepSeek, Groq, OpenAI, Ollama): set base URL, model and key; see `.env.example`.
 
-## Tests
+**MCP.** `python -m tools.mcp_server --company a --scenario s01` serves the agents' seven tools (four multi-hop graph queries, three evidence tools) to any MCP client. `tests/test_mcp.py` runs a real client session against it.
 
-The integration suites are written once and run on two backends: FalkorDB when it is reachable, and `tests/graph_double.py` always. The double runs each query's Python twin and checks every call against the real `.cypher` file (parameters, RETURN columns, property types). Only FalkorDB proves the Cypher itself, and it has caught things the double could not (FalkorDB evaluates back-to-back `SET` clauses against the pre-update values).
-
-## Rules the code keeps
-
-- **One graph per company**, chosen from trusted config, never by the model.
-- **Two clocks:** `timestamp()` inside queries for leases; scenario time for evidence, validity and `recorded_at`.
-- **Every task write is fenced** and returns `ok`, `already_done` or `lease_lost`.
-- **Memory is never edited:** facts are superseded, playbooks gain sources, trust moves only on verdicts.
-- **Ground truth lives only in `eval/truth/`.** `tests/test_boundaries.py` fails if agent-side code imports `eval`.
-
-## Layout
+### Layout
 
 | Path | Contents |
 | --- | --- |
@@ -158,17 +293,28 @@ The integration suites are written once and run on two backends: FalkorDB when i
 | `chat/` | War-room sessions, preference extraction, recap |
 | `coord/` | Fenced task coordination and its queries |
 | `tools/` | Tool registry, graph tools, MCP server |
-| `sim/` | Synthetic company, incident simulator (in-process, or shared between processes via `sim/store.py`), org changes |
+| `sim/` | Synthetic company, incident simulator (in-process, or shared between processes via `sim/store.py`), deploy history, org changes |
 | `eval/` | Benchmark definition, truth files, oracle, runner, results |
 | `bench/` | Load benchmark with stalled workers, tenant-isolation check |
 | `web/` | The UI: one page, a JSON API, its read queries, the investigator supervisor |
-| `scripts/` | Schema, seed, runners, acceptance test, persistence check |
+| `scripts/` | Schema, seed, runners, acceptance test, persistence check, query index |
 | `tests/` | Offline tests and live tests against FalkorDB |
-| `docs/` | The implementation plan; FalkorDB findings with reproductions |
+| `docs/` | Implementation plan, FalkorDB findings, query index, screenshots |
 
-## Still to come
+## Limits and what didn't work
 
-Arm B with a neural embedder · demo GIF and video · final frozen numbers (Sat 9 PM).
+- **Synthetic world.** One 15-node company, three failure families, a simulator that produces evidence from a seed. Real incidents are messier; the benchmark describes itself only.
+- **No accuracy gain to show.** The model already solves every benchmark incident from scratch, so memory's measured benefit is less work, not more correct answers. A harder benchmark or a smaller model would test accuracy.
+- **Checking costs steps.** Ruling out recalled memories takes tool calls; on novel incidents graph memory takes more steps than no memory, and text memory once ran out of its step budget.
+- **Kind transfer is datastore-only.** A playbook learned on one postgres helps another; a bad-deploy playbook spreads to another service only once a confirmed incident pins it there. We kept arms B and C symmetric rather than widen this.
+- **Text arm uses a hashed bag of words** by default, a weak opponent for graph recall; a neural embedder is supported.
+- **Workers are processes, not containers.** The UI starts and kills them; the database is the only container.
+- **Persistence trades durability for safety:** RDB snapshots can lose up to 30 s of writes if FalkorDB itself crashes hard (a clean `docker compose down` loses nothing). We moved off AOF because of the 4.22.1 replay failure above.
+- **No live deployment yet**; complete local setup above.
+- **What didn't work:**
+  - *HNSW for text recall.* Early on it seemed to return too few neighbours on a tiny graph. We couldn't reproduce that in isolation, so it isn't reported as a bug, but arm B uses exact cosine distance.
+  - *Gemini as the eval model.* Free-tier quota and model availability (404s and 503s) blocked full runs.
+  - *Exact-argument playbook matching.* Extra optional arguments from the model (`window_min`) broke learning until we matched on a subset.
 
 ## AI assistance
 

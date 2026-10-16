@@ -1,3 +1,4 @@
+// The full records of recalled playbooks, so their checks can be run.
 MATCH (m:Memory:Playbook) WHERE m.id IN $ids
 RETURN m.id AS id, m.signature AS signature, m.family AS family,
        m.applies_to_kind AS applies_to_kind, m.params_json AS params_json,

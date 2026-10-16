@@ -37,6 +37,16 @@ class BoundaryTests(unittest.TestCase):
                     bad = {m for m in imported_modules(path) if m == "eval" or m.startswith("eval.")}
                     self.assertFalse(bad, f"{rel} imports {bad}")
 
+    def test_query_index_is_current(self):
+        from scripts import query_index
+        self.assertEqual((ROOT / "docs" / "QUERIES.md").read_text(encoding="utf-8"),
+                         query_index.render(), "run python -m scripts.query_index")
+
+    def test_every_query_file_says_what_it_does(self):
+        for path in ROOT.glob("*/queries/*.cypher"):
+            with self.subTest(query=path.name):
+                self.assertTrue(path.read_text(encoding="utf-8").startswith("//"))
+
     def test_referenced_queries_exist(self):
         pattern = re.compile(r'"((?:agents|coord|memory|tools)/queries/\w+\.cypher)"')
         for path in ROOT.rglob("*.py"):
