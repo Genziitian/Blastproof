@@ -139,6 +139,18 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .fact { padding: 8px 12px; border-top: 1px solid var(--line); display: grid; gap: 3px; }
 .fact.closed { opacity: .55; }
 .fact.closed .val { text-decoration: line-through; }
+.cy { font-family: var(--mono); font-size: 11px; padding: 0 7px; color: var(--teal);
+  border-color: #1f5552; background: #0f2523; text-transform: none; letter-spacing: 0; }
+#dbchip { text-decoration: none; }
+.modal { position: fixed; inset: 0; background: #000a; display: none; z-index: 20;
+  align-items: center; justify-content: center; padding: 24px; }
+.modal.on { display: flex; }
+.modal .box { background: var(--panel); border: 1px solid var(--line2); border-radius: 12px;
+  width: min(900px, 100%); max-height: 86vh; display: flex; flex-direction: column; }
+.modal .tabsbar { display: flex; gap: 4px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.modal pre { margin: 0; padding: 14px 16px; overflow: auto; font: 12.5px/1.55 var(--mono); white-space: pre-wrap; }
+.k { color: #7cb7ff; font-weight: 600; } .p { color: var(--orange); } .c { color: var(--faint); font-style: italic; }
+.l { color: var(--teal); }
 .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #2a1418;
   border: 1px solid #6b2a32; color: #ffd5da; padding: 8px 14px; border-radius: 8px; display: none; z-index: 9; }
 .switch { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
@@ -166,7 +178,7 @@ details summary { cursor: pointer; color: var(--muted); }
     <button class="tab" data-tab="results">Results</button>
   </nav>
   <div class="grow"></div>
-  <span id="hdr-graph" class="chip grey mono"></span>
+  <a id="dbchip" class="chip blue mono" href="http://localhost:3000" target="_blank" rel="noopener" title="Open the FalkorDB Browser (same graph)"><span id="hdr-graph"></span></a>
   <span id="hdr-model" class="chip blue"></span>
   <span id="hdr-timing" class="chip yellow demo-label"></span>
   <label class="switch" title="When on, the scripted engineer answers instead of waiting for you">
@@ -199,7 +211,7 @@ details summary { cursor: pointer; color: var(--muted); }
 
   <section class="col">
     <div class="panel" id="map">
-      <h2>Company graph <span class="right muted" id="map-sub">dependencies, as stored in FalkorDB</span></h2>
+      <h2>Company graph <button class="btn small cy" data-cypher="map">Cypher</button> <span class="right muted" id="map-sub">dependencies, as stored in FalkorDB</span></h2>
       <div id="map-svg"></div>
       <div class="legend">
         <span class="row"><i class="dot" style="background:var(--red)"></i>alerting</span>
@@ -214,11 +226,11 @@ details summary { cursor: pointer; color: var(--muted); }
       <div class="empty">No incident selected. Break something to start.</div>
     </div>
     <div class="panel" id="lens-panel">
-      <h2>Memory Lens <span class="right muted">every memory considered, and why</span></h2>
+      <h2>Memory Lens <button class="btn small cy" data-cypher="lens">Cypher</button> <span class="right muted">every memory considered, and why</span></h2>
       <div id="lens"><div class="empty">—</div></div>
     </div>
     <div class="panel">
-      <h2>Agent timeline <span class="right muted">tasks, claims, checkpoints, fencing epochs</span></h2>
+      <h2>Agent timeline <button class="btn small cy" data-cypher="timeline">Cypher</button> <span class="right muted">tasks, claims, checkpoints, fencing epochs</span></h2>
       <div id="lease"></div>
       <div id="timeline" class="tl"><div class="empty">—</div></div>
     </div>
@@ -226,7 +238,7 @@ details summary { cursor: pointer; color: var(--muted); }
 
   <section class="col">
     <div class="panel">
-      <h2>War room <span class="right muted" id="chat-with"></span></h2>
+      <h2>War room <button class="btn small cy" data-cypher="chat">Cypher</button> <span class="right muted" id="chat-with"></span></h2>
       <div class="chat" id="chat"><div class="empty">The responder writes here once it has a diagnosis.</div></div>
       <div id="ask"></div>
       <div class="ask">
@@ -239,11 +251,11 @@ details summary { cursor: pointer; color: var(--muted); }
       </div>
     </div>
     <div class="panel">
-      <h2>Pager log <span class="right muted" id="pager-count"></span></h2>
+      <h2>Pager log <button class="btn small cy" data-cypher="pager">Cypher</button> <span class="right muted" id="pager-count"></span></h2>
       <div id="pager"><div class="empty">Nothing sent.</div></div>
     </div>
     <div class="panel">
-      <h2>On call now <span class="right muted">scenario time</span></h2>
+      <h2>On call now <button class="btn small cy" data-cypher="org">Cypher</button> <span class="right muted">scenario time</span></h2>
       <div id="org"></div>
     </div>
   </section>
@@ -251,7 +263,7 @@ details summary { cursor: pointer; color: var(--muted); }
 
 <main id="view-memory" class="single" hidden>
   <div class="panel">
-    <h2>Playbooks <span class="right muted">learned from confirmed incidents; trust moves only on verdicts</span></h2>
+    <h2>Playbooks <button class="btn small cy" data-cypher="memory">Cypher</button> <span class="right muted">learned from confirmed incidents; trust moves only on verdicts</span></h2>
     <div class="pad row wrap" style="border-bottom:1px solid var(--line)">
       <button class="btn" id="plant">Plant a deliberately wrong playbook</button>
       <span class="muted">Pinned to postgres-orders; claims any postgres over 30% of connections is saturated.
@@ -270,6 +282,15 @@ details summary { cursor: pointer; color: var(--muted); }
 </main>
 
 <div class="toast" id="toast"></div>
+<div class="modal" id="cymodal"><div class="box">
+  <div class="row pad" style="border-bottom:1px solid var(--line)"><b id="cy-title">Cypher</b>
+    <span class="muted" id="cy-path"></span><span class="grow"></span>
+    <button class="btn small" id="cy-close">Close</button></div>
+  <div class="tabsbar" id="cy-tabs"></div>
+  <pre id="cy-text"></pre>
+  <div class="pad muted" style="border-top:1px solid var(--line)">Every panel is a query like this against FalkorDB, run on each refresh.
+    Try it in the <a href="http://localhost:3000" target="_blank" rel="noopener" style="color:var(--blue)">FalkorDB Browser</a> on graph <span class="mono" id="cy-graph"></span>.</div>
+</div></div>
 
 <script>
 "use strict";
@@ -491,6 +512,7 @@ function renderIncident() {
     <div class="row wrap"><span class="muted">alerting</span>${h.alerting.map((a) => `<span class="chip red mono">${esc(a)}</span>`).join("")}</div>
     <div class="summary">${h.alert_texts.map((t) => `“${esc(t)}”`).join(" · ")}</div>
     ${h.summary ? `<div class="summary"><b style="color:var(--text)">Decision</b> by ${badge(h.decided_by)} (epoch ${esc(h.decided_epoch)}): ${esc(h.summary)}</div>` : ""}
+    <div class="faint mono" style="font-size:11.5px">this view: ${x.db.queries} Cypher queries, ${x.db.ms} ms in FalkorDB</div>
     ${x.impact.length ? `<div class="row wrap"><span class="muted">blast radius</span>${x.impact.map((r) =>
       `<span class="chip ${r.customer_facing ? "orange" : "grey"} mono">${esc(r.service)} · ${r.hops}</span>`).join("")}</div>` : ""}
   </div>`;
@@ -725,6 +747,63 @@ async function loadResults() {
   </div>`;
 }
 
+/* ------------------------------------------------------------- cypher viewer */
+const CYPHER = {
+  map: ["Company graph", [["this panel", "web/queries/service_map.cypher"],
+    ["A1 recall: walk downstream from the alerts", "memory/queries/recall.cypher"],
+    ["A1b recall: another datastore of the same kind", "memory/queries/recall_kind.cypher"],
+    ["blast radius", "tools/queries/blast_radius.cypher"]]],
+  lens: ["Memory Lens", [["this panel", "web/queries/lens.cypher"],
+    ["what the investigator writes (fenced)", "agents/queries/record_usage.cypher"],
+    ["A2 trust update after the verdict", "memory/queries/feedback.cypher"]]],
+  timeline: ["Agent timeline", [["this panel: tasks", "web/queries/tasks.cypher"],
+    ["this panel: checkpoints", "web/queries/checkpoints.cypher"],
+    ["claim: new fencing epoch, DB clock", "coord/queries/claim.cypher"],
+    ["fenced checkpoint", "coord/queries/checkpoint.cypher"],
+    ["handoff to the next agent", "coord/queries/handoff.cypher"]]],
+  chat: ["War room", [["this panel", "web/queries/messages.cypher"],
+    ["preferences in force at incident time", "chat/queries/preferences_for.cypher"],
+    ["A3 facts superseded, never edited", "memory/queries/fact_supersede.cypher"]]],
+  pager: ["Pager log", [["this panel", "web/queries/actions.cypher"],
+    ["sent exactly once per intent (fenced)", "coord/queries/send_action.cypher"]]],
+  org: ["On call now", [["this panel", "web/queries/org.cypher"],
+    ["who to page at scenario time", "tools/queries/who_to_page.cypher"]]],
+  memory: ["What it remembers", [["playbooks", "web/queries/playbooks.cypher"],
+    ["facts", "web/queries/facts.cypher"],
+    ["A4 a new playbook from a confirmed incident", "memory/queries/write_playbook.cypher"]]],
+};
+function highlight(text) {
+  return text.split("\n").map((line) => {
+    if (line.trim().startsWith("//")) return `<span class="c">${esc(line)}</span>`;
+    return esc(line)
+      .replace(/\$[A-Za-z_]\w*/g, (m) => `<span class="p">${m}</span>`)
+      .replace(/\b(OPTIONAL MATCH|MATCH|WHERE|RETURN|WITH|SET|MERGE|CREATE|ON CREATE SET|ON MATCH SET|UNWIND|ORDER BY|LIMIT|AS|AND|OR|NOT|IN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|DISTINCT|DESC|ASC|CALL|YIELD)\b/g,
+        (m) => `<span class="k">${m}</span>`)
+      .replace(/\(([a-z]\w*)?(:[A-Z]\w*(?::[A-Z]\w*)*)/g, (m, v, l) => `(${v || ""}<span class="l">${l}</span>`)
+      .replace(/\[(\w*)?(:[A-Z_]+)/g, (m, v, l) => `[${v || ""}<span class="l">${l}</span>`);
+  }).join("\n");
+}
+async function showCypher(key, i = 0) {
+  const [title, files] = CYPHER[key];
+  $("#cy-title").textContent = `${title}: the Cypher behind it`;
+  $("#cy-graph").textContent = S.settings.graph;
+  $("#cy-tabs").innerHTML = files.map(([lbl], j) =>
+    `<button class="tab ${j === i ? "on" : ""}" data-cyi="${j}">${esc(lbl)}</button>`).join("");
+  $("#cy-tabs").querySelectorAll("[data-cyi]").forEach((b) => b.onclick = () => showCypher(key, +b.dataset.cyi));
+  const r = await api(`/api/cypher?path=${encodeURIComponent(files[i][1])}`);
+  $("#cy-path").textContent = r.path;
+  $("#cy-text").innerHTML = highlight(r.text);
+  $("#cymodal").classList.add("on");
+}
+document.querySelectorAll("[data-cypher]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); showCypher(b.dataset.cypher); });
+$("#cy-close").onclick = () => $("#cymodal").classList.remove("on");
+$("#cymodal").onclick = (e) => { if (e.target.id === "cymodal") $("#cymodal").classList.remove("on"); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#cymodal").classList.remove("on"); });
+async function loadDb() {
+  const d = await api("/api/db");
+  $("#hdr-graph").textContent = `FalkorDB ${d.version || ""} · ${d.graph} · ${d.nodes.toLocaleString()} nodes · ${d.edges.toLocaleString()} edges`;
+}
+
 /* ------------------------------------------------------------- polling */
 async function pollState() {
   S.state = await api("/api/state");
@@ -751,7 +830,7 @@ $("#arm-step").onchange = () => { if ($("#arm-kill").checked) arm(); };
 
 async function boot() {
   S.settings = await api("/api/settings");
-  $("#hdr-graph").textContent = S.settings.graph;
+  $("#hdr-graph").textContent = `FalkorDB · ${S.settings.graph}`;
   $("#hdr-model").textContent = S.settings.model;
   $("#hdr-timing").textContent = S.settings.timing_profile === "demo"
     ? `demo timing: lease ${S.settings.lease_ms / 1000} s, heartbeat ${S.settings.heartbeat_ms / 1000} s (production 30 s / 10 s)`
@@ -762,7 +841,8 @@ async function boot() {
   const loop = async (fn, ms) => { try { await fn(); } catch (e) { /* toast already shown */ } setTimeout(() => loop(fn, ms), ms); };
   setTimeout(() => loop(pollState, 1000), 1000);
   setTimeout(() => loop(pollIncident, 600), 600);
-  setTimeout(() => loop(async () => { await loadMemory(); await loadMap(); }, 3000), 3000);
+  setTimeout(() => loop(async () => { await loadMemory(); await loadMap(); await loadDb(); }, 3000), 3000);
+  loadDb().catch(() => {});
 }
 boot();
 </script>

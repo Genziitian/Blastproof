@@ -280,6 +280,14 @@ class WebCases:
         self.assertIn("playbooks", api.get("/api/memory").json())
         self.assertFalse(api.post("/api/autopilot", json={"on": False}).json()["on"])
         self.assertFalse(api.post(f"/api/review/{key}", json={"confirmed": True}).json()["ok"])
+        self.assertIn("MATCH", api.get("/api/cypher", params={"path": "web/queries/lens.cypher"}).json()["text"])
+        for bad in ("../.env", "web/queries/../../.env", "web/app.py", "web/queries/nope.cypher"):
+            self.assertEqual(api.get("/api/cypher", params={"path": bad}).status_code, 404, bad)
+        db = api.get("/api/db").json()
+        self.assertGreater(db["nodes"], 15)
+        self.assertGreater(db["edges"], 20)
+        stats = api.get(f"/api/incident/{key}").json()["db"]
+        self.assertGreaterEqual(stats["queries"], 6)  # 7 once there is a root
 
 
 class WebOnDouble(WebCases, unittest.TestCase):
@@ -291,6 +299,7 @@ class WebOnDouble(WebCases, unittest.TestCase):
         self.demo.service_map()
         self.demo.plant_wrong_memory()
         self.demo.break_node("redis-cache")
+        self.demo.db_info()
         web = {q for q in GraphDouble._query_files().values() if q.startswith("web/")}
         self.assertEqual(web - GraphDouble.exercised, set())
 

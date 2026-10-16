@@ -14,6 +14,7 @@ import contextlib
 import json
 import logging
 import threading
+import time
 import uuid
 from dataclasses import replace
 from pathlib import Path
@@ -62,7 +63,8 @@ def _json(text: str | None) -> Any:
 
 class Demo:
     def __init__(self, graph: Any, company: str, store: ScenarioStore, engineer: Engineer,
-                 chat_model: Any = None, supervisor: Any = None, reset_graph: Any = None) -> None:
+                 chat_model: Any = None, supervisor: Any = None, reset_graph: Any = None,
+                 db_version: Any = None) -> None:
         self.graph = graph
         self.company = company
         self.store = store
@@ -70,6 +72,7 @@ class Demo:
         self.chat_model = chat_model
         self.supervisor = supervisor
         self.reset_graph = reset_graph  # callable that wipes, re-schemas and reseeds
+        self.db_version = db_version    # callable returning the FalkorDB module version
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
         self._lock = threading.Lock()
@@ -232,35 +235,46 @@ class Demo:
         return run(self.graph, Q + "incidents.cypher", {"limit": limit})
 
     def incident(self, key: str) -> dict[str, Any] | None:
-        head = run(self.graph, Q + "incident_head.cypher", {"incident_key": key})
+        stats = {"queries": 0, "ms": 0.0}
+
+        def q(path: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+            started = time.perf_counter()
+            rows = run(self.graph, path, params)
+            stats["queries"] += 1
+            stats["ms"] += (time.perf_counter() - started) * 1000
+            return rows
+
+        head = q(Q + "incident_head.cypher", {"incident_key": key})
         if not head:
             return None
         p = {"incident_key": key}
-        lens = run(self.graph, Q + "lens.cypher", p)
+        lens = q(Q + "lens.cypher", p)
         for row in lens:
             checks = _json(row.pop("checks_json")) or {}
             row["checks"] = checks.get("checks", []) if isinstance(checks, dict) else []
             row["note"] = checks.get("note", "") if isinstance(checks, dict) else ""
-        checkpoints = run(self.graph, Q + "checkpoints.cypher", p)
+        checkpoints = q(Q + "checkpoints.cypher", p)
         for c in checkpoints:
             c["args"] = _json(c.pop("args_json"))
             obs = _json(c.pop("observation"))
             c["result"] = obs.get("result") if isinstance(obs, dict) else obs
-        actions = run(self.graph, Q + "actions.cypher", p)
+        actions = q(Q + "actions.cypher", p)
         for a in actions:
             a["payload"] = _json(a["payload"])
-        tasks = run(self.graph, Q + "tasks.cypher", p)
+        tasks = q(Q + "tasks.cypher", p)
         recalling: list[dict[str, Any]] = []
         for t in tasks:
             recalling = recalling or (_json(t.pop("recalled_json")) or [])
             t.pop("recalled_json", None)
         root = head[0]["root"]
-        impact = (run(self.graph, "tools/queries/blast_radius.cypher", {"node": root})
+        impact = (q("tools/queries/blast_radius.cypher", {"node": root})
                   if root and root != "unknown" else [])
+        messages = q(Q + "messages.cypher", p)
         return {
             "head": head[0], "lens": lens, "tasks": tasks, "checkpoints": checkpoints,
-            "actions": actions, "messages": run(self.graph, Q + "messages.cypher", p),
-            "impact": impact, "recalling": recalling, "timeline": timeline(tasks, checkpoints, actions, head[0]),
+            "actions": actions, "messages": messages, "impact": impact,
+            "recalling": recalling, "timeline": timeline(tasks, checkpoints, actions, head[0]),
+            "db": {"queries": stats["queries"], "ms": round(stats["ms"], 1)},
         }
 
     def memory(self) -> dict[str, Any]:
@@ -269,6 +283,15 @@ class Demo:
             pb["preconditions"] = _json(pb.pop("preconditions_json")) or []
             pb["steps"] = _json(pb.pop("steps_json")) or []
         return {"playbooks": playbooks, "facts": run(self.graph, Q + "facts.cypher", {})}
+
+    def db_info(self) -> dict[str, Any]:
+        size = run(self.graph, Q + "graph_size.cypher", {})
+        version = None
+        if self.db_version is not None:
+            with contextlib.suppress(Exception):
+                version = self.db_version()
+        return {"graph": config.graph_name(self.company), "version": version,
+                "nodes": size[0]["nodes"] if size else 0, "edges": size[0]["edges"] if size else 0}
 
     def service_map(self) -> list[dict[str, Any]]:
         return run(self.graph, Q + "service_map.cypher", {})

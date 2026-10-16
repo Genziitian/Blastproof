@@ -1257,6 +1257,11 @@ def _web_held(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
             for t in g.find("Task", type="investigate", status="leased")]
 
 
+@implements("web/queries/graph_size.cypher")
+def _web_graph_size(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"nodes": len(g.nodes), "edges": len(g.edges)}]
+
+
 @implements("web/queries/last_observed.cypher")
 def _web_last_observed(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     seen = [i.get("observed_at") for i in g.find("Incident") if i.get("observed_at") is not None]

@@ -12,6 +12,7 @@ import argparse
 import contextlib
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,7 @@ from web.supervisor import Supervisor
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(__file__).resolve().parent / "static"
 log = logging.getLogger("web")
+CYPHER_PATH = re.compile(r"(web|memory|coord|chat|tools|agents|sim)/queries/\w+\.cypher")
 
 
 class Break(BaseModel):
@@ -123,6 +125,17 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
     @app.get("/api/map")
     def service_map() -> dict[str, Any]:
         return {"nodes": demo.service_map(), "org": demo.org_chart()}
+
+    @app.get("/api/db")
+    def db_info() -> dict[str, Any]:
+        return demo.db_info()
+
+    @app.get("/api/cypher")
+    def cypher(path: str) -> dict[str, str]:
+        """The source of a query file, so each panel can show the Cypher behind it."""
+        if not CYPHER_PATH.fullmatch(path) or not (ROOT / path).is_file():
+            raise HTTPException(status_code=404, detail="no such query file")
+        return {"path": path, "text": (ROOT / path).read_text(encoding="utf-8")}
 
     @app.get("/api/results")
     def results() -> dict[str, Any]:
@@ -239,7 +252,19 @@ def main() -> int:
         seed.seed_company(args.company)
 
     engineer = Engineer(autopilot=args.autopilot, handle_for=handle_for)
-    demo = Demo(g, args.company, store, engineer, llm.from_config(), supervisor, reset_graph)
+    def db_version() -> str:
+        from common.db import client
+        mods = client().connection.execute_command("MODULE", "LIST")
+        for m in mods:
+            info = dict(zip(m[::2], m[1::2], strict=False))
+            name = info.get(b"name", info.get("name"))
+            if name in (b"graph", "graph"):
+                v = int(info.get(b"ver") or info.get("ver") or 0)
+                return f"{v // 10000}.{v // 100 % 100}.{v % 100}"
+        return "?"
+
+    demo = Demo(g, args.company, store, engineer, llm.from_config(), supervisor, reset_graph,
+                db_version)
     demo.start_agents()
     if not args.no_workers:
         supervisor.start_all()
