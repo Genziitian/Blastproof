@@ -184,6 +184,12 @@ details summary { cursor: pointer; color: var(--muted); }
     <div class="panel">
       <h2>Agents <span class="right muted">share only FalkorDB</span></h2>
       <div id="workers"></div>
+      <div class="worker" style="flex-wrap:wrap">
+        <label class="row" title="One shot: the UI sends the same real SIGKILL as the Kill button, to whichever investigator holds the lease, right after it checkpoints this step">
+          <input type="checkbox" id="arm-kill"> Kill the investigator after step</label>
+        <input id="arm-step" type="number" min="1" max="10" value="3" style="width:54px">
+        <div id="last-kill" class="mono muted" style="width:100%;font-size:11.5px"></div>
+      </div>
     </div>
     <div class="panel">
       <h2>Incidents <span class="right muted" id="feed-count"></span></h2>
@@ -291,6 +297,7 @@ function toast(text) {
   const t = $("#toast"); t.textContent = text; t.style.display = "block";
   clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = "none", 4000);
 }
+const noCites = (t) => String(t || "").split("\n").filter((l) => !l.startsWith("Sent this way ")).join("\n");
 const label = (fam) => (S.settings?.labels || {})[fam] || fam || "—";
 
 /* ------------------------------------------------------------- tabs */
@@ -584,9 +591,9 @@ function renderChat() {
   $("#chat-with").innerHTML = action ? `with ${esc(action.recipient)} · via ${esc(action.channel)}` : "";
   let html = "";
   if (x.messages.length) {
-    html = x.messages.map((m) => `<div class="msg ${m.role}"><div class="who">${m.role === "agent" ? "responder" : esc(m.handle)}</div>${esc(m.text)}</div>`).join("");
+    html = x.messages.map((m) => `<div class="msg ${m.role}"><div class="who">${m.role === "agent" ? "responder" : esc(m.handle)}</div>${esc(m.role === "agent" ? noCites(m.text) : m.text)}</div>`).join("");
   } else if (action) {
-    html = `<div class="msg agent"><div class="who">responder · ${esc(action.channel)} to ${esc(action.recipient)}</div>${esc(action.payload?.text || "")}</div>`;
+    html = `<div class="msg agent"><div class="who">responder · ${esc(action.channel)} to ${esc(action.recipient)}</div>${esc(noCites(action.payload?.text))}</div>`;
   } else html = `<div class="empty">The responder writes here once it has a diagnosis.</div>`;
   const cites = action?.payload?.applied_preferences || [];
   if (cites.length) html += cites.map((c) => `<div class="cite">↳ sent this way ${esc(c)}</div>`).join("");
@@ -722,6 +729,11 @@ async function loadResults() {
 async function pollState() {
   S.state = await api("/api/state");
   $("#autopilot").checked = S.state.autopilot;
+  $("#arm-kill").checked = !!S.state.kill_after;
+  if (S.state.kill_after && document.activeElement !== $("#arm-step")) $("#arm-step").value = S.state.kill_after;
+  const lk = S.state.last_kill;
+  $("#last-kill").textContent = S.state.kill_after ? `armed: next investigation is killed after step ${S.state.kill_after}`
+    : lk ? `last: SIGKILL ${lk.worker} after step ${lk.after_step} (${lk.task.replace(":investigate", "")})` : "";
   renderWorkers(); renderFeed();
   if (!S.selected && S.state.incidents.length) { S.selected = S.state.incidents[0].key; }
 }
@@ -733,6 +745,9 @@ async function pollIncident() {
 }
 async function loadMap() { S.map = await api("/api/map"); renderMap(); renderOrg(); if (S.mapNode) renderMapBar(); }
 $("#autopilot").onchange = (e) => api("/api/autopilot", {on: e.target.checked});
+const arm = () => api("/api/arm-kill", {after: $("#arm-kill").checked ? Number($("#arm-step").value) : null});
+$("#arm-kill").onchange = arm;
+$("#arm-step").onchange = () => { if ($("#arm-kill").checked) arm(); };
 
 async function boot() {
   S.settings = await api("/api/settings");

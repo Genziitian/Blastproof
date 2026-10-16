@@ -50,6 +50,10 @@ class Toggle(BaseModel):
     on: bool
 
 
+class Arm(BaseModel):
+    after: int | None = None
+
+
 class HandOver(BaseModel):
     team: str
     person: str
@@ -101,6 +105,8 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
             "pending": demo.engineer.pending(),
             "autopilot": demo.engineer.autopilot,
             "scenario_now": demo.now(),
+            "kill_after": demo.kill_after,
+            "last_kill": demo.last_kill,
         }
 
     @app.get("/api/incident/{key}")
@@ -146,6 +152,11 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
     def autopilot(body: Toggle) -> dict[str, bool]:
         demo.engineer.autopilot = body.on
         return {"on": body.on}
+
+    @app.post("/api/arm-kill")
+    def arm_kill(body: Arm) -> dict[str, int | None]:
+        demo.arm_kill(body.after)
+        return {"after": demo.kill_after}
 
     @app.post("/api/workers/{name}/kill")
     def kill(name: str) -> dict[str, Any]:

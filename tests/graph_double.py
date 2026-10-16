@@ -1250,6 +1250,13 @@ def _web_org(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: r["team"])
 
 
+@implements("web/queries/held_investigations.cypher")
+def _web_held(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"id": t.get("id"), "owner": t.get("lease_owner"), "epoch": t.get("epoch"),
+             "steps": len([c for _, c in g.out(t, "HAS_CHECKPOINT") if "Checkpoint" in c.labels])}
+            for t in g.find("Task", type="investigate", status="leased")]
+
+
 @implements("web/queries/last_observed.cypher")
 def _web_last_observed(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     seen = [i.get("observed_at") for i in g.find("Incident") if i.get("observed_at") is not None]

@@ -74,6 +74,8 @@ class Demo:
         self._threads: list[threading.Thread] = []
         self._lock = threading.Lock()
         self.thread_state: dict[str, str] = {}
+        self.kill_after: int | None = None       # armed kill: SIGKILL after this step
+        self.last_kill: dict[str, Any] | None = None
 
     # ------------------------------------------------------------ agents here
     def start_agents(self) -> None:
@@ -83,6 +85,36 @@ class Demo:
             t = threading.Thread(target=self._loop, args=(w,), name=w.instance, daemon=True)
             self._threads.append(t)
             t.start()
+        if self.supervisor is not None:
+            t = threading.Thread(target=self._armed_kill_loop, name="armed-kill", daemon=True)
+            self._threads.append(t)
+            t.start()
+
+    def arm_kill(self, after: int | None) -> None:
+        """One shot: SIGKILL whichever investigator holds a fresh lease once it has
+        checkpointed `after` steps. The same real kill as the button, just on time."""
+        self.kill_after = after if after and after > 0 else None
+
+    def check_armed_kill(self) -> str | None:
+        if not self.kill_after or self.supervisor is None:
+            return None
+        for r in run(self.graph, Q + "held_investigations.cypher", {}):
+            proc = self.supervisor.procs.get(r["owner"])
+            if r["epoch"] == 1 and r["steps"] >= self.kill_after and proc and proc.alive():
+                self.supervisor.kill(r["owner"])
+                self.last_kill = {"worker": r["owner"], "task": r["id"], "after_step": r["steps"]}
+                self.kill_after = None
+                log.info("armed kill: SIGKILL %s after step %s of %s",
+                         r["owner"], r["steps"], r["id"])
+                return str(r["owner"])
+        return None
+
+    def _armed_kill_loop(self) -> None:
+        while not self._stop.wait(0.1):
+            try:
+                self.check_armed_kill()
+            except Exception:
+                log.exception("armed kill check failed")
 
     def agents(self) -> list[Worker]:
         return [Responder(self.graph, "responder-1", self.engineer, self.store,

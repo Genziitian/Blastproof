@@ -215,6 +215,46 @@ class WebCases:
                              for p in self.demo.memory()["playbooks"]),
                          "a real lesson is never filed under the planted playbook")
 
+    def test_armed_kill_fires_once_after_the_step(self):
+        class Proc:
+            def __init__(self) -> None:
+                self.up = True
+
+            def alive(self) -> bool:
+                return self.up
+
+        class FakeSupervisor:
+            def __init__(self) -> None:
+                self.procs = {"inv-1": Proc(), "inv-2": Proc()}
+                self.killed: list[str] = []
+
+            def kill(self, name: str) -> None:
+                self.killed.append(name)
+                self.procs[name].up = False
+
+        sup = FakeSupervisor()
+        self.demo.supervisor = sup
+        self.demo.arm_kill(2)
+        key = self.demo.run_story("s01")
+        inv = self.investigator("inv-1")
+        fired: list[str | None] = []
+        original = inv._step
+
+        def watch(*a: Any, **kw: Any) -> Any:
+            step = original(*a, **kw)
+            fired.append(self.demo.check_armed_kill())
+            if sup.killed:
+                raise RuntimeError("SIGKILL")
+            return step
+        inv._step = watch  # type: ignore[method-assign]
+        with self.assertRaises(RuntimeError):
+            inv.run_once()
+        self.assertEqual(fired, [None, "inv-1"])
+        self.assertEqual(self.demo.last_kill, {"worker": "inv-1", "task": f"{key}:investigate",
+                                               "after_step": 2})
+        self.assertIsNone(self.demo.kill_after)
+        self.assertIsNone(self.demo.check_armed_kill())  # one shot
+
     def test_org_changes_route_the_next_page(self):
         self.demo.hand_over("platform-data", "kabir")
         self.demo.move_owner("checkout-api", "payments")
