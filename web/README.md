@@ -44,4 +44,6 @@ The UI plays only the two outside roles: the world (break a service, change the 
 `GET /api/db · /api/cypher?path=…`  
 `POST /api/break {node | story} · /api/arm-kill {after} · /api/review/{key} {confirmed, message} · /api/reply/{key} {text} · /api/autopilot {on} · /api/workers/{name}/kill · /api/workers/{name}/start · /api/org/on-call {team, person} · /api/org/owner {node, team} · /api/plant-wrong-memory · /api/reset`
 
+If FalkorDB restarts while the UI runs, the agents log one line and wait, the API answers 503, and the page shows a banner until the database is back (demo moment 3 restarts it on camera).
+
 Tests: `tests/test_web.py` drives the same story through `web.demo.Demo` on the graph double and on FalkorDB, including a takeover, and checks every panel's read model and the HTTP API.

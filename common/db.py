@@ -28,6 +28,34 @@ def client() -> FalkorDB:
                     password=config.FALKORDB_PASSWORD)
 
 
+def unavailable(exc: BaseException) -> bool:
+    """True if `exc` means FalkorDB is down, restarting or still loading its data,
+    as opposed to a bug: callers wait and retry instead of reporting a failure."""
+    from redis.exceptions import BusyLoadingError
+    from redis.exceptions import ConnectionError as RedisConnectionError
+    from redis.exceptions import TimeoutError as RedisTimeoutError
+
+    return isinstance(exc, (BusyLoadingError, RedisConnectionError, RedisTimeoutError,
+                            ConnectionError))
+
+
+class Outage:
+    """Log a FalkorDB outage once when it starts and once when it ends."""
+
+    def __init__(self, log: Any, who: str) -> None:
+        self.log, self.who, self.down = log, who, False
+
+    def failed(self) -> None:
+        if not self.down:
+            self.log.warning("%s: FalkorDB unavailable (restarting?); waiting", self.who)
+        self.down = True
+
+    def ok(self) -> None:
+        if self.down:
+            self.log.info("%s: FalkorDB is back", self.who)
+        self.down = False
+
+
 def wait_ready(timeout_s: float = 60.0, log: Any = print) -> bool:
     """Wait until FalkorDB answers graph commands.
 

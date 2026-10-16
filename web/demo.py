@@ -26,7 +26,7 @@ from agents.triage import incident_key, open_incident
 from agents.worker import Worker
 from chat.war_room import WarRoom
 from common import config
-from common.db import run
+from common.db import Outage, run, unavailable
 from coord import tasks
 from sim import deploys, org
 from sim import world as W
@@ -116,6 +116,7 @@ class Demo:
         """Armed kill (every 0.1 s) and the stuck sweep (every 2 s): a task whose lease ran
         out on its last allowed attempt is marked stuck, for a human to look at."""
         ticks = 0
+        outage = Outage(log, "housekeeping")
         while not self._stop.wait(0.1):
             ticks += 1
             try:
@@ -124,8 +125,13 @@ class Demo:
                     for task_id in tasks.stuck_sweep(self.graph):
                         log.warning("%s is stuck after %s attempts; needs a human",
                                     task_id, config.MAX_ATTEMPTS)
-            except Exception:
-                log.exception("housekeeping failed")
+                outage.ok()
+            except Exception as e:
+                if unavailable(e):
+                    outage.failed()
+                    self._stop.wait(1.0)
+                else:
+                    log.exception("housekeeping failed")
 
     def agents(self) -> list[Worker]:
         return [Responder(self.graph, "responder-1", self.engineer, self.store,
@@ -133,15 +139,22 @@ class Demo:
                 Learner(self.graph, "learner-1")]
 
     def _loop(self, worker: Worker) -> None:
+        outage = Outage(log, worker.instance)
         while not self._stop.is_set():
             try:
                 self.thread_state[worker.instance] = "idle"
-                if not worker.run_once():
+                busy = worker.run_once()
+                outage.ok()
+                if not busy:
                     self._stop.wait(0.3)
             except Cancelled:
                 log.info("%s: reset while waiting for the engineer", worker.instance)
-            except Exception:
-                log.exception("%s failed; the task is retried after its lease", worker.instance)
+            except Exception as e:
+                if unavailable(e):
+                    outage.failed()
+                else:
+                    log.exception("%s failed; the task is retried after its lease",
+                                  worker.instance)
                 self._stop.wait(1.0)
 
     def stop_agents(self) -> None:

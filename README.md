@@ -262,7 +262,7 @@ docker compose down && docker compose up -d falkordb
 make acceptance-2      # s04 after the restart, SIGKILL mid-investigation, takeover
 ```
 
-**Persistence:** FalkorDB writes an RDB snapshot every 30 s if anything changed and on every shutdown, into a named Docker volume. `make acceptance-2` and the UI wait until FalkorDB has finished loading after a restart.
+**Persistence:** FalkorDB writes an RDB snapshot every 30 s if anything changed and on every shutdown, into a named Docker volume. `make acceptance-2` and the UI wait until FalkorDB has finished loading after a restart. If FalkorDB goes away while the UI runs, the agents log one line and wait, and the page shows a banner until it's back.
 
 **Benchmarks and tests:**
 
@@ -299,7 +299,7 @@ The integration suites are written once and run on two backends: FalkorDB when i
 | `web/` | The UI: one page, a JSON API, its read queries, the investigator supervisor |
 | `scripts/` | Schema, seed, runners, acceptance test, persistence check, query index |
 | `tests/` | Offline tests and live tests against FalkorDB |
-| `docs/` | Implementation plan, FalkorDB findings, query index, screenshots |
+| `docs/` | [Implementation plan](docs/Implementation-Plan.md), [FalkorDB findings](docs/FALKORDB-FINDINGS.md), [query index](docs/QUERIES.md), [team briefing](docs/TEAM-BRIEFING.md) (the system explained, with judge Q&A), [demo script](docs/DEMO-SCRIPT.md), screenshots |
 
 ## Limits and what didn't work
 

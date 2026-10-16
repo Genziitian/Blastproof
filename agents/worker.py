@@ -13,6 +13,7 @@ from types import TracebackType
 from typing import Any
 
 from common import config
+from common.db import unavailable
 from coord import tasks
 from coord.tasks import Lease, Outcome, Result
 
@@ -33,7 +34,13 @@ class Heartbeat:
 
     def _beat(self) -> None:
         while not self._stop.wait(self._interval_s):
-            if tasks.heartbeat(self._graph, self._lease).outcome is Outcome.LEASE_LOST:
+            try:
+                outcome = tasks.heartbeat(self._graph, self._lease).outcome
+            except Exception as e:
+                if unavailable(e):  # FalkorDB restarting: the lease may run out meanwhile,
+                    continue        # and the fence decides who owns the task afterwards
+                raise
+            if outcome is Outcome.LEASE_LOST:
                 self.lost.set()
                 return
 

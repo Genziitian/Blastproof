@@ -342,6 +342,20 @@ class WebCases:
         self.assertGreaterEqual(stats["queries"], 6)  # 7 once there is a root
 
 
+class OutageTests(unittest.TestCase):
+    def test_api_says_503_while_falkordb_is_down(self):
+        from redis.exceptions import BusyLoadingError
+
+        class Down:
+            def query(self, *a: Any, **kw: Any) -> Any:
+                raise BusyLoadingError("Redis is loading the dataset in memory")
+
+        demo = Demo(Down(), "a", ScenarioStore(tempfile.mkdtemp()), Engineer())
+        r = TestClient(create_app(demo)).get("/api/state")
+        self.assertEqual(r.status_code, 503)
+        self.assertTrue(r.json()["db_down"])
+
+
 class WebOnDouble(WebCases, unittest.TestCase):
     backend = staticmethod(double)
 

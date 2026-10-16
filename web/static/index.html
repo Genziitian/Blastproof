@@ -186,6 +186,9 @@ details summary { cursor: pointer; color: var(--muted); }
   </label>
 </header>
 
+<div id="dbdown" hidden style="background:#2a1c10;border-bottom:1px solid #6a4420;color:var(--orange);padding:8px 16px">
+  <b>FalkorDB is unavailable</b> (restarting?) for <span id="dbdown-s">0</span> s. The agents are waiting; nothing is lost.
+  Everything shown comes back from the graph when it returns.</div>
 <main id="view-incident">
   <section class="col">
     <div class="panel">
@@ -311,8 +314,16 @@ async function api(path, body) {
     body: JSON.stringify(body)};
   const r = await fetch(path, opt);
   const data = await r.json().catch(() => ({}));
+  if (data.db_down) { dbBanner(true); throw new Error(data.detail); }
   if (!r.ok) { toast(data.detail || r.statusText); throw new Error(data.detail || r.statusText); }
+  dbBanner(false);
   return data;
+}
+function dbBanner(down) {
+  const b = $("#dbdown");
+  if (down && b.hidden) { b.hidden = false; b.dataset.since = Date.now(); }
+  if (!down && !b.hidden) b.hidden = true;
+  if (!b.hidden) $("#dbdown-s").textContent = Math.round((Date.now() - b.dataset.since) / 1000);
 }
 function toast(text) {
   const t = $("#toast"); t.textContent = text; t.style.display = "block";

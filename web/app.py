@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from common import config, llm, logs
-from common.db import graph, run
+from common.db import graph, run, unavailable
 from sim.store import ScenarioStore
 from web.demo import Demo
 from web.engineer import Engineer
@@ -207,6 +207,16 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
     def reset() -> dict[str, bool]:
         demo.reset()
         return {"ok": True}
+
+    @app.middleware("http")
+    async def db_outage(request: Any, call_next: Any) -> Any:
+        try:
+            return await call_next(request)
+        except Exception as exc:  # FalkorDB restarting: a calm 503 the page shows as a banner
+            if not unavailable(exc):
+                raise
+            return JSONResponse(status_code=503, content={
+                "detail": "FalkorDB is unavailable (restarting?); waiting for it", "db_down": True})
 
     @app.exception_handler(Exception)
     def failed(_: Any, exc: Exception) -> JSONResponse:

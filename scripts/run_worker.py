@@ -22,7 +22,7 @@ from typing import Any
 from agents.investigator import Investigator
 from agents.triage import incident_key
 from common import config, logs
-from common.db import graph
+from common.db import Outage, graph, unavailable
 from scripts.run_incident import make_planner
 from sim.runtime import SimulatedWorld
 from sim.store import ScenarioStore
@@ -65,13 +65,19 @@ def main() -> int:
                 if os.getppid() != parent:  # re-parented: the UI died without stopping us
                     stop.set()
         threading.Thread(target=watch, daemon=True).start()
+    outage = Outage(worker.log, args.instance)
     try:
         while not stop.is_set():
             try:
-                if not worker.run_once():
+                busy = worker.run_once()
+                outage.ok()
+                if not busy:
                     stop.wait(0.5)
-            except Exception:  # a bad task must not take the worker down; it is retried
-                worker.log.exception("task failed; the lease will expire and it is retried")
+            except Exception as e:  # a bad task must not take the worker down; it is retried
+                if unavailable(e):
+                    outage.failed()
+                else:
+                    worker.log.exception("task failed; the lease will expire and it is retried")
                 stop.wait(1.0)
     except KeyboardInterrupt:
         pass
