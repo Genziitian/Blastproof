@@ -279,6 +279,21 @@ def _parse_anthropic(data: dict[str, Any]) -> Reply:
     return Reply(text, calls)
 
 
+def check(model: ChatModel | None) -> str | None:
+    """One tiny request before a run. None if the model answers, else the error.
+
+    Planners fall back to rule-based steps on any model error, which is right
+    mid-run but would silently turn a whole eval or demo into a rule-based one
+    (for example with a revoked API key). Callers use this to stop or say so."""
+    if model is None:
+        return None
+    try:
+        model.chat([{"role": "user", "content": "Reply with the single word OK."}])
+    except LLMError as e:
+        return str(e)
+    return None
+
+
 def provider() -> str:
     """'anthropic' or 'openai' (the OpenAI-compatible wire format)."""
     if config.LLM_PROVIDER:

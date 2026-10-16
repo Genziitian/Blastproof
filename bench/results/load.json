@@ -1,0 +1,114 @@
+[
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 1,
+    "incidents": 20,
+    "completed": 20,
+    "seconds": 0.181,
+    "incidents_per_minute": 6632.6,
+    "memory_reads": {
+      "p50_ms": 0.35,
+      "p95_ms": 0.81,
+      "n": 193
+    },
+    "memory_writes": {
+      "p50_ms": 0.33,
+      "p95_ms": 1.01,
+      "n": 369
+    },
+    "duplicate_notifications": 0,
+    "takeovers": 0,
+    "lost_leases": 0,
+    "errors": [],
+    "chaos_ms": 0,
+    "leases_expired_by_chaos": 0,
+    "stuck_for_a_human": 0
+  },
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 2,
+    "incidents": 20,
+    "completed": 20,
+    "seconds": 0.131,
+    "incidents_per_minute": 9184.6,
+    "memory_reads": {
+      "p50_ms": 0.61,
+      "p95_ms": 1.54,
+      "n": 200
+    },
+    "memory_writes": {
+      "p50_ms": 0.63,
+      "p95_ms": 1.82,
+      "n": 378
+    },
+    "duplicate_notifications": 0,
+    "takeovers": 0,
+    "lost_leases": 0,
+    "errors": [],
+    "chaos_ms": 0,
+    "leases_expired_by_chaos": 0,
+    "stuck_for_a_human": 0
+  },
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 4,
+    "incidents": 20,
+    "completed": 20,
+    "seconds": 0.132,
+    "incidents_per_minute": 9061.7,
+    "memory_reads": {
+      "p50_ms": 0.87,
+      "p95_ms": 2.0,
+      "n": 200
+    },
+    "memory_writes": {
+      "p50_ms": 1.22,
+      "p95_ms": 3.2,
+      "n": 423
+    },
+    "duplicate_notifications": 0,
+    "takeovers": 0,
+    "lost_leases": 0,
+    "errors": [],
+    "chaos_ms": 0,
+    "leases_expired_by_chaos": 0,
+    "stuck_for_a_human": 0
+  },
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 4,
+    "incidents": 20,
+    "completed": 20,
+    "seconds": 0.138,
+    "incidents_per_minute": 8712.2,
+    "memory_reads": {
+      "p50_ms": 0.71,
+      "p95_ms": 1.86,
+      "n": 202
+    },
+    "memory_writes": {
+      "p50_ms": 0.91,
+      "p95_ms": 2.58,
+      "n": 436
+    },
+    "duplicate_notifications": 0,
+    "takeovers": 1,
+    "lost_leases": 1,
+    "errors": [],
+    "chaos_ms": 50,
+    "leases_expired_by_chaos": 1,
+    "stuck_for_a_human": 0
+  }
+]

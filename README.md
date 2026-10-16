@@ -82,11 +82,14 @@ Two companies, every agent in its own claim loop, 20 incidents fired at once, Fa
 
 | Worker pairs per company | Stalled workers | Done | Incidents / min | Memory reads p50 / p95 | Memory writes p50 / p95 | Duplicate notifications | Takeovers |
 |---|---|---|---|---|---|---|---|
-| 1 | none | 20/20 | ~1,900–2,600 | ~2 / 5–7 ms | ~2–3 / 5–7 ms | 0 | 0 |
-| 2 | none | 20/20 | ~2,500–3,100 | ~2–3 / 7–9 ms | ~3 / 9 ms | 0 | 0 |
-| 2 | a held lease expired every 50 ms | 20/20 | ~2,000–2,600 | ~3 / 8–9 ms | ~3 / 8–10 ms | **0** | 6–7 |
+| 1 | none | 20/20 | 6,633 | 0.35 / 0.81 ms | 0.33 / 1.01 ms | 0 | 0 |
+| 2 | none | 20/20 | 9,185 | 0.61 / 1.54 ms | 0.63 / 1.82 ms | 0 | 0 |
+| 4 | none | 20/20 | 9,062 | 0.87 / 2.00 ms | 1.22 / 3.20 ms | 0 | 0 |
+| 4 | a held lease expired every 50 ms | 20/20 | 8,712 | 0.71 / 1.86 ms | 0.91 / 2.58 ms | **0** | 1 |
 
-Ranges are across runs. With stalled workers, another worker takes the task over at its next checkpoint and the stalled one's next write is rejected by the fence (6–8 lost leases per run), and still nothing is sent twice. Isolation: identical service names, keys and incident ids in both companies; every stored string in each graph, and every UI API response, is searched for the other company's canary and people: 0 found.
+One run on Oct 16 (`bench/results/load.json`), FalkorDB 4.22.1 with RDB snapshots on a MacBook Air. Throughput levels off beyond 2 pairs: FalkorDB runs one graph's writes one at a time, and every agent step is a short write. Earlier runs with the append-only file (fsync every second) were about 3× slower (≈2,000–3,100 incidents/min, p50 ≈2–3 ms), with the same zero duplicates. With stalled workers, another worker takes the task over and the stalled one's next write is rejected by the fence (here 1 takeover; at this speed most incidents finish between chaos ticks, and slower runs saw 6–7). Nothing is ever sent twice.
+
+Isolation: identical service names, keys and incident ids in both companies; every stored string in each graph, and every UI API response, is searched for the other company's canary and people: 0 found.
 
 ## How memory works
 

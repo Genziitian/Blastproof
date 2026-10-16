@@ -74,7 +74,10 @@ def latest_results(root: Path = ROOT) -> dict[str, Any]:
     for path in reversed(model_runs or runs):
         with contextlib.suppress(ValueError, OSError):
             data = json.loads(path.read_text(encoding="utf-8"))
-            if len(data.get("meta", {}).get("arms", [])) >= 2:
+            meta = data.get("meta", {})
+            if meta.get("invalid") or "INVALID" in path.parent.name:
+                continue
+            if len(meta.get("arms", [])) >= 2:
                 out["eval"] = {"name": path.parent.name, **data}
                 break
     load = root / "bench" / "results" / "load.json"
@@ -277,8 +280,18 @@ def main() -> int:
                 return f"{v // 10000}.{v // 100 % 100}.{v % 100}"
         return "?"
 
-    demo = Demo(g, args.company, store, engineer, llm.from_config(), supervisor, reset_graph,
-                db_version)
+    model = llm.from_config()
+    problem = llm.check(model)
+    if problem:
+        print(f"WARNING: {config.LLM_MODEL} did not answer a test request ({problem[:160]}).\n"
+              "The agents will use the rule-based planner; the header says so.")
+    demo = Demo(g, args.company, store, engineer, model, supervisor, reset_graph, db_version)
+    if model is None:
+        demo.model_status = "not configured"
+    elif problem:
+        demo.model_status = "unavailable: " + problem[:200]
+    else:
+        demo.model_status = "ok"
     demo.start_agents()
     if not args.no_workers:
         supervisor.start_all()

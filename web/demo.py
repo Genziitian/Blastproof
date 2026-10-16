@@ -78,6 +78,7 @@ class Demo:
         self._threads: list[threading.Thread] = []
         self._lock = threading.Lock()
         self.thread_state: dict[str, str] = {}
+        self.model_status: str | None = None     # set at startup from llm.check()
         self.kill_after: int | None = None       # armed kill: SIGKILL after this step
         self.last_kill: dict[str, Any] | None = None
 
@@ -338,6 +339,7 @@ class Demo:
             "company": self.company, "graph": config.graph_name(self.company),
             "timing_profile": config.TIMING_PROFILE, "lease_ms": config.LEASE_TTL_MS,
             "heartbeat_ms": config.HEARTBEAT_MS, "model": config.LLM_MODEL or "rule-based",
+            "model_status": self.model_status,
             "stories": STORIES, "breakable": self.breakable(), "teams": self.people(),
             "labels": LABELS,
         }

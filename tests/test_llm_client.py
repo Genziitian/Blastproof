@@ -178,5 +178,25 @@ class AnthropicClientTests(unittest.TestCase):
         self.assertEqual(Fake.last["body"]["messages"][0]["content"], "a\nb")
 
 
+
+class CheckTests(unittest.TestCase):
+    """llm.check: a run must not silently become rule-based (e.g. a revoked key)."""
+
+    def test_reports_a_model_that_does_not_answer(self):
+        from common import llm
+
+        class Revoked:
+            def chat(self, *a, **kw):
+                raise LLMError("HTTP 401 Unauthorized: invalid x-api-key")
+
+        class Fine:
+            def chat(self, *a, **kw):
+                return llm.Reply("OK")
+
+        self.assertIn("401", llm.check(Revoked()) or "")
+        self.assertIsNone(llm.check(Fine()))
+        self.assertIsNone(llm.check(None))
+
+
 if __name__ == "__main__":
     unittest.main()

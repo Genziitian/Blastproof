@@ -852,7 +852,10 @@ $("#arm-step").onchange = () => { if ($("#arm-kill").checked) arm(); };
 async function boot() {
   S.settings = await api("/api/settings");
   $("#hdr-graph").textContent = `FalkorDB · ${S.settings.graph}`;
-  $("#hdr-model").textContent = S.settings.model;
+  const ms = S.settings.model_status || "";
+  $("#hdr-model").textContent = ms.startsWith("unavailable")
+    ? `${S.settings.model} unavailable: rule-based fallback` : S.settings.model;
+  if (ms.startsWith("unavailable")) { $("#hdr-model").className = "chip red"; $("#hdr-model").title = ms; }
   $("#hdr-timing").textContent = S.settings.timing_profile === "demo"
     ? `demo timing: lease ${S.settings.lease_ms / 1000} s, heartbeat ${S.settings.heartbeat_ms / 1000} s (production 30 s / 10 s)`
     : `lease ${S.settings.lease_ms / 1000} s, heartbeat ${S.settings.heartbeat_ms / 1000} s`;

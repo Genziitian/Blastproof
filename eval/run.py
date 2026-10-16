@@ -327,6 +327,13 @@ def main() -> int:
         return None if args.rule_based else llm.from_config()
 
     model_name = "rule-based" if args.rule_based or not config.LLM_MODEL else config.LLM_MODEL
+    problem = llm.check(model_factory())
+    if problem:
+        print(f"The model {model_name} did not answer a test request:\n  {problem}\n"
+              "Not running: every step would fall back to the rule-based planner and the "
+              "results would be labelled as a model run.\nFix LLM_API_KEY / LLM_MODEL in .env, "
+              "or run `make eval-rules` for the deterministic benchmark.")
+        return 2
     at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
     name = args.name or f"{at}-{model_name.replace('/', '_')}"
     out = RESULTS / name
@@ -345,6 +352,11 @@ def main() -> int:
             "embedder": embed.from_config().name,
             "cached": bool(config.LLM_CACHE_DIR) and not args.rule_based,
             "truth_ids": [r["id"] for r in rows]}
+    if model_name != "rule-based" and not any(r.get("input_tokens") for r in rows):
+        # The model never answered (every step fell back): not a model run.
+        meta["invalid"] = "the model answered no request; every step used the rule-based planner"
+        print(f"\nWARNING: {meta['invalid']}. Results are marked invalid and the Results tab "
+              "ignores them.")
     (out / "rows.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
     partial.unlink()
     (out / "summary.json").write_text(json.dumps(

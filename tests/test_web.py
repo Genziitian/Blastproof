@@ -393,6 +393,11 @@ class ResultsTests(unittest.TestCase):
             d.mkdir(parents=True)
             (d / "summary.json").write_text(json.dumps({"meta": {"arms": arms}, "summary": {}}))
         self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
+        bad = root / "eval" / "results" / "2026-01-04-m"  # newer, but the model never answered
+        bad.mkdir()
+        (bad / "summary.json").write_text(json.dumps(
+            {"meta": {"arms": ["A", "B", "C"], "invalid": "no model"}, "summary": {}}))
+        self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
         self.assertIsNone(latest_results(root)["load"])
 
 
