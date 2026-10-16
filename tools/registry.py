@@ -78,8 +78,8 @@ TOOLS: dict[str, Tool] = {
             "inspect_recent_changes",
             "Deploys and config changes to a service within the last few hours.",
             {"service": _SERVICE, "hours": {"type": "integer", "minimum": 1, "maximum": 48}},
-            evidence.inspect_recent_changes,
-            "simulator",
+            topology.inspect_recent_changes,
+            "cypher:tools/queries/recent_changes.cypher",
             required=("service",),
         ),
         Tool(

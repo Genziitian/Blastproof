@@ -21,7 +21,7 @@ UNIQUE = [
     ("Memory", "id"), ("Task", "id"), ("Decision", "id"), ("Action", "key"),
     ("Feedback", "id"), ("Checkpoint", "cid"), ("Session", "id"),
     ("Service", "key"), ("Datastore", "key"), ("Team", "key"), ("Person", "key"),
-    ("Incident", "key"), ("Alert", "key"), ("Message", "key"),
+    ("Incident", "key"), ("Alert", "key"), ("Message", "key"), ("Change", "key"),
 ]
 PLAIN = [
     ("Service", "name"), ("Task", "status"), ("Task", "type"),

@@ -35,6 +35,7 @@ from eval import truth
 from eval.oracle import Oracle
 from scripts import seed, setup_schema
 from scripts.run_incident import make_planner, run_incident
+from sim import deploys
 from sim.runtime import SimulatedWorld
 
 STATE = Path(__file__).resolve().parent.parent / ".acceptance.json"
@@ -97,7 +98,9 @@ def part2() -> int:
     task_id = f"{key}:investigate"
 
     world, oracle = SimulatedWorld(), Oracle()
-    open_incident(g, incident_id, world.start(key, t.scenario()), world.observed_at(key))
+    alerts = world.start(key, t.scenario())
+    deploys.publish(g, key, t.scenario())
+    open_incident(g, incident_id, alerts, world.observed_at(key))
     oracle.watch(key, t)
 
     worker = subprocess.Popen([sys.executable, "-m", "scripts.run_worker", "--company", company,

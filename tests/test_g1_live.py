@@ -21,6 +21,7 @@ from eval import truth
 from eval.oracle import Oracle
 from scripts.run_incident import run_incident
 from scripts.seed import seed_graph
+from sim import deploys
 from sim.runtime import SimulatedWorld
 from tests.backends import SKIP_REASON, double, expire_lease, falkordb, falkordb_up
 from tests.reference import upstream_candidates
@@ -99,6 +100,7 @@ class GateG1Cases:
         world, oracle = SimulatedWorld(), Oracle()
         key = incident_key("s01-crash")
         alerts = world.start(key, t.scenario())
+        deploys.publish(self.g, key, t.scenario())
         oracle.watch(key, t)
         open_incident(self.g, "s01-crash", alerts, world.observed_at(key))
 

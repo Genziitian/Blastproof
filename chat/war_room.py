@@ -109,14 +109,25 @@ class WarRoom:
 
     def recap(self, incident_id: str) -> str:
         """Answer "where did we leave <incident>?" from what the graph stored."""
-        rows = run(self.graph, Q + "incident_recap.cypher",
-                   {"incident_key": f"incident:{incident_id}"})
+        key = f"incident:{incident_id}"
+        rows = run(self.graph, Q + "incident_recap.cypher", {"incident_key": key})
+        steps = run(self.graph, Q + "incident_steps.cypher", {"incident_key": key})
+        work = ""
+        if steps and steps[0]["steps"]:
+            s = steps[0]
+            who = ", ".join(a for a in s["agents"] if a)
+            took_over = " (taken over after the first worker stopped)" if (s["epochs"] or 1) > 1 else ""
+            work = (f"The investigation took {s['steps']} checkpointed steps"
+                    f"{' by ' + who if who else ''}{took_over}.")
         if not rows:
-            return f"I have no conversation stored for incident {incident_id}."
+            gone = f"I have no conversation stored for incident {incident_id}."
+            return f"{gone} {work}".strip()
         first = rows[0]
         label = DIAGNOSIS_LABELS.get(first["family"] or "", first["family"] or "unknown")
         lines = [f"Incident {incident_id}: {first['root'] or 'no diagnosis'}, {label} "
                  f"({first['status']}, verdict {first['verdict'] or 'pending'})."]
+        if work:
+            lines.append(work)
         for r in rows:
             who = "You" if r["role"] == "engineer" else "I"
             text = r["text"].splitlines()[0] if r["role"] == "agent" else r["text"]

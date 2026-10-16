@@ -255,6 +255,58 @@ class WebCases:
         self.assertIsNone(self.demo.kill_after)
         self.assertIsNone(self.demo.check_armed_kill())  # one shot
 
+    def test_a_task_that_keeps_failing_is_flagged_stuck(self):
+        from coord import tasks
+        key = self.demo.run_story("s01")
+        for n in range(3):
+            inv = self.investigator(f"inv-{n}")
+            inv._step = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("crash"))  # type: ignore[method-assign]
+            with self.assertRaises(RuntimeError):
+                inv.run_once()
+            expire_lease(self.g, f"{key}:investigate")
+        self.assertFalse(self.investigator("inv-9").run_once())  # 3 attempts used: not claimable
+        self.assertEqual(tasks.stuck_sweep(self.g), [f"{key}:investigate"])
+        self.assertEqual(self.demo.incidents()[0]["stuck"], 1)
+        x = self.demo.incident(key)
+        assert x is not None
+        self.assertEqual([t["status"] for t in x["tasks"]], ["stuck"])
+
+    def test_recap_and_earlier_sessions(self):
+        x1 = self.finish(self.demo.run_story("s01"), self.investigator("inv-1"))
+        recap = self.demo.recap(x1["head"]["id"])
+        self.assertIn("checkpointed steps by inv-1", recap)
+        self.assertIn("For DB saturation", recap)
+        x2 = self.finish(self.demo.run_story("s04"), self.investigator("inv-1"))
+        self.assertTrue(x2["earlier"], "Priya's earlier session shows in the next incident")
+        self.assertTrue(all(m["incident"] == x1["head"]["id"] for m in x2["earlier"]))
+
+    def test_ui_never_shows_another_companys_data(self):
+        from sim import world as W
+        gb = self.backend(f"web_other_{type(self).__name__.lower()}")
+        seed_graph(gb, "b")
+        other = Demo(gb, "b", ScenarioStore(tempfile.mkdtemp()), Engineer(autopilot=True))
+        resp_b, learn_b = other.agents()
+        for sid in ("s01", "s04"):  # identical incident ids and services in both companies
+            for demo, resp, learn, g in ((self.demo, self.responder, self.learner, self.g),
+                                         (other, resp_b, learn_b, gb)):
+                demo.run_story(sid)
+                Investigator(g, "inv", ScenarioStore(demo.store.root)).run_once()
+                resp.run_once()
+                learn.run_once()
+        api = TestClient(create_app(self.demo))
+        seen = [api.get(p).text for p in ("/api/state", "/api/memory", "/api/map", "/api/db",
+                                          "/api/settings")]
+        for i in api.get("/api/state").json()["incidents"]:
+            seen.append(api.get(f"/api/incident/{i['key']}").text)
+            seen.append(api.get(f"/api/recap/{i['id']}").text)
+        text = "\n".join(seen)
+        markers = [W.CANARY["b"], *(full for full, _ in W.PEOPLE["b"].values())]
+        self.assertEqual([m for m in markers if m in text], [])
+        # and company A's own memory is there: its incidents and Priya's ticket preference
+        self.assertEqual(len(api.get("/api/state").json()["incidents"]), 2)
+        facts = api.get("/api/memory").json()["facts"]
+        self.assertIn(("priya", "ticket"), {(f["handle"], f["value"]) for f in facts})
+
     def test_org_changes_route_the_next_page(self):
         self.demo.hand_over("platform-data", "kabir")
         self.demo.move_owner("checkout-api", "payments")

@@ -48,13 +48,30 @@ class RegistryTests(unittest.TestCase):
         for name, args in [
             ("inspect_metrics", {"node": "postgres-orders"}),
             ("inspect_logs", {"node": "cart-svc"}),
-            ("inspect_recent_changes", {"service": "checkout-api"}),
             ("check_dependency_health", {"service": "cart-svc"}),
         ]:
             with self.subTest(tool=name):
                 result = call(self.ctx, name, args)
                 decoded = json.loads(result.observation_json())
                 self.assertEqual(decoded["source"], "simulator")
+
+    def test_recent_changes_come_from_the_graph(self):
+        from scripts.seed import seed_graph
+        from sim import deploys
+        from tests.graph_double import GraphDouble
+        g = GraphDouble()
+        seed_graph(g, "a")
+        sc = truth.load("s02").scenario()  # a bad deploy on checkout-api
+        self.assertEqual(deploys.publish(g, "incident:s02-x", sc), 2)
+        self.assertEqual(deploys.publish(g, "incident:s02-x", sc), 2)  # idempotent
+        ctx = ToolContext(graph=g, evidence=Evidence(sc), scenario_now=sc.now_ms)
+        got = call(ctx, "inspect_recent_changes", {"service": "checkout-api"})
+        self.assertEqual(got.result, Evidence(sc).inspect_recent_changes("checkout-api"))
+        self.assertEqual(json.loads(got.observation_json())["source"],
+                         "cypher:tools/queries/recent_changes.cypher")
+        self.assertEqual(call(ctx, "inspect_recent_changes", {"service": "notify-svc"}).result, [])
+        self.assertEqual(len(call(ctx, "inspect_recent_changes",
+                                  {"service": "notify-svc", "hours": 8}).result), 1)
 
     def test_evidence_tools_need_evidence(self):
         bare = ToolContext(graph=None, evidence=None, scenario_now=0)

@@ -27,7 +27,8 @@ from agents.worker import Worker
 from chat.war_room import WarRoom
 from common import config
 from common.db import run
-from sim import org
+from coord import tasks
+from sim import deploys, org
 from sim import world as W
 from sim.families import Scenario
 from sim.store import ScenarioStore
@@ -88,10 +89,9 @@ class Demo:
             t = threading.Thread(target=self._loop, args=(w,), name=w.instance, daemon=True)
             self._threads.append(t)
             t.start()
-        if self.supervisor is not None:
-            t = threading.Thread(target=self._armed_kill_loop, name="armed-kill", daemon=True)
-            self._threads.append(t)
-            t.start()
+        t = threading.Thread(target=self._housekeeping, name="housekeeping", daemon=True)
+        self._threads.append(t)
+        t.start()
 
     def arm_kill(self, after: int | None) -> None:
         """One shot: SIGKILL whichever investigator holds a fresh lease once it has
@@ -112,12 +112,20 @@ class Demo:
                 return str(r["owner"])
         return None
 
-    def _armed_kill_loop(self) -> None:
+    def _housekeeping(self) -> None:
+        """Armed kill (every 0.1 s) and the stuck sweep (every 2 s): a task whose lease ran
+        out on its last allowed attempt is marked stuck, for a human to look at."""
+        ticks = 0
         while not self._stop.wait(0.1):
+            ticks += 1
             try:
                 self.check_armed_kill()
+                if ticks % 20 == 0:
+                    for task_id in tasks.stuck_sweep(self.graph):
+                        log.warning("%s is stuck after %s attempts; needs a human",
+                                    task_id, config.MAX_ATTEMPTS)
             except Exception:
-                log.exception("armed kill check failed")
+                log.exception("housekeeping failed")
 
     def agents(self) -> list[Worker]:
         return [Responder(self.graph, "responder-1", self.engineer, self.store,
@@ -185,6 +193,7 @@ class Demo:
             key = incident_key(incident_id)
             scenario = Scenario(incident_id, family, root, self.next_onset(), wording=wording)
             alerts = self.store.start(key, scenario)
+            deploys.publish(self.graph, key, scenario)
             self.engineer.watch(key, Script(root, family, says))
             open_incident(self.graph, incident_id, alerts, self.store.observed_at(key))
         log.info("broke %s (%s) as %s", root, family, key)
@@ -270,10 +279,13 @@ class Demo:
         impact = (q("tools/queries/blast_radius.cypher", {"node": root})
                   if root and root != "unknown" else [])
         messages = q(Q + "messages.cypher", p)
+        handle = actions[0]["recipient"] if actions else None
+        earlier = [m for m in (WarRoom(self.graph).recent(handle, 8) if handle else [])
+                   if m["incident"] != head[0]["id"]][:6]
         return {
             "head": head[0], "lens": lens, "tasks": tasks, "checkpoints": checkpoints,
             "actions": actions, "messages": messages, "impact": impact,
-            "recalling": recalling, "timeline": timeline(tasks, checkpoints, actions, head[0]),
+            "recalling": recalling, "earlier": earlier, "timeline": timeline(tasks, checkpoints, actions, head[0]),
             "db": {"queries": stats["queries"], "ms": round(stats["ms"], 1)},
         }
 

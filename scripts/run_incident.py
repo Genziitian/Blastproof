@@ -27,6 +27,7 @@ from common import config, llm, logs
 from common.db import graph, run
 from eval import truth
 from eval.oracle import Oracle
+from sim import deploys
 from sim.runtime import SimulatedWorld
 
 
@@ -52,6 +53,7 @@ def run_incident(g: Any, t: truth.Truth, incident_id: str, *, use_memory: bool =
     world, oracle = SimulatedWorld(), Oracle()
     key = incident_key(incident_id)
     alerts = world.start(key, t.scenario())
+    deploys.publish(g, key, t.scenario())
     oracle.watch(key, t)
 
     open_incident(g, incident_id, alerts, world.observed_at(key))

@@ -30,6 +30,7 @@ from eval.oracle import Oracle
 from scripts import acceptance
 from scripts.run_incident import run_incident
 from scripts.seed import seed_graph
+from sim import deploys
 from sim.runtime import SimulatedWorld
 from tests.backends import SKIP_REASON, double, expire_lease, falkordb, falkordb_up
 from tests.graph_double import GraphDouble
@@ -193,7 +194,9 @@ class AcceptanceCases:
 
         t, world, oracle = truth.load("s04"), SimulatedWorld(), Oracle()
         key = incident_key("s04-acc")
-        open_incident(self.g, "s04-acc", world.start(key, t.scenario()), world.observed_at(key))
+        alerts = world.start(key, t.scenario())
+        deploys.publish(self.g, key, t.scenario())
+        open_incident(self.g, "s04-acc", alerts, world.observed_at(key))
         oracle.watch(key, t)
         with self.assertRaises(Crash):
             CrashingInvestigator(self.g, "worker-1", world,

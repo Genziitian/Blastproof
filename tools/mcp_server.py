@@ -18,6 +18,7 @@ from mcp.server.stdio import stdio_server
 
 from common.db import graph
 from eval import truth
+from sim import deploys
 from sim.runtime import SimulatedWorld
 from tools.registry import TOOLS, ToolContext, ToolError, call
 
@@ -58,7 +59,9 @@ def main() -> None:
 
     world = SimulatedWorld()
     incident_key = f"incident:mcp-{args.scenario}"
-    world.start(incident_key, truth.load(args.scenario).scenario())
+    scenario = truth.load(args.scenario).scenario()
+    world.start(incident_key, scenario)
+    deploys.publish(graph(args.company), incident_key, scenario)
     ctx = ToolContext(graph(args.company), world.evidence_for(incident_key),
                       world.observed_at(incident_key))
     asyncio.run(serve(ctx))

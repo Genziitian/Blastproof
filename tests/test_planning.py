@@ -25,6 +25,8 @@ def investigate(scenario: str | Scenario) -> tuple[Diagnosis, list[Step], list[C
         calls.append(move)
         if move.tool == "find_upstream_candidates":
             observation = upstream_candidates(move.args["alerting"])
+        elif move.tool == "inspect_recent_changes":  # a graph tool; same data as published
+            observation = ctx.require_evidence().inspect_recent_changes(**move.args)
         else:
             observation = registry.call(ctx, move.tool, move.args).result
         history.append(Step(len(history) + 1, move.tool, move.args, observation))

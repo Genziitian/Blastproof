@@ -1,6 +1,6 @@
 """Load benchmark (M8): two companies, N worker pairs each, incidents fired at once.
 
-    python -m bench.load                 # 1 and 2 worker pairs, 20 incidents
+    python -m bench.load                 # 1, 2 and 4 worker pairs, 20 incidents
     python -m bench.load --pairs 2 --incidents 20
 
 Every worker (investigator, responder, learner) runs its own claim loop in a
@@ -45,6 +45,7 @@ from common.db import raw_graph
 from eval import scenarios, truth
 from eval.oracle import Oracle
 from scripts.seed import seed_graph
+from sim import deploys
 from sim.runtime import SimulatedWorld
 
 RESULTS = Path(__file__).resolve().parent / "results"
@@ -125,7 +126,9 @@ def run_load(make_graph: Callable[[str], Any], pairs: int, incidents: int,
                 t = truth.load(sid)
                 key = incident_key(sid)
                 oracle.watch(key, t)
-                open_incident(g, sid, world.start(key, t.scenario()), world.observed_at(key))
+                alerts = world.start(key, t.scenario())
+                deploys.publish(g, key, t.scenario())
+                open_incident(g, sid, alerts, world.observed_at(key))
         for th in threads:
             th.start()
         expected = len(ids)
@@ -176,7 +179,7 @@ def live_graph(name: str) -> Any:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--pairs", type=int, nargs="+", default=[1, 2])
+    ap.add_argument("--pairs", type=int, nargs="+", default=[1, 2, 4])
     ap.add_argument("--incidents", type=int, default=20)
     ap.add_argument("--chaos-ms", type=int, default=0, help="expire a held lease this often")
     args = ap.parse_args()

@@ -92,6 +92,21 @@ NOISE = ["GET /healthz 200 2ms", "rotated access log", "config reloaded (no chan
          "GC pause 11ms", "worker heartbeat ok"]
 
 
+def scenario_changes(sc: Scenario) -> list[dict[str, Any]]:
+    """Every deploy or config change the scenario's world made, for any service.
+
+    The simulator publishes these to the company graph as Change nodes (sim/deploys.py),
+    like a CI system would; which one caused the incident is not recorded anywhere."""
+    changes: list[dict[str, Any]] = []
+    if sc.family == "bad_deploy":
+        changes.append({"service": sc.root, "kind": "deploy", "at_ms": sc.onset_ms - 12 * MIN,
+                        "summary": "release with pricing changes", "author": "rohan"})
+    # Noise: an old, harmless change outside a 2-hour window.
+    changes.append({"service": "notify-svc", "kind": "config", "at_ms": sc.now_ms - 6 * 60 * MIN,
+                    "summary": "template copy update", "author": "arjun"})
+    return changes
+
+
 class Evidence:
     """The ONLY object the tool layer receives. Returns observations, never the answer."""
 
@@ -161,18 +176,9 @@ class Evidence:
         return lines[:n]
 
     def inspect_recent_changes(self, service: str, hours: int = 2) -> list[dict]:
-        changes: list[dict[str, Any]] = []
-        if self._s.family == "bad_deploy" and service == self._s.root:
-            changes.append({"service": service, "kind": "deploy",
-                            "at_ms": self._s.onset_ms - 12 * MIN,
-                            "summary": "release with pricing changes", "author": "rohan"})
-        # Noise: an old, harmless change outside a 2-hour window.
-        if service == "notify-svc":
-            changes.append({"service": service, "kind": "config",
-                            "at_ms": self._s.now_ms - 6 * 60 * MIN,
-                            "summary": "template copy update", "author": "arjun"})
         cutoff = self._s.now_ms - hours * 60 * MIN
-        return [c for c in changes if c["at_ms"] >= cutoff]
+        return [c for c in scenario_changes(self._s)
+                if c["service"] == service and c["at_ms"] >= cutoff]
 
     def check_dependency_health(self, service: str) -> list[dict]:
         deps = [b for a, b in W.DEPENDS_ON if a == service]

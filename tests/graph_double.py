@@ -867,6 +867,20 @@ def _incident_recap(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: r["seq"])
 
 
+@implements("chat/queries/incident_steps.cypher")
+def _incident_steps(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    _, ts = _incident_tasks(g, p["incident_key"])
+    rows = []
+    for t in ts:
+        if t.get("type") != "investigate":
+            continue
+        cs = [c for _, c in g.out(t, "HAS_CHECKPOINT") if "Checkpoint" in c.labels]
+        rows.append({"status": t.get("status"), "steps": len(cs),
+                     "agents": list(dict.fromkeys(c.get("agent") for c in cs if c.get("agent"))),
+                     "epochs": max((c.get("epoch") for c in cs), default=None)})
+    return rows
+
+
 @implements("chat/queries/recent_messages.cypher")
 def _recent_messages(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     person = g.one("Person", key=p["person_key"])
@@ -914,6 +928,21 @@ def _holds(e: Edge, at: int) -> bool:
     """valid_from <= at < valid_to, where a missing valid_to means open-ended."""
     valid_to = e.props.get("valid_to")
     return int(e.props.get("valid_from", at + 1)) <= at and (valid_to is None or at < valid_to)
+
+
+@implements("tools/queries/recent_changes.cypher")
+def _recent_changes(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    svc = g.entity(p["service"])
+    if svc is None or "Service" not in svc.labels:
+        return []
+    rows = []
+    for _, c in g.into(svc, "MODIFIED"):
+        if "Change" not in c.labels or not (p["since"] <= c.get("at") <= p["now"]):
+            continue
+        for _, person in g.into(c, "AUTHORED"):
+            rows.append({"service": svc.get("name"), "kind": c.get("kind"), "at_ms": c.get("at"),
+                         "summary": c.get("summary"), "author": person.get("handle")})
+    return sorted(rows, key=lambda r: r["at_ms"])
 
 
 @implements("tools/queries/who_to_page.cypher")
@@ -990,6 +1019,19 @@ def _bind_path(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
 def _open_now(e: Edge, at: int) -> bool:
     valid_to = e.props.get("valid_to")
     return int(e.props.get("valid_from", at)) < at and (valid_to is None or valid_to > at)
+
+
+@implements("sim/queries/record_change.cypher")
+def _record_change(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    svc = g.one("Service", name=p["service"])
+    person = g.one("Person", handle=p["author"])
+    if svc is None or person is None:
+        return []
+    c = g.merge(["Change"], {"key": p["key"]},
+                {"kind": p["kind"], "at": p["at"], "summary": p["summary"]})
+    g.merge_edge(person, "AUTHORED", c)
+    g.merge_edge(c, "MODIFIED", svc)
+    return [{"key": c.get("key")}]
 
 
 @implements("sim/queries/close_on_call.cypher")
@@ -1083,7 +1125,9 @@ def _web_incidents(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
                      "agent": d.get("agent") if d else None,
                      "verdict": f.get("verdict") if f else None,
                      "considered": len(used),
-                     "applied": sum(1 for e, _ in used if e.props.get("applied"))})
+                     "applied": sum(1 for e, _ in used if e.props.get("applied")),
+                     "stuck": sum(1 for _, t in g.into(i, "FOR")
+                                  if "Task" in t.labels and t.get("status") == "stuck")})
     rows.sort(key=lambda r: r["opened_at"], reverse=True)
     return rows[: p["limit"]]
 

@@ -377,11 +377,12 @@ function renderFeed() {
   const list = S.state.incidents;
   $("#feed-count").textContent = list.length ? `${list.length}` : "";
   $("#feed").innerHTML = list.length ? list.map((i) => {
+    const stuck = i.stuck > 0 ? `<span class="chip red">stuck: needs a human</span>` : "";
     const mem = i.applied > 0 ? `<span class="chip green">from memory</span>`
       : i.considered > 0 ? `<span class="chip grey">memory ruled out</span>` : "";
     return `<button class="feed-item ${i.key === S.selected ? "on" : ""}" data-key="${esc(i.key)}">
       <div class="row"><span class="mono">${esc(i.id)}</span><span class="grow"></span>${statusChip(i.status)}</div>
-      <div class="row wrap muted" style="margin-top:3px">${i.root ? `<span class="mono">${esc(i.root)}</span> · ${esc(label(i.family))}` : "investigating…"} ${mem}</div>
+      <div class="row wrap muted" style="margin-top:3px">${i.root ? `<span class="mono">${esc(i.root)}</span> · ${esc(label(i.family))}` : "investigating…"} ${mem} ${stuck}</div>
     </button>`;
   }).join("") : `<div class="empty">No incidents yet.</div>`;
   document.querySelectorAll(".feed-item").forEach((b) => b.onclick = () => {
@@ -573,7 +574,12 @@ function renderTimeline() {
   if (!x) { $("#timeline").innerHTML = `<div class="empty">—</div>`; $("#lease").innerHTML = ""; return; }
   const alive = Object.fromEntries((S.state?.workers || []).map((w) => [w.name, w.alive]));
   const held = x.tasks.find((t) => t.status === "leased");
-  if (held) {
+  const stuck = x.tasks.find((t) => t.status === "stuck");
+  if (stuck) {
+    $("#lease").dataset.sig = "stuck";
+    $("#lease").innerHTML = `<div class="lease expired"><div class="row wrap"><span class="chip red">stuck</span>
+      <b>${esc(stuck.type)}</b><span class="muted">failed ${stuck.attempts} times; the stuck sweep took it out of rotation so no worker retries it forever. A human needs to look.</span></div></div>`;
+  } else if (held) {
     const ms = S.settings.lease_ms, left = held.lease_left_ms;
     const dead = alive[held.owner] === false;
     const expired = left < 0;
@@ -612,10 +618,14 @@ function renderChat() {
   const action = x.actions[0];
   $("#chat-with").innerHTML = action ? `with ${esc(action.recipient)} · via ${esc(action.channel)}` : "";
   let html = "";
+  if (x.earlier?.length) {
+    html += `<details class="muted"><summary>Earlier with ${esc(action.recipient)} (${x.earlier.length} messages, other incidents)</summary>
+      ${x.earlier.map((m) => `<div style="margin:4px 0"><span class="mono faint">${esc(m.incident)}</span> ${m.role === "agent" ? "responder" : esc(action.recipient)}: ${esc(String(m.text).split("\n")[0])}</div>`).join("")}</details>`;
+  }
   if (x.messages.length) {
-    html = x.messages.map((m) => `<div class="msg ${m.role}"><div class="who">${m.role === "agent" ? "responder" : esc(m.handle)}</div>${esc(m.role === "agent" ? noCites(m.text) : m.text)}</div>`).join("");
+    html += x.messages.map((m) => `<div class="msg ${m.role}"><div class="who">${m.role === "agent" ? "responder" : esc(m.handle)}</div>${esc(m.role === "agent" ? noCites(m.text) : m.text)}</div>`).join("");
   } else if (action) {
-    html = `<div class="msg agent"><div class="who">responder · ${esc(action.channel)} to ${esc(action.recipient)}</div>${esc(noCites(action.payload?.text))}</div>`;
+    html += `<div class="msg agent"><div class="who">responder · ${esc(action.channel)} to ${esc(action.recipient)}</div>${esc(noCites(action.payload?.text))}</div>`;
   } else html = `<div class="empty">The responder writes here once it has a diagnosis.</div>`;
   const cites = action?.payload?.applied_preferences || [];
   if (cites.length) html += cites.map((c) => `<div class="cite">↳ sent this way ${esc(c)}</div>`).join("");

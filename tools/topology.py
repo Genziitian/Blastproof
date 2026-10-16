@@ -20,3 +20,11 @@ def blast_radius(ctx: ToolContext, node: str) -> list[dict[str, Any]]:
 def who_to_page(ctx: ToolContext, node: str) -> dict[str, Any] | None:
     rows = run(ctx.graph, Q + "who_to_page.cypher", {"node": node, "at": ctx.scenario_now})
     return rows[0] if rows else None
+
+
+HOUR_MS = 3_600_000
+
+
+def inspect_recent_changes(ctx: ToolContext, service: str, hours: int = 2) -> list[dict[str, Any]]:
+    return run(ctx.graph, Q + "recent_changes.cypher", {
+        "service": service, "since": ctx.scenario_now - hours * HOUR_MS, "now": ctx.scenario_now})
