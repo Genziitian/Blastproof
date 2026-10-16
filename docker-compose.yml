@@ -2,7 +2,7 @@
 # Start the database:   docker compose up -d falkordb
 # FalkorDB Browser:     http://localhost:3000
 #
-# Data lives in the named volume below, so it survives `docker compose down`
+# Data lives in the named volume below (snapshots), so it survives `docker compose down`
 # (but NOT `docker compose down -v`, which deletes volumes).
 # Seeding is a separate command (python -m scripts.seed); nothing reseeds on startup.
 
@@ -15,8 +15,15 @@ services:
       - "${FALKORDB_PORT:-6379}:6379"   # database (Redis protocol)
       - "3000:3000"   # FalkorDB Browser
     environment:
-      # Append-only file on top of snapshots; check the durability docs and adjust.
-      REDIS_ARGS: "--appendonly yes --appendfsync everysec"
+      # RDB snapshots: every 30 s if anything changed, and always on shutdown
+      # (`docker compose down` stops the container gracefully, so nothing is lost).
+      # Not the append-only file: on FalkorDB 4.22.1 replaying a long AOF that
+      # included graph deletes and re-creates diverged ("GRAPH.EFFECT references
+      # label ... which doesn't match local schema state") and the server shut
+      # itself down on every start. A snapshot is loaded directly, with no replay.
+      # Trade-off: a hard crash of the database can lose up to 30 s of writes.
+      REDIS_ARGS: "--appendonly no --save 30 1"
+    stop_grace_period: 30s   # time to write the final snapshot
     volumes:
       - falkordb_data:/var/lib/falkordb/data
     restart: unless-stopped

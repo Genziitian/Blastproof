@@ -42,6 +42,8 @@ What this does and doesn't show:
 - **Caveat on B:** text is embedded with a deterministic hashed bag of words; a neural embedder (`EMBED_MODEL`, e.g. Gemini's) is supported and a fairer opponent.
 - **Synthetic benchmark only.** A 15-node company and three failure families; the results describe this benchmark and nothing more. The same run with the deterministic planner (no model) is in `eval/results/` too.
 
+FalkorDB finding (persistence): on FalkorDB 4.22.1, after a day of development (eval runs and benchmarks that delete and re-create graphs), restarting replayed the append-only file and failed with `GRAPH.EFFECT references label/relationship-type 'Memory' (id 0) which doesn't match local schema state`, then shut itself down on every start. The same reset-then-restart sequence replayed fine on 4.18.3. We now persist with RDB snapshots (every 30 s and on shutdown), which load without replay; the acceptance test's restart passes all seven checks this way.
+
 FalkorDB finding: on graphs this small, the HNSW vector index (`db.idx.vector.queryNodes`) returned fewer neighbours than requested (1 to 2 of 3 embedded memories for k = 10), so arm B uses exact `vec.cosineDistance` instead.
 
 ### Concurrency and tenant isolation (M8, M9)
@@ -114,6 +116,8 @@ make acceptance-1      # resets company_a, runs s01, learns a playbook
 docker compose down && docker compose up -d falkordb
 make acceptance-2      # s04 after the restart, SIGKILL mid-investigation, takeover
 ```
+
+Persistence: FalkorDB writes an RDB snapshot every 30 s if anything changed and on every shutdown, into a named Docker volume; nothing reseeds on startup. `make acceptance-2` (and the UI) wait until FalkorDB has finished loading after a restart. We started with the append-only file (AOF) and switched: see the FalkorDB findings below.
 
 The benchmark:
 
