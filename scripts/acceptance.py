@@ -29,7 +29,7 @@ from agents.investigator import Investigator
 from agents.learner import Learner
 from agents.responder import Responder
 from agents.triage import incident_key, open_incident
-from common import config, logs
+from common import config, db, logs
 from common.db import graph
 from eval import truth
 from eval.oracle import Oracle
@@ -85,6 +85,9 @@ def part1(company: str, reset: bool) -> int:
 
 
 def part2() -> int:
+    if not db.wait_ready():
+        print("FAIL: FalkorDB did not become ready after the restart")
+        return 1
     state = json.loads(STATE.read_text())
     company, s01_id = state["company"], state["s01"]
     g = graph(company)

@@ -28,6 +28,30 @@ def client() -> FalkorDB:
                     password=config.FALKORDB_PASSWORD)
 
 
+def wait_ready(timeout_s: float = 60.0, log: Any = print) -> bool:
+    """Wait until FalkorDB answers graph commands.
+
+    Right after a restart it replies "LOADING" while it reads the dataset back from
+    disk (AOF/RDB); commands sent then fail. Returns False if it is still not ready
+    after `timeout_s` (or not reachable at all)."""
+    from redis.exceptions import BusyLoadingError
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    deadline = time.monotonic() + timeout_s
+    told = False
+    while True:
+        try:
+            client().connection.execute_command("GRAPH.LIST")
+            return True
+        except (BusyLoadingError, RedisConnectionError) as e:
+            if time.monotonic() > deadline:
+                return False
+            if not told:
+                log(f"waiting for FalkorDB ({'loading its data from disk' if isinstance(e, BusyLoadingError) else 'not reachable yet'})...")
+                told = True
+            time.sleep(0.5)
+
+
 def graph(company_id: str):
     """Graph handle for a trusted company id (see config.graph_name)."""
     return client().select_graph(config.graph_name(company_id))

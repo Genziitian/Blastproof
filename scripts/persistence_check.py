@@ -18,7 +18,7 @@ import argparse
 import sys
 import uuid
 
-from common import config
+from common import config, db
 from common.db import graph
 
 COUNTS = {
@@ -46,6 +46,9 @@ def write() -> int:
 
 
 def verify(full: bool) -> int:
+    if not db.wait_ready():
+        print("FAIL: FalkorDB did not become ready")
+        return 1
     ok, any_complete = True, False
     for cid in config.COMPANIES:
         g = graph(cid)

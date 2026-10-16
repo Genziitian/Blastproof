@@ -233,6 +233,10 @@ def main() -> int:
     from scripts import seed, setup_schema
 
     logs.setup()
+    from common.db import wait_ready
+    if not wait_ready():
+        print("FalkorDB is not reachable: start it with `make db` (docker compose up -d falkordb)")
+        return 1
     g = graph(args.company)
     if not run(g, "web/queries/service_map.cypher", {}):
         print(f"{config.graph_name(args.company)} is empty: run `make schema seed` first")

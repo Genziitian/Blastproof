@@ -309,6 +309,13 @@ class WebOnFalkorDB(WebCases, unittest.TestCase):
     backend = staticmethod(falkordb)
 
 
+@unittest.skipUnless(falkordb_up(), SKIP_REASON)
+class ReadyTests(unittest.TestCase):
+    def test_ready_when_up(self):
+        from common.db import wait_ready
+        self.assertTrue(wait_ready(timeout_s=2, log=lambda _: None))
+
+
 class ResultsTests(unittest.TestCase):
     def test_reads_newest_model_run(self):
         import json
