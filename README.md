@@ -42,9 +42,13 @@ What this does and doesn't show:
 - **Caveat on B:** text is embedded with a deterministic hashed bag of words; a neural embedder (`EMBED_MODEL`, e.g. Gemini's) is supported and a fairer opponent.
 - **Synthetic benchmark only.** A 15-node company and three failure families; the results describe this benchmark and nothing more. The same run with the deterministic planner (no model) is in `eval/results/` too.
 
-FalkorDB finding (persistence): on FalkorDB 4.22.1, after a day of development (eval runs and benchmarks that delete and re-create graphs), restarting replayed the append-only file and failed with `GRAPH.EFFECT references label/relationship-type 'Memory' (id 0) which doesn't match local schema state`, then shut itself down on every start. The same reset-then-restart sequence replayed fine on 4.18.3. We now persist with RDB snapshots (every 30 s and on shutdown), which load without replay; the acceptance test's restart passes all seven checks this way.
+**FalkorDB findings** (details and reproductions in [`docs/FALKORDB-FINDINGS.md`](docs/FALKORDB-FINDINGS.md)):
 
-FalkorDB finding: on graphs this small, the HNSW vector index (`db.idx.vector.queryNodes`) returned fewer neighbours than requested (1 to 2 of 3 embedded memories for k = 10), so arm B uses exact `vec.cosineDistance` instead.
+- **AOF replay diverged on 4.22.1** after a day of graph deletes and re-creates (`GRAPH.EFFECT references label/relationship-type 'Memory' (id 0) which doesn't match local schema state`), and the server shut itself down on every start. We persist with RDB snapshots instead; the restart test passes.
+- **Each unique-constraint creation is written to the AOF three times** (28 commands, 84 entries), and replay logs `Constraint already exists` errors (4.18.3).
+- **A later `SET` clause reads the values from before an earlier `SET` clause** (`SET m.h = m.h + 1 SET m.t = m.h` leaves `t` at the old `h`); a `WITH` between them fixes it. This silently broke our trust update until a FalkorDB run caught it.
+
+Arm B ranks memories with exact `vec.cosineDistance` (exact, and cheap for a few hundred memories) rather than the HNSW index.
 
 ### Concurrency and tenant isolation (M8, M9)
 
@@ -117,7 +121,7 @@ docker compose down && docker compose up -d falkordb
 make acceptance-2      # s04 after the restart, SIGKILL mid-investigation, takeover
 ```
 
-Persistence: FalkorDB writes an RDB snapshot every 30 s if anything changed and on every shutdown, into a named Docker volume; nothing reseeds on startup. `make acceptance-2` (and the UI) wait until FalkorDB has finished loading after a restart. We started with the append-only file (AOF) and switched: see the FalkorDB findings below.
+Persistence: FalkorDB writes an RDB snapshot every 30 s if anything changed and on every shutdown, into a named Docker volume; nothing reseeds on startup. `make acceptance-2` (and the UI) wait until FalkorDB has finished loading after a restart. We started with the append-only file (AOF) and switched: see the FalkorDB findings above.
 
 The benchmark:
 
@@ -160,7 +164,7 @@ The integration suites are written once and run on two backends: FalkorDB when i
 | `web/` | The UI: one page, a JSON API, its read queries, the investigator supervisor |
 | `scripts/` | Schema, seed, runners, acceptance test, persistence check |
 | `tests/` | Offline tests and live tests against FalkorDB |
-| `docs/` | The implementation plan |
+| `docs/` | The implementation plan; FalkorDB findings with reproductions |
 
 ## Still to come
 
