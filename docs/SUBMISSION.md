@@ -26,7 +26,7 @@ Blast Radius is a team of on-call agents that share one FalkorDB graph per compa
 
 **How FalkorDB is used.** Everything is in the graph: the company (services, dependencies, owners and on-call with validity intervals, deploy history), incidents and immutable decision records, the tasks the agents coordinate through (fenced leases using `timestamp()`, checkpoints, intent-keyed actions), versioned memory (playbooks, facts with supersession), and the war-room conversations. Recall is a variable-length `DEPENDS_ON` walk, who-to-page a time-valid two-hop query, blast radius up to four hops. One graph per tenant, chosen from trusted config, never by the model. All 73 queries are `.cypher` files, indexed in `docs/QUERIES.md`; the UI shows the Cypher behind every panel.
 
-**Results (synthetic 30-incident benchmark, Claude Haiku 5.5, only retrieval differs between arms).** *(Replace with the frozen Saturday numbers.)* No memory, text memory and graph memory reached 30/30, 29/30 and 30/30. Graph memory used 72% fewer model requests than no memory (52 vs 185), solved 21 of 30 incidents without any model call, and found the right memory in its top 5 every time, against 48% for text similarity. 0 misleading uses, 0 duplicate notifications under randomly expired leases, 0 leaks between tenants, and a deliberately wrong playbook retired after two misleading uses. The acceptance test kills a real worker process after a full database restart; its replacement resumes at the next step.
+**Results (synthetic 30-incident benchmark, Claude Haiku 5.5, only retrieval differs between arms).** No memory, text memory and graph memory reached 30/30, 29/30 and 30/30. Graph memory used 71% fewer model requests than no memory (55 vs 192), solved 20 of 30 incidents without any model call, and found the right memory in its top 5 every time, against 55% for text similarity. 0 misleading uses, 0 duplicate notifications under randomly expired leases, 0 leaks between tenants, and a deliberately wrong playbook retired after two misleading uses. The acceptance test kills a real worker process after a full database restart; its replacement resumes at the next step.
 
 **What we found in FalkorDB.** AOF replay diverging on 4.22.1 after graph deletes and re-creates (the server then refused to start), unique-constraint creation written to the AOF three times, and a later `SET` clause reading values from before an earlier one; reproductions in `docs/FALKORDB-FINDINGS.md`.
 
@@ -44,4 +44,4 @@ Blast Radius is a team of on-call agents that share one FalkorDB graph per compa
 - [x] Only synthetic data in the graph
 - [x] Main coding during the event (Oct 15–18)
 - [ ] Every member has walked through `docs/TEAM-BRIEFING.md`
-- [ ] Frozen numbers from the final commit in the README and this page
+- [x] Frozen numbers from the final code in the README and this page (Oct 16 run)

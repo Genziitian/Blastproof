@@ -48,31 +48,31 @@ A 30-incident synthetic benchmark replayed in time order. Three setups, each in 
 - **B, text memory:** tries the memories whose text is most similar to the alerts (embedding similarity, FalkorDB `vec.cosineDistance`).
 - **C, graph memory:** tries the memories pinned near the alerting services in the dependency graph.
 
-Run on Oct 16 (`eval/results/2026-10-15T19-15-28Z-claude-haiku-5-5/`, uncached):
+Frozen run on Oct 16 from the submitted code (`eval/results/2026-10-16T14-24-13Z-claude-haiku-5-5/`, uncached, 0 model failures):
 
 | | A: no memory | B: text memory | C: graph memory |
 |---|---|---|---|
 | Root cause correct | 30/30 | 29/30 | **30/30** |
-| LLM requests, whole benchmark | 185 | 101 (−45%) | **52 (−72%)** |
-| Input / output tokens | 438k / 60k | 251k / 31k | **128k / 18k** |
-| Wall-clock time, whole benchmark | 417 s | 219 s | **127 s** |
-| Incidents solved from memory | 0 | 10 | **21** |
-| Repeat incidents: LLM requests, seconds each | 6.0, 13.5 s | 1.7, 4.0 s | **0, 0.02 s** |
-| Related-service incidents: LLM requests, seconds each | 5.5, 12.7 s | 2.5, 5.2 s | **0, 0.02 s** |
-| Same symptom, different cause: LLM requests, seconds each | 6.3, 14.0 s | 3.0, 6.9 s | **0, 0.02 s** |
-| Recall@5 of a memory that gives the right answer (21 incidents where one exists, same snapshot) | n/a | 48% | **100%** |
+| LLM requests, whole benchmark | 192 | 107 (−44%) | **55 (−71%)** |
+| Input / output tokens | 456k / 62k | 266k / 34k | **133k / 18k** |
+| Wall-clock time, whole benchmark | 433 s | 241 s | **125 s** |
+| Incidents solved with no model call | 0 | 10 | **20** |
+| Repeat incidents: LLM requests, seconds each | 6.0, 13.3 s | 1.7, 3.6 s | **0, 0.02 s** |
+| Related-service incidents: LLM requests, seconds each | 5.8, 12.4 s | 2.7, 5.7 s | **0, 0.02 s** |
+| Same symptom, different cause: LLM requests, seconds each | 6.5, 15.0 s | 3.2, 7.7 s | **0.8, 1.7 s** |
+| Recall@5 of a memory that gives the right answer (20 incidents where one exists, same snapshot) | n/a | 55% | **100%** |
 | Times a memory misled the agent | n/a | 0 | 0 |
 | Right person paged after an on-call or ownership change | 3/3 | 3/3 | 3/3 |
 | Duplicate notifications | 0 | 0 | 0 |
 | M5: a deliberately wrong playbook | n/a | n/a | misled twice, retired, next incident correct |
 
-Approximate model cost for the whole benchmark: A $0.04, B $0.02, C $0.01 (most input tokens are prompt-cache reads).
+Approximate model cost for the whole benchmark: A $0.04, B $0.02, C $0.01 (most input tokens are prompt-cache reads). An earlier run on Oct 15, before the UI work, gave nearly the same picture: 185 / 101 / 52 model requests, 30 / 29 / 30 correct, recall@5 48% vs 100% (in `eval/results/` too).
 
 What this does and doesn't show:
 
-- **Same accuracy, far less work.** Claude Haiku 5.5 already solves this benchmark from scratch, so memory can't raise accuracy here. Graph memory gives the same answers with 72% fewer model requests, and with no model call at all for 21 of 30 incidents.
-- **Text memory finds the right memory half as often.** When a memory that gives the right answer exists, text similarity ranks it in the top 5 for 48% of incidents, graph proximity for 100%: "which node is failing near these alerts" is a question about the dependency graph, not about wording.
-- **Checking the wrong memories has a cost.** Every recalled memory is checked against live evidence before it is trusted, so no arm was ever misled; but checks take steps. Arm B lost one incident (e20) this way: it checked five wrong memories, and the model ran out of the 12-step budget. On cold and novel incidents, graph memory also takes more steps than no memory (about 8 vs 6), though fewer model calls.
+- **Same accuracy, far less work.** Claude Haiku 5.5 already solves this benchmark from scratch, so memory can't raise accuracy here. Graph memory gives the same answers with 71% fewer model requests, and with no model call at all for 20 of 30 incidents.
+- **Text memory finds the right memory about half as often.** When a memory that gives the right answer exists, text similarity ranks it in the top 5 for 55% of incidents (48% in the earlier run), graph proximity for 100%: "which node is failing near these alerts" is a question about the dependency graph, not about wording.
+- **Checking the wrong memories has a cost.** Every recalled memory is checked against live evidence before it is trusted, so no arm was ever misled; but checks take steps. Arm B lost one incident (e20, in both runs) this way: it checked five wrong memories, and the model ran out of the 12-step budget. On cold and novel incidents, graph memory also takes more steps than no memory (about 8 vs 6), though fewer model calls.
 - **Caveat on B:** text is embedded with a deterministic hashed bag of words; a neural embedder (`EMBED_MODEL`) is supported and would be a fairer opponent.
 - **Synthetic benchmark only.** A 15-node company and three failure families; the results describe this benchmark and nothing more. The same run with the deterministic planner (no model) is in `eval/results/` too: 30/30 in every arm, repeat/related steps A 6.2/5.3, B 7.3/8.0, C 3.0/4.8.
 

@@ -121,7 +121,7 @@ One graph per company (`company_a`, `company_b`), chosen from trusted config, **
 
 ## 10. Results in one breath
 
-"Same model, same tools; only retrieval differs. All three arms got 30/30 (B 29/30), because Haiku can solve this benchmark from scratch. But graph memory needed 52 model requests against 185 with no memory and 101 with text memory, solved 21 of 30 incidents with no model call at all, and found the right memory in its top 5 every time, against 48% for text. Zero misleading uses, zero duplicate pages, and a planted wrong playbook retired after two."
+"Same model, same tools; only retrieval differs. All three arms got 30/30 (B 29/30), because Haiku can solve this benchmark from scratch. But graph memory needed 55 model requests against 192 with no memory and 107 with text memory, solved 20 of 30 incidents with no model call at all, and found the right memory in its top 5 every time, against 55% for text. An earlier run gave nearly the same numbers. Zero misleading uses, zero duplicate pages, and a planted wrong playbook retired after two."
 
 Say the caveats before they're asked: synthetic benchmark; no accuracy gain because the model hits the ceiling; checks cost extra steps on novel incidents; the text arm uses a hashed bag of words.
 
@@ -129,7 +129,7 @@ Say the caveats before they're asked: synthetic benchmark; no accuracy gain beca
 
 | Question | Answer |
 |---|---|
-| Why not a vector store? | Arm B *is* one, given the same memories, checks and learning. Text similarity found the right memory 48% of the time, graph proximity 100%, because "what's failing near these alerts" is a topology question. |
+| Why not a vector store? | Arm B *is* one, given the same memories, checks and learning. Text similarity found the right memory 55% of the time, graph proximity 100%, because "what's failing near these alerts" is a topology question. |
 | How do you stop memory from making things worse? | Nothing recalled is trusted until its preconditions hold against live evidence; a wrong one gets *misled* and loses trust; a bad playbook retires after two misleading uses. 0 misleading uses in the benchmark. |
 | What happens when a worker dies? | Fenced leases, synchronous checkpoints and intent-keyed actions: the next worker continues from the last checkpoint, and the dead one can't write even if it comes back. Shown live with a real SIGKILL. |
 | How is tenant data kept apart? | A graph per company from trusted config; no tool takes a graph argument; canary tests over stored data and the UI API. |
