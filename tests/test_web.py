@@ -321,6 +321,10 @@ class WebCases:
     def test_http_api(self):
         api = TestClient(create_app(self.demo))
         self.assertIn("Blast Radius", api.get("/").text)
+        self.assertIn("Blast Radius", api.get("/classic").text)
+        font = api.get("/fonts/inter-400.woff2")
+        self.assertEqual((font.status_code, font.headers["content-type"]), (200, "font/woff2"))
+        self.assertEqual(api.get("/fonts/..%2Fapp.py").status_code, 404)
         self.assertEqual(api.get("/api/settings").json()["company"], "a")
         self.assertEqual(api.post("/api/break", json={"node": "nope"}).status_code, 400)
         key = api.post("/api/break", json={"story": "s02"}).json()["key"]

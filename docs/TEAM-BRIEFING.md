@@ -56,7 +56,7 @@ Worked example from s04 (alerts on checkout-api, payments-gw, web-gateway; playb
 - Pinned copy on `postgres-orders`: checkout-api and web-gateway each reach it in 2 hops → 0.5 × 1 × (0.25 + 0.25) × 0.99 = **0.247**.
 - Kind match on `postgres-payments`: payments-gw in 1 hop, checkout-api in 2 → 0.5 × 0.5 × (0.5 + 0.25) × 0.99 = **0.185**.
 
-Both are checked. The first fails (`check_dependency_health(cart-svc)` says postgres-orders is healthy); the second passes all three checks. That is the Memory Lens on s04.
+Both are checked. The first fails (`check_dependency_health(cart-svc)` says postgres-orders is healthy); the second passes all three checks. That is the Memory Lens on s04 (the *check* step under *What happened*, and the checking card on the graph).
 
 ## 5. Checking before trusting (A4 playbooks)
 
@@ -144,7 +144,7 @@ Say the caveats before they're asked: synthetic benchmark; no accuracy gain beca
 ## 12. Practice drill
 
 1. Open the UI, click **s01**, and explain each timeline row as it appears.
-2. Open the **Cypher** button on the Memory Lens and read `recall.cypher` aloud (section 4).
+2. Click **‹›** next to *Dependency graph*, open *recall: walk downstream from the alerts*, and read `recall.cypher` aloud (section 4).
 3. Arm the kill, click **s04**, and narrate section 8 while it happens.
 4. Click **s05** and explain the failed precondition (section 5).
 5. Plant the wrong playbook, break `redis-cache` three times, and explain the trust numbers (section 6).

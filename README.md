@@ -4,9 +4,9 @@
 
 Built for Graph Hacks 2026 on FalkorDB by team **Blastproof** (sri ram, Aditi Akansha). Tracks: **Agent Memory and Coordination** (primary) and **Agents That Act on Connected Data**: the agents act through multi-hop graph queries, also served over MCP. FalkorDB holds the agents' memory, the shared task state they coordinate through, the conversation history and the evidence trail. Take it out and nothing works: the UI refuses to start without it, and the agents pause until it is back.
 
-![The UI after a worker was killed mid-investigation: the replacement took over at step 4 under a new fencing epoch, the playbook learned from an earlier incident was recalled by kind and checked against live evidence, and exactly one ticket went out, citing the engineer's earlier request](docs/img/ui-takeover.png)
+![The UI during demo moment 4: inv-1 was killed after step 3, inv-2 took over at step 4 under epoch 2, and the playbook learned from an earlier incident was recalled one hop from the alerts and is being checked against live evidence, two of three checks passed so far](docs/img/ui-takeover.png)
 
-*The UI after demo moment 4 (deterministic planner, demo timing). inv-2 was SIGKILLed after step 3; inv-1 took over at step 4 under epoch 2. The playbook learned on `postgres-orders` was recalled for `postgres-payments`, and all its checks held. Exactly one ticket went to Priya, the way she asked in the earlier incident.*
+*Demo moment 4, live (deterministic planner, demo timing). inv-1 was SIGKILLed after step 3; inv-2 took over at step 4 under epoch 2, not from scratch. The playbook learned on `postgres-orders` was recalled for `postgres-payments` (one hop, same kind of datastore) and is being checked against live evidence; the right panel is the Memory Lens. Every element is read from FalkorDB.*
 
 ## Contents
 
@@ -100,7 +100,7 @@ Isolation: identical service names, keys and incident ids in both companies; eve
 
 The `Decision` and its `USED` edges record every memory considered, with the evidence for and against, so "what did the agent believe then, and why?" is a query, not a guess. That is what the Memory Lens shows:
 
-![Memory Lens on the same-symptom, different-cause incident: the DB playbook was recalled twice (pinned, and by kind), and each copy was ruled out by a failed precondition, with the observed value; trust unchanged](docs/img/ui-lens-ruled-out.png)
+![Same symptoms, different cause (s05): the DB playbook was recalled twice (pinned, and by kind); the card on the graph shows the first copy ruled out because checkout-api had a deploy, and the Memory Lens on the right shows both copies with the failed check and observed value; trust unchanged](docs/img/ui-lens-ruled-out.png)
 
 | | Algorithm | Where |
 |---|---|---|
@@ -213,7 +213,7 @@ Shared memory fields: `id`, `lineage_id`, `version`, `source` (agent or human), 
 
 ## Queries
 
-All 73 queries are `.cypher` files, indexed with what each does in **[`docs/QUERIES.md`](docs/QUERIES.md)** (generated from the files; a test keeps it current). In the UI, every panel's **Cypher** button shows the queries behind it. The ones the product depends on most:
+All 73 queries are `.cypher` files, indexed with what each does in **[`docs/QUERIES.md`](docs/QUERIES.md)** (generated from the files; a test keeps it current). In the UI, the **‹›** button on each part opens the queries behind it. The ones the product depends on most:
 
 | Query | Does |
 |---|---|
@@ -255,7 +255,7 @@ make ui          # the UI on http://localhost:8000
 
 If something else already listens on port 6379 (a local Redis), set `FALKORDB_PORT=6380` in `.env`; Docker Compose and the Python client both read it.
 
-**The UI** runs two investigators as separate processes (Kill sends a real SIGKILL), plus the responder and learner, and reads everything back from FalkorDB. You play the on-call engineer in the war room, or tick "scripted engineer". Demo timing (6 s lease, 2 s heartbeat; production 30 s / 10 s) is labelled on screen. Panels and the demo walkthrough: [`web/README.md`](web/README.md).
+**The UI** runs two investigators as separate processes (Kill sends a real SIGKILL), plus the responder and learner, and reads everything back from FalkorDB. You play the on-call engineer in the war room, or switch on "scripted engineer" in Director. Each incident is told as the learning loop, step by step, with every animation driven by a real event in the graph; `/classic` keeps the first all-panels view. Demo timing (6 s lease, 2 s heartbeat; production 30 s / 10 s) is labelled on screen. Panels and the demo walkthrough: [`web/README.md`](web/README.md).
 
 **The acceptance test** (seven checks, real process kill, full restart):
 

@@ -4,410 +4,691 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Blast Radius</title>
-<link rel="icon" href="data:,">
 <style>
+@font-face { font-family: Inter; font-weight: 400; src: url(/fonts/inter-400.woff2) format("woff2"); font-display: swap; }
+@font-face { font-family: Inter; font-weight: 500; src: url(/fonts/inter-500.woff2) format("woff2"); font-display: swap; }
+@font-face { font-family: Inter; font-weight: 600; src: url(/fonts/inter-600.woff2) format("woff2"); font-display: swap; }
+@font-face { font-family: Inter; font-weight: 700; src: url(/fonts/inter-700.woff2) format("woff2"); font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; src: url(/fonts/jetbrains-mono-400.woff2) format("woff2"); font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; src: url(/fonts/jetbrains-mono-500.woff2) format("woff2"); font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 600; src: url(/fonts/jetbrains-mono-600.woff2) format("woff2"); font-display: swap; }
+
 :root {
-  --bg: #0d0f13; --panel: #151820; --panel2: #1b1f29; --line: #272c38; --line2: #333a49;
-  --text: #e7e9ee; --muted: #8d95a5; --faint: #5d6474;
-  --red: #f0616d; --orange: #f59e4b; --yellow: #e9cf5b; --green: #45c486; --blue: #5aa5f5;
-  --violet: #a78bfa; --teal: #3cc6c0; --pink: #f472b6;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --bg: #0a0a0b; --bg2: #0f0f11; --card: #111113; --card2: #141416; --hover: #1c1c1f;
+  --line: #1d1d21; --line2: #2a2a2f; --line3: #3a3a40;
+  --t1: #ededee; --t2: #a1a1a9; --t3: #6e6e76; --t4: #5a5a62;
+  --acc: #62c9d3; --red: #ef5b5b; --amb: #e9a23b; --grn: #3fcf8e;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ease: cubic-bezier(.16, 1, .3, 1);
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--text);
-  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
-button { font: inherit; color: inherit; cursor: pointer; }
-input, textarea, select { font: inherit; color: var(--text); background: var(--bg);
-  border: 1px solid var(--line2); border-radius: 6px; padding: 6px 8px; }
-textarea { width: 100%; resize: vertical; min-height: 54px; }
-.mono { font-family: var(--mono); font-size: 12px; }
-.muted { color: var(--muted); } .faint { color: var(--faint); }
-.row { display: flex; align-items: center; gap: 8px; }
-.wrap { flex-wrap: wrap; }
-.grow { flex: 1; min-width: 0; }
-.btn { background: var(--panel2); border: 1px solid var(--line2); border-radius: 6px;
-  padding: 5px 10px; white-space: nowrap; }
-.btn:hover { border-color: var(--muted); }
-.btn.primary { background: #23406b; border-color: #2f5b99; }
-.btn.good { background: #173d2b; border-color: #23704a; }
-.btn.danger { background: #4a1820; border-color: #8c2c3a; }
-.btn.small { padding: 2px 8px; font-size: 12px; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--t1);
+  font: 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased; font-feature-settings: "tnum" 1; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--acc); text-decoration: none; }
+.mono { font-family: var(--mono); }
+[hidden] { display: none !important; }
+::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: #26262b; border-radius: 4px; }
+
+/* ---------- top bar */
+header { height: 56px; display: flex; align-items: center; gap: 28px; padding: 0 24px;
+  border-bottom: 1px solid var(--line); position: relative; z-index: 30; }
+.brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.brand .logo { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--acc); display: grid; place-items: center; }
+.brand .logo i { width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
+.brand b { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.brand .sep { color: var(--line3); }
+.brand .co { font: 500 13px var(--mono); color: var(--t2); }
+.tabs { display: flex; gap: 2px; }
+.tab { border: 0; background: transparent; color: var(--t3); padding: 7px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; }
+.tab:hover { color: var(--t2); } .tab.on { color: var(--t1); background: var(--hover); }
+.grow { flex: 1; }
+.status { display: flex; align-items: center; gap: 20px; font-size: 13px; color: var(--t2); white-space: nowrap; }
+.dbstat { display: flex; align-items: center; gap: 8px; }
+.dbstat .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--grn); transition: background .3s; }
+.dbstat b { font: 500 12px var(--mono); color: #c8c8ce; }
+.model { font: 400 12px var(--mono); color: var(--t3); }
+.model.bad { color: var(--red); }
+.tag { font-size: 11px; color: var(--t2); border: 1px solid var(--line3); border-radius: 4px; padding: 1px 6px; }
+.btn { border: 1px solid var(--line2); background: transparent; color: var(--t1); border-radius: 7px; padding: 6px 12px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--t1); color: #0a0a0b; border-color: var(--t1); }
+.btn.primary:hover { background: #fff; }
+.btn.danger { color: var(--red); border-color: rgba(239,91,91,.35); }
+.btn.small { padding: 3px 9px; font-size: 12px; border-radius: 6px; }
 .btn:disabled { opacity: .45; cursor: default; }
-.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px;
-  border-radius: 999px; border: 1px solid var(--line2); font-size: 11.5px; white-space: nowrap; }
-.chip.red { color: var(--red); border-color: #6b2a32; background: #2a1418; }
-.chip.green { color: var(--green); border-color: #1f5a3c; background: #11261b; }
-.chip.orange { color: var(--orange); border-color: #6a4420; background: #2a1c10; }
-.chip.blue { color: var(--blue); border-color: #234a73; background: #101d2c; }
-.chip.violet { color: var(--violet); border-color: #4b3d7c; background: #1b1630; }
-.chip.yellow { color: var(--yellow); border-color: #625724; background: #262110; }
-.chip.grey { color: var(--muted); }
-.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.qbtn { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--line2); background: transparent; color: var(--t3);
+  display: inline-grid; place-items: center; font: 600 11px var(--mono); padding: 0; flex: none; }
+.qbtn:hover { color: var(--acc); border-color: rgba(98,201,211,.5); }
 
-header { display: flex; align-items: center; gap: 14px; padding: 10px 16px;
-  border-bottom: 1px solid var(--line); background: #10131a; position: sticky; top: 0; z-index: 5; }
-.logo { font-weight: 700; font-size: 15px; letter-spacing: .2px; display: flex; gap: 8px; align-items: center; }
-.logo svg { display: block; }
-.tabs { display: flex; gap: 2px; margin-left: 8px; }
-.tab { background: none; border: none; padding: 6px 12px; border-radius: 6px; color: var(--muted); }
-.tab.on { background: var(--panel2); color: var(--text); }
-.demo-label { color: var(--yellow); }
+/* ---------- director popover */
+.pop { position: absolute; top: 50px; right: 20px; width: 360px; background: #121214; border: 1px solid var(--line2);
+  border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 8px; z-index: 40;
+  animation: up .2s var(--ease) both; max-height: calc(100vh - 70px); overflow: auto; }
+.pop h4 { margin: 10px 10px 6px; font-size: 11px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .06em; }
+.pop .sc { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; }
+.pop .sc:hover { background: var(--hover); }
+.pop .sc b { font: 500 12px var(--mono); color: var(--acc); }
+.pop .row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; }
+.pop .row label { flex: 1; color: var(--t1); }
+.pop .hint { padding: 0 10px 6px; font-size: 12px; color: var(--t3); }
+.pop hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+.toggle { width: 32px; height: 18px; border-radius: 9px; background: #2e2e33; border: 0; position: relative; flex: none; transition: background .2s; }
+.toggle i { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s var(--ease); }
+.toggle.on { background: var(--acc); } .toggle.on i { left: 16px; }
+select.sel, input.num { background: var(--bg); border: 1px solid var(--line2); border-radius: 6px; padding: 3px 6px; font-size: 12px; }
+input.num { width: 48px; font-family: var(--mono); }
 
-main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 380px; gap: 12px; padding: 12px; }
-main[hidden] { display: none; }
-main.single { grid-template-columns: minmax(0, 1fr); max-width: 1280px; margin: 0 auto; }
-.col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-.panel > h2 { margin: 0; padding: 9px 12px; font-size: 12px; font-weight: 600; letter-spacing: .5px;
-  text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);
-  display: flex; align-items: center; gap: 8px; }
-.panel > h2 .right { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; }
-.pad { padding: 10px 12px; }
-.empty { padding: 14px 12px; color: var(--faint); }
+/* ---------- live layout */
+#view-live { height: calc(100vh - 56px); min-height: 760px; display: grid;
+  grid-template-columns: minmax(0, 1fr) 640px; grid-template-rows: minmax(0, 1fr) auto auto; }
+.stage { position: relative; border-right: 1px solid var(--line); min-height: 0; overflow: hidden; }
+.stage-head { position: absolute; left: 24px; right: 24px; top: 18px; display: flex; align-items: center; gap: 10px; z-index: 3; }
+.stage-head .h { font-size: 13px; font-weight: 600; }
+.stage-head .sub { font-size: 13px; color: var(--t3); }
+.oncall { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t3); }
+.avatar { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #2e2e33; display: grid; place-items: center;
+  font: 600 10px Inter, sans-serif; color: var(--t2); background: var(--card); transition: border-color .3s, color .3s, box-shadow .3s; }
+.avatar.hot { border-color: var(--t1); color: var(--t1); box-shadow: 0 0 0 3px rgba(237,237,238,.12); }
+.notif { font-size: 12px; font-weight: 500; color: var(--t1); border: 1px solid var(--line2); border-radius: 999px; padding: 2px 10px; animation: fade .3s both; }
+#graph { position: absolute; inset: 56px 16px 84px 16px; }
+#graph svg { width: 100%; height: 100%; overflow: visible; }
+.edge { fill: none; stroke: #26262b; stroke-width: 1.2; transition: stroke .3s, opacity .3s; }
+.dim .edge { opacity: .5; }
+.rp { fill: none; stroke-linecap: round; }
+.rp.main { stroke: var(--acc); stroke-width: 2; }
+.rp.faint { stroke: rgba(98,201,211,.5); stroke-width: 1.4; stroke-dasharray: 3 4; }
+.rp.ruled { stroke: #55555c; stroke-width: 1.4; stroke-dasharray: 3 4; }
+.rp.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw var(--d, .8s) var(--ease) forwards; }
+.rp.faint.draw, .rp.ruled.draw { stroke-dasharray: 1; }
+.node rect.box { transition: fill .3s, stroke .3s; }
+.node text { font: 500 13px var(--mono); fill: #d8d8dc; transition: fill .3s; pointer-events: none; }
+.node { cursor: pointer; transition: opacity .3s; }
+.node.faded { opacity: .38; }
+.node:hover rect.box { stroke: #55555c; }
+.node .cap { font: 400 12px Inter, sans-serif; fill: var(--t2); }
+.ring { fill: none; stroke-width: 4; }
+.pulse { fill: none; stroke: var(--red); stroke-width: 2; transform-box: fill-box; transform-origin: center;
+  animation: pulse .55s var(--ease) var(--delay, 0s) 2 both; }
+.pin rect { fill: #0f1415; stroke: rgba(98,201,211,.6); }
+.pin text { font: 500 11px var(--mono); fill: var(--acc); }
+.pin circle { fill: var(--acc); }
+.pin.grn rect { stroke: rgba(63,207,142,.6); } .pin.grn text { fill: var(--grn); } .pin.grn circle { fill: var(--grn); }
+.pin.neu rect { stroke: var(--line3); } .pin.neu text { fill: var(--t2); } .pin.neu circle { fill: var(--t2); }
+.pin.ret rect { stroke: #2e2e33; } .pin.ret text { fill: var(--t4); } .pin.ret circle { fill: var(--t4); }
+.pin.pop-in { animation: pinIn .4s var(--ease) both; }
+.plabel { font: 500 12px var(--mono); fill: var(--acc); }
+.plabel.ruled { fill: var(--t3); }
+.travel { fill: var(--acc); }
+.checkcard { background: #141416; border: 1px solid var(--line2); border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.5);
+  font-size: 13px; overflow: hidden; animation: card .3s var(--ease) both; }
+.checkcard .hd { padding: 11px 14px 9px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; }
+.checkcard .hd b { font-weight: 600; } .checkcard .hd .s { font-size: 12px; color: var(--t3); }
+.checkcard .hd .n { margin-left: auto; font: 500 12px var(--mono); color: var(--t2); }
+.crow { display: grid; grid-template-columns: 18px 1fr; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line); }
+.crow:first-of-type { border-top: 0; }
+.crow .o { font: 400 12px var(--mono); color: var(--t3); margin-top: 1px; }
+.crow.new { animation: fade .3s var(--ease) both; }
+.glyph { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid; display: grid; place-items: center; font-size: 9px; font-weight: 700; margin-top: 2px; }
+.g-pass { border-color: var(--grn); color: var(--grn); }
+.g-fail { border-color: var(--red); color: var(--red); }
+.g-pend { border-color: var(--amb); }
+.g-wait { border-color: #2e2e33; }
+.cmsg { padding: 9px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--t2); background: #121214; }
+.stage-event { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; gap: 10px; align-items: center;
+  background: #141416; border: 1px solid var(--line2); border-radius: 999px; padding: 6px 14px 6px 6px; font-size: 13px; animation: fade .3s both; white-space: nowrap; }
+.kbadge { font: 600 11px var(--mono); color: var(--t2); background: #1c1c1f; border-radius: 999px; padding: 2px 8px; }
+.caption { position: absolute; left: 24px; bottom: 18px; max-width: min(1000px, calc(100% - 48px)); z-index: 3;
+  background: #141416; border: 1px solid var(--line2); border-radius: 12px; padding: 13px 20px; display: flex; gap: 14px; align-items: baseline;
+  animation: cap .3s var(--ease) both; }
+.caption span { font-size: 21px; font-weight: 500; letter-spacing: -.01em; text-wrap: pretty; }
+.legend { position: absolute; right: 24px; bottom: 26px; display: flex; gap: 16px; font-size: 12px; color: var(--t3); z-index: 2; }
+.legend i { display: inline-block; vertical-align: -1px; margin-right: 6px; width: 14px; height: 10px; border: 1px solid #3a3a40; }
+.envelope { position: fixed; z-index: 50; width: 22px; height: 16px; pointer-events: none; transition: transform 1s var(--ease), opacity .3s; }
 
-/* left column */
-.stories { display: grid; gap: 6px; }
-.story { text-align: left; background: var(--panel2); border: 1px solid var(--line);
-  border-radius: 8px; padding: 7px 9px; }
-.story:hover { border-color: var(--line2); }
-.story b { font-family: var(--mono); font-size: 11.5px; color: var(--blue); margin-right: 6px; }
-.worker { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-top: 1px solid var(--line); }
-.worker:first-of-type { border-top: none; }
-.badge { font-family: var(--mono); font-size: 12px; padding: 1px 7px; border-radius: 5px; font-weight: 600; white-space: nowrap; }
-.feed-item { display: block; width: 100%; text-align: left; background: none; border: none;
-  border-top: 1px solid var(--line); padding: 8px 12px; }
-.feed-item:hover { background: #181c25; }
-.feed-item.on { background: #1a2130; box-shadow: inset 3px 0 0 var(--blue); }
+/* node popover */
+.npop { position: absolute; z-index: 6; width: 290px; background: #141416; border: 1px solid var(--line2); border-radius: 12px; padding: 12px 14px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.5); font-size: 13px; animation: card .2s var(--ease) both; }
+.npop .t { font: 600 13px var(--mono); }
+.npop .m { color: var(--t3); font-size: 12px; margin: 2px 0 10px; }
+.npop .r { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 
-/* incident */
-.inc-head { padding: 12px 14px; display: grid; gap: 8px; }
-.inc-title { font-size: 17px; font-weight: 650; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.summary { color: var(--muted); font-size: 12.5px; }
-.lens-card { border-top: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 7px; }
-.lens-card:first-child { border-top: none; }
-.lens-card.applied { box-shadow: inset 3px 0 0 var(--green); }
-.lens-card.ruled { box-shadow: inset 3px 0 0 var(--line2); }
-.kv { display: grid; grid-template-columns: 92px 1fr; gap: 3px 10px; font-size: 12.5px; }
-.kv > div:nth-child(odd) { color: var(--faint); }
-.path { font-family: var(--mono); font-size: 12px; }
-.path .arrow { color: var(--faint); margin: 0 4px; }
-.check { display: flex; gap: 6px; align-items: baseline; font-size: 12.5px; }
-.check .ok { color: var(--green); } .check .no { color: var(--red); }
-.trust { display: inline-flex; align-items: center; gap: 6px; }
-.bar { width: 70px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; display: inline-block; }
-.bar > i { display: block; height: 100%; background: var(--green); }
+/* db down */
+.dbdown { position: absolute; inset: 0; background: rgba(10,10,11,.78); z-index: 8; display: grid; place-items: center; animation: fade .3s both; }
+.dbdown div { text-align: center; } .dbdown b { font-size: 22px; font-weight: 500; display: block; margin-bottom: 6px; }
+.dbdown span { color: var(--t2); font-size: 14px; }
+.toast { position: fixed; left: 50%; top: 70px; transform: translateX(-50%); z-index: 60; background: #141416; border: 1px solid var(--line2);
+  border-radius: 12px; padding: 12px 18px; font-size: 14px; box-shadow: 0 16px 40px rgba(0,0,0,.5); animation: up .3s var(--ease) both; max-width: 640px; }
+.toast b { color: var(--grn); font-weight: 600; }
 
-.tl { padding: 6px 0; }
-.tl-row { display: grid; grid-template-columns: 58px 104px 30px 1fr; gap: 8px; align-items: center;
-  padding: 4px 12px; font-size: 12.5px; }
-.tl-row.takeover { background: #2a1c10; }
-.tl-row.action { background: #11261b; }
-.tl-row .t { font-family: var(--mono); color: var(--faint); font-size: 11.5px; text-align: right; }
-.lease { margin: 8px 12px 10px; padding: 9px 10px; border: 1px solid var(--line2); border-radius: 8px;
-  background: var(--panel2); display: grid; gap: 6px; }
-.lease .meter { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
-.lease .meter > i { display: block; height: 100%; background: var(--blue); transition: width .4s linear; }
-.lease.expired .meter > i { background: var(--red); }
+/* ---------- rail */
+.rail { display: flex; flex-direction: column; min-height: 0; }
+.rail-head { padding: 22px 28px 16px; border-bottom: 1px solid var(--line); }
+.rail-head .meta { display: flex; align-items: center; gap: 10px; }
+.incpick { background: transparent; border: 0; color: var(--t3); font: 400 12px var(--mono); padding: 0; cursor: pointer; }
+.incpick option { background: #141416; color: var(--t1); }
+.badge { font-size: 12px; font-weight: 500; padding: 1px 7px; border-radius: 5px; background: #1c1c1f; color: var(--t2); white-space: nowrap; }
+.badge.amb { background: rgba(233,162,59,.13); color: var(--amb); }
+.badge.grn { background: rgba(63,207,142,.12); color: var(--grn); }
+.badge.red { background: rgba(239,91,91,.12); color: var(--red); }
+.badge.acc { background: rgba(98,201,211,.12); color: var(--acc); }
+.badge.mono { font-family: var(--mono); font-size: 11px; }
+.rail-head h1 { margin: 10px 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -.015em; }
+.rail-head .alerts { font-size: 13px; color: var(--t2); }
+.seg { display: inline-flex; gap: 2px; background: #121214; border: 1px solid var(--line); border-radius: 8px; padding: 2px; margin-top: 14px; }
+.seg button { border: 0; background: transparent; color: var(--t3); font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px; }
+.seg button.on { background: var(--hover); color: var(--t1); }
+.rail-body { flex: 1; overflow: auto; padding: 18px 28px 24px; min-height: 0; }
 
-/* map */
-#map svg { display: block; width: 100%; height: auto; }
-.node rect { stroke-width: 1.5; }
-.node text { font-size: 11px; fill: var(--text); pointer-events: none; }
-.node { cursor: pointer; }
-.legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 6px 12px 9px; font-size: 11.5px; color: var(--muted); }
-.mapbar { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* stepper */
+.steps { position: relative; }
+.step { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 14px; position: relative; padding-bottom: 18px; }
+.step::before { content: ""; position: absolute; left: 10.5px; top: 24px; bottom: 0; width: 1px; background: var(--lc, #222226); }
+.step:last-child::before { display: none; }
+.step .mk { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid; display: grid; place-items: center; font-size: 10px; font-weight: 600;
+  transition: all .3s var(--ease); background: var(--bg); position: relative; z-index: 1; }
+.step .ti { font-size: 15px; padding-top: 1px; cursor: default; }
+.step.has .ti { cursor: pointer; }
+.step .tm { font: 400 12px var(--mono); color: var(--t3); padding-top: 3px; }
+.step .body { grid-column: 2 / 4; margin-top: 8px; }
+.step.new .ti { animation: fade .4s var(--ease) both; }
+.s-done .mk { border-color: var(--line3); color: var(--t1); background: #1a1a1d; }
+.s-current .mk { border-color: var(--amb); color: var(--amb); background: rgba(233,162,59,.14); }
+.s-current .mk::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amb); }
+.s-pending .mk { border-color: #2a2a2f; color: var(--t4); }
+.s-pending .ti { color: var(--t4); }
+.s-ok .mk { border-color: rgba(63,207,142,.75); color: var(--grn); background: rgba(63,207,142,.12); }
+.s-ruled .mk { border-color: var(--line3); color: var(--t2); background: #1a1a1d; }
+.s-ruled .ti { color: var(--t2); }
+.s-bad .mk { border-color: rgba(239,91,91,.75); color: var(--red); background: rgba(239,91,91,.12); }
+.s-done .ti, .s-ok .ti { font-weight: 500; } .s-current .ti { font-weight: 600; }
+.kv { border: 1px solid var(--line); background: var(--bg2); border-radius: 8px; padding: 10px 14px; display: grid; grid-template-columns: 150px 1fr; gap: 6px 16px;
+  font: 400 12.5px var(--mono); }
+.kv .k { color: var(--t3); } .kv .v { color: var(--t1); overflow-wrap: anywhere; }
+.note { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line2); background: #141416; border-radius: 7px; padding: 4px 10px; font-size: 13px; margin-bottom: 8px; }
+.note b { font: 600 11px var(--mono); color: var(--amb); }
+.lens { border: 1px solid var(--line); background: var(--bg2); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+.lens .lh { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; flex-wrap: wrap; }
+.lens .lh b { font: 500 12.5px var(--mono); }
+.lens .q { display: grid; grid-template-columns: 120px 1fr; gap: 8px 14px; padding: 10px 14px; font-size: 13px; }
+.lens .q .k { color: var(--t3); font-size: 12px; padding-top: 1px; }
+.lens .ck { display: grid; grid-template-columns: 18px 1fr; gap: 8px; margin-bottom: 6px; }
+.lens .ck .o { font: 400 11.5px var(--mono); color: var(--t3); }
+.trustbar { display: inline-block; width: 70px; height: 4px; border-radius: 2px; background: #222226; vertical-align: middle; margin-left: 8px; overflow: hidden; }
+.trustbar i { display: block; height: 100%; background: var(--t2); border-radius: 2px; transition: width .6s var(--ease); }
+.msgs { display: grid; gap: 8px; }
+.msg { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--bg2); font-size: 13px; white-space: pre-wrap; }
+.msg .who { font-size: 11px; color: var(--t3); margin-bottom: 3px; text-transform: lowercase; }
+.msg.engineer { border-color: rgba(98,201,211,.25); background: rgba(98,201,211,.04); }
+.pre { font: 400 12px/1.5 var(--mono); color: var(--t2); white-space: pre-wrap; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg2); max-height: 220px; overflow: auto; }
+details.more summary { cursor: pointer; color: var(--t2); font-size: 13px; margin: 8px 0; }
+.cite { font-size: 12.5px; color: var(--acc); margin-top: 6px; }
 
-/* chat */
-.chat { padding: 10px 12px; display: grid; gap: 8px; max-height: 470px; overflow: auto; }
-.msg { padding: 7px 10px; border-radius: 10px; max-width: 92%; white-space: pre-wrap; font-size: 12.5px; }
-.msg.agent { background: var(--panel2); border: 1px solid var(--line2); justify-self: start; }
-.msg.engineer { background: #1c2c46; border: 1px solid #2c4672; justify-self: end; }
-.msg .who { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
-.ask { border-top: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 8px; background: #191d27; }
-.ask.live { box-shadow: inset 0 3px 0 var(--yellow); }
-.cite { font-size: 11.5px; color: var(--violet); }
+/* war room card */
+.war { border: 1px solid rgba(233,162,59,.45); background: rgba(233,162,59,.04); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; animation: slide .35s var(--ease) both; }
+.war .top { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--t2); margin-bottom: 8px; }
+.war h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.war .q { font: 500 13px var(--mono); }
+.war .ctx { font-size: 13px; color: var(--t2); margin: 6px 0 10px; }
+.war textarea, .war input { width: 100%; background: var(--bg); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 10px; font-size: 13px; resize: vertical; }
+.war textarea { min-height: 62px; }
+.war .acts { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
 
-table { border-collapse: collapse; width: 100%; }
-th, td { text-align: left; padding: 6px 10px; border-top: 1px solid var(--line); font-size: 12.5px; vertical-align: top; }
-th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-.win { color: var(--green); font-weight: 600; }
-.hbar { height: 10px; border-radius: 3px; background: var(--blue); display: inline-block; vertical-align: middle; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
-.pb { padding: 10px 12px; display: grid; gap: 6px; }
-.pb.retired { opacity: .65; }
-.fact { padding: 8px 12px; border-top: 1px solid var(--line); display: grid; gap: 3px; }
-.fact.closed { opacity: .55; }
-.fact.closed .val { text-decoration: line-through; }
-.cy { font-family: var(--mono); font-size: 11px; padding: 0 7px; color: var(--teal);
-  border-color: #1f5552; background: #0f2523; text-transform: none; letter-spacing: 0; }
-#dbchip { text-decoration: none; }
-.modal { position: fixed; inset: 0; background: #000a; display: none; z-index: 20;
-  align-items: center; justify-content: center; padding: 24px; }
-.modal.on { display: flex; }
-.modal .box { background: var(--panel); border: 1px solid var(--line2); border-radius: 12px;
-  width: min(900px, 100%); max-height: 86vh; display: flex; flex-direction: column; }
-.modal .tabsbar { display: flex; gap: 4px; flex-wrap: wrap; padding: 8px 12px; border-bottom: 1px solid var(--line); }
-.modal pre { margin: 0; padding: 14px 16px; overflow: auto; font: 12.5px/1.55 var(--mono); white-space: pre-wrap; }
-.k { color: #7cb7ff; font-weight: 600; } .p { color: var(--orange); } .c { color: var(--faint); font-style: italic; }
-.l { color: var(--teal); }
-.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #2a1418;
-  border: 1px solid #6b2a32; color: #ffd5da; padding: 8px 14px; border-radius: 8px; display: none; z-index: 9; }
-.switch { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-details summary { cursor: pointer; color: var(--muted); }
-@media (max-width: 1200px) {
-  main { grid-template-columns: 260px minmax(0, 1fr); }
-  main > .col:last-child { grid-column: 1 / -1; }
+/* timeline tab */
+.tl-row { display: grid; grid-template-columns: 64px 96px 34px 1fr; gap: 10px; padding: 6px 8px; border-radius: 6px; font-size: 13px; align-items: baseline; }
+.tl-row .t { font: 400 12px var(--mono); color: var(--t3); text-align: right; }
+.tl-row .a { font: 500 12px var(--mono); color: var(--t2); }
+.tl-row .e { font: 400 12px var(--mono); color: var(--t3); }
+.tl-row.takeover { background: rgba(233,162,59,.08); } .tl-row.takeover .e { color: var(--amb); }
+.tl-row.action { background: rgba(63,207,142,.07); }
+.tl-row.flash { outline: 1px solid var(--acc); }
+
+/* idle */
+.idle h2 { font-size: 22px; font-weight: 600; margin: 4px 0 6px; letter-spacing: -.015em; }
+.idle p { color: var(--t2); margin: 0 0 22px; }
+.loop { display: grid; gap: 14px; margin-bottom: 26px; }
+.loop > div { display: grid; grid-template-columns: 26px 1fr; gap: 12px; }
+.loop b { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line3); display: grid; place-items: center; font-size: 11px; color: var(--t2); }
+.loop h5 { margin: 1px 0 3px; font-size: 14px; font-weight: 600; } .loop span { font-size: 13px; color: var(--t2); }
+.next { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+.next select { flex: 1; background: transparent; border: 0; font-size: 14px; }
+.next select option { background: #141416; }
+
+/* agents strip */
+.agents { grid-column: 1 / 3; border-top: 1px solid var(--line); padding: 16px 24px 10px; display: grid; grid-template-columns: repeat(4, 1fr) 24px; gap: 14px; }
+.agent { border: 1px solid #1f1f23; background: var(--card); border-radius: 12px; padding: 14px 16px; display: grid; grid-template-columns: 50px 1fr; gap: 14px; align-items: center;
+  transition: background .3s, border-color .3s; min-width: 0; }
+.agent.amb { border-color: rgba(233,162,59,.45); background: rgba(233,162,59,.04); }
+.agent.dead { background: #0d0d0e; border-color: var(--line); }
+.agent.grn { border-color: rgba(63,207,142,.35); }
+.lring { width: 50px; height: 50px; position: relative; }
+.lring svg { transform: rotate(-90deg); }
+.lring circle { fill: none; stroke-width: 2.5; }
+.lring .tr { stroke: #222226; }
+.lring .fg { transition: stroke-dashoffset .6s linear, stroke .3s; stroke-linecap: round; }
+.lring span { position: absolute; inset: 0; display: grid; place-items: center; font: 500 11px var(--mono); color: var(--t1); }
+.agent .nm { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.agent .nm b { font: 600 13.5px var(--mono); } .agent .nm .r { font-size: 12px; color: var(--t3); }
+.agent .nm .badge { margin-left: auto; }
+.agent .st { font-size: 13px; color: var(--t2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agent .ep { font-size: 12px; color: var(--t3); margin-top: 2px; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.agent .ep b { font: 500 12px var(--mono); color: var(--t2); } .agent .ep b.hot { color: var(--amb); }
+.agent .kill { margin-left: 6px; }
+.dead .nm b { color: var(--t2); }
+
+/* scrubber */
+.scrub { grid-column: 1 / 3; display: flex; align-items: center; gap: 14px; padding: 6px 24px 14px; }
+.scrub .tm { font: 400 12px var(--mono); color: var(--t2); width: 120px; }
+.track { flex: 1; position: relative; height: 18px; }
+.track::before { content: ""; position: absolute; left: 0; right: 0; top: 8.5px; height: 1px; background: #222226; }
+.track .fill { position: absolute; left: 0; top: 8.5px; height: 1px; background: var(--t2); transition: width .6s linear; }
+.track .dt { position: absolute; top: 4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--t1); border: 1.5px solid var(--t1); cursor: pointer; padding: 0; }
+.track .dt.takeover { background: var(--amb); border-color: var(--amb); }
+.track .dt.action { background: var(--grn); border-color: var(--grn); }
+.track .dt.minor { width: 6px; height: 6px; top: 6px; margin-left: -3px; background: var(--t3); border-color: var(--t3); }
+.track .dt.kill { background: var(--bg); border-color: var(--red); }
+.scrub .lbl { font-size: 12px; color: var(--t3); white-space: nowrap; }
+
+/* ---------- memory + results */
+.page { height: calc(100vh - 56px); overflow: auto; padding: 40px 56px 60px; }
+.page h2 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.015em; }
+.page .lead { color: var(--t2); margin: 0 0 20px; font-size: 14px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 56px; }
+.sechead { display: flex; align-items: flex-start; gap: 12px; }
+.sechead .grow + * { margin-top: 4px; }
+table.pb { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.pb th { text-align: left; font-weight: 400; color: var(--t3); font-size: 12px; padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); }
+table.pb td { padding: 14px 10px 14px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.pb tr.retired td { opacity: .6; }
+table.pb tr.main { cursor: pointer; } table.pb tr.main:hover td { background: #0e0e10; }
+.chipn { font: 500 12px var(--mono); border: 1px solid var(--line2); border-radius: 999px; padding: 3px 10px; white-space: nowrap; display: inline-block; }
+.chipn.db { border-radius: 4px; }
+.sig { font: 500 13px var(--mono); }
+.desc { color: var(--t2); font-size: 13px; margin-top: 3px; }
+.rules { color: var(--t2); font-size: 13px; display: grid; gap: 4px; padding: 0 0 6px; }
+.fact { border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-bottom: 14px; background: #0e0e10; }
+.fact .key { font: 500 13px var(--mono); color: var(--t2); }
+.fact .ver { display: flex; gap: 8px; align-items: center; margin: 10px 0 6px; font-size: 12px; color: var(--t3); }
+.fact .val { font-size: 16px; font-weight: 500; }
+.fact .src { font-size: 12px; color: var(--t3); margin-top: 8px; } .fact .said { font-size: 14px; margin-top: 2px; }
+.fact .sup { display: flex; align-items: center; gap: 10px; margin: 14px 0 8px; font-size: 10.5px; color: var(--t3); letter-spacing: .08em; }
+.fact .sup::before, .fact .sup::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.fact .old { color: var(--t3); text-decoration: line-through; font-size: 14px; }
+.hero { font-size: 180px; font-weight: 600; letter-spacing: -.05em; line-height: .95; }
+.hero-sub { font-size: 42px; font-weight: 600; letter-spacing: -.02em; margin-top: 8px; }
+.res-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.4fr); gap: 56px; }
+.cardx { border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; background: #0d0d0f; }
+.cardx h5 { margin: 0; font-size: 14px; font-weight: 500; } .cardx .s { font-size: 12px; color: var(--t3); }
+.bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; height: 170px; align-items: end; margin-top: 16px; }
+.bars div { display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; height: 100%; }
+.bars span { font: 500 12px var(--mono); text-align: center; margin-bottom: 6px; color: var(--t2); }
+.bars i { display: block; border-radius: 3px 3px 0 0; animation: grow .6s var(--ease) both; transform-origin: bottom; }
+.hb { display: grid; grid-template-columns: 120px 1fr 50px; gap: 14px; align-items: center; font-size: 13px; margin-top: 14px; }
+.hb .tr { height: 6px; border-radius: 3px; background: #222226; overflow: hidden; } .hb .tr i { display: block; height: 100%; border-radius: 3px; }
+.hb b { font: 500 12px var(--mono); text-align: right; }
+.m5 { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 18px; position: relative; }
+.m5::before { content: ""; position: absolute; left: 6px; right: 25%; top: 6px; border-top: 1px solid var(--line3); }
+.m5 div { position: relative; font-size: 13px; } .m5 i { display: block; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--t3); background: var(--bg); margin-bottom: 10px; }
+.m5 i.r { background: var(--red); border-color: var(--red); } .m5 i.x { border-radius: 2px; background: var(--t3); }
+.m5 .o { font: 400 12px var(--mono); color: var(--t3); margin-top: 4px; }
+.stat b { font-size: 46px; font-weight: 600; letter-spacing: -.02em; } .stat small { font-size: 18px; color: var(--t2); margin-left: 4px; }
+.stat div { color: var(--t2); font-size: 13px; }
+table.load { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+table.load th { text-align: right; font-weight: 400; color: var(--t3); padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 11.5px; }
+table.load td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); font-family: var(--mono); color: var(--t2); }
+table.load th:nth-child(2), table.load td:nth-child(2) { text-align: left; font-family: Inter, sans-serif; }
+.foot { color: var(--t3); font-size: 12.5px; margin-top: 28px; }
+
+/* cypher drawer */
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(720px, 92vw); background: #0f0f11; border-left: 1px solid var(--line2); z-index: 70;
+  transform: translateX(105%); transition: transform .35s var(--ease); display: flex; flex-direction: column; box-shadow: -30px 0 80px rgba(0,0,0,.5); }
+.drawer.on { transform: none; }
+.drawer .dh { padding: 18px 22px 12px; border-bottom: 1px solid var(--line); }
+.drawer .dh h3 { margin: 0; font-size: 16px; font-weight: 600; } .drawer .dh .s { font-size: 13px; color: var(--t3); margin-top: 3px; }
+.drawer .ft { display: flex; gap: 4px; flex-wrap: wrap; padding: 10px 22px; border-bottom: 1px solid var(--line); }
+.drawer .ft button { border: 1px solid var(--line2); background: transparent; color: var(--t2); font-size: 12px; padding: 3px 9px; border-radius: 6px; }
+.drawer .ft button.on { color: var(--t1); background: var(--hover); }
+.drawer pre { flex: 1; overflow: auto; margin: 0; padding: 18px 22px; font: 400 12.5px/1.6 var(--mono); color: #c8c8ce; }
+.drawer .path { font: 400 12px var(--mono); color: var(--t3); padding: 10px 22px 0; }
+.drawer .df { padding: 12px 22px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--t3); }
+pre .c { color: #5f6b6e; } pre .k { color: var(--acc); } pre .p { color: var(--amb); } pre .l { color: #b9a3f0; }
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes up { from { opacity: 0; transform: translate(var(--tx, 0), 10px); } to { opacity: 1; transform: translate(var(--tx, 0), 0); } }
+@keyframes cap { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes card { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes slide { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pulse { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.28, 1.6); } }
+@keyframes pinIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes grow { from { transform: scaleY(0); } to { transform: none; } }
+.toast { --tx: -50%; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 150ms !important; }
+  .rp.draw { animation: none; stroke-dashoffset: 0; } .pulse, .travel { display: none; }
 }
-@media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+@media (max-width: 1500px) { #view-live { grid-template-columns: minmax(0, 1fr) 520px; } .caption span { font-size: 18px; } .hero { font-size: 130px; } }
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">
-    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
-      <circle cx="11" cy="11" r="9.5" fill="none" stroke="#f0616d" stroke-width="1.5" opacity=".45"/>
-      <circle cx="11" cy="11" r="6" fill="none" stroke="#f59e4b" stroke-width="1.5" opacity=".75"/>
-      <circle cx="11" cy="11" r="2.6" fill="#e9cf5b"/>
-    </svg>
-    Blast Radius
-  </div>
+  <div class="brand"><span class="logo"><i></i></span><b>Blast Radius</b><span class="sep">/</span><span class="co" id="hdr-co">company_a</span></div>
   <nav class="tabs">
-    <button class="tab on" data-tab="incident">Incidents</button>
+    <button class="tab on" data-tab="live">Live</button>
     <button class="tab" data-tab="memory">Memory</button>
     <button class="tab" data-tab="results">Results</button>
   </nav>
   <div class="grow"></div>
-  <a id="dbchip" class="chip blue mono" href="http://localhost:3000" target="_blank" rel="noopener" title="Open the FalkorDB Browser (same graph)"><span id="hdr-graph"></span></a>
-  <span id="hdr-model" class="chip blue"></span>
-  <span id="hdr-timing" class="chip yellow demo-label"></span>
-  <label class="switch" title="When on, the scripted engineer answers instead of waiting for you">
-    <input type="checkbox" id="autopilot"> scripted engineer
-  </label>
+  <div class="status">
+    <a class="dbstat" id="dbstat" href="http://localhost:3000" target="_blank" rel="noopener" title="Open the FalkorDB Browser on the same graph">
+      <span class="dot" id="dbdot"></span><b id="dbver">FalkorDB</b><span id="dbtext">· connecting</span></a>
+    <span class="model" id="hdr-model"></span>
+    <span class="tag" id="hdr-timing" title=""></span>
+    <button class="btn" id="dir-btn">Director <span style="font-size:10px;color:var(--t3)">▾</span></button>
+  </div>
+  <div class="pop" id="director" hidden></div>
 </header>
 
-<div id="dbdown" hidden style="background:#2a1c10;border-bottom:1px solid #6a4420;color:var(--orange);padding:8px 16px">
-  <b>FalkorDB is unavailable</b> (restarting?) for <span id="dbdown-s">0</span> s. The agents are waiting; nothing is lost.
-  Everything shown comes back from the graph when it returns.</div>
-<main id="view-incident">
-  <section class="col">
-    <div class="panel">
-      <h2>Break something</h2>
-      <div class="pad stories" id="stories"></div>
-      <div class="pad muted" style="padding-top:0">Or click any service on the map.</div>
+<main id="view-live">
+  <section class="stage" id="stage">
+    <div class="stage-head">
+      <span class="h">Dependency graph</span><span class="sub" id="graph-sub"></span>
+      <button class="qbtn" data-q="graph" title="The Cypher behind the graph">‹›</button>
+      <span class="grow"></span>
+      <span id="notif"></span>
+      <span class="oncall" id="oncall"></span>
     </div>
-    <div class="panel">
-      <h2>Agents <span class="right muted">share only FalkorDB</span></h2>
-      <div id="workers"></div>
-      <div class="worker" style="flex-wrap:wrap">
-        <label class="row" title="One shot: the UI sends the same real SIGKILL as the Kill button, to whichever investigator holds the lease, right after it checkpoints this step">
-          <input type="checkbox" id="arm-kill"> Kill the investigator after step</label>
-        <input id="arm-step" type="number" min="1" max="10" value="3" style="width:54px">
-        <div id="last-kill" class="mono muted" style="width:100%;font-size:11.5px"></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Incidents <span class="right muted" id="feed-count"></span></h2>
-      <div id="feed"></div>
-    </div>
+    <div id="graph"></div>
+    <div id="stage-event"></div>
+    <div id="caption"></div>
+    <div class="legend" id="legend"><span><i style="border-radius:999px"></i>service</span><span><i style="border-radius:2px"></i>datastore</span>
+      <span><i style="border-color:rgba(98,201,211,.6);border-radius:999px;width:22px"></i>playbook · trust</span><span>lines point to dependencies</span></div>
+    <div id="npop"></div>
+    <div id="dbdown"></div>
   </section>
-
-  <section class="col">
-    <div class="panel" id="map">
-      <h2>Company graph <button class="btn small cy" data-cypher="map">Cypher</button> <span class="right muted" id="map-sub">dependencies, as stored in FalkorDB</span></h2>
-      <div id="map-svg"></div>
-      <div class="legend">
-        <span class="row"><i class="dot" style="background:var(--red)"></i>alerting</span>
-        <span class="row"><i class="dot" style="background:var(--orange)"></i>1 hop</span>
-        <span class="row"><i class="dot" style="background:var(--yellow)"></i>2 hops</span>
-        <span class="row"><i class="dot" style="border:2px solid var(--text)"></i>diagnosed root</span>
-        <span class="row"><span class="chip violet" style="padding:0 5px">0.67</span>playbook pinned here (trust)</span>
-      </div>
-      <div class="mapbar" id="mapbar"><span class="muted">Select a node to break it or change who owns it.</span></div>
-    </div>
-    <div class="panel" id="incident">
-      <div class="empty">No incident selected. Break something to start.</div>
-    </div>
-    <div class="panel" id="lens-panel">
-      <h2>Memory Lens <button class="btn small cy" data-cypher="lens">Cypher</button> <span class="right muted">every memory considered, and why</span></h2>
-      <div id="lens"><div class="empty">—</div></div>
-    </div>
-    <div class="panel">
-      <h2>Agent timeline <button class="btn small cy" data-cypher="timeline">Cypher</button> <span class="right muted">tasks, claims, checkpoints, fencing epochs</span></h2>
-      <div id="lease"></div>
-      <div id="timeline" class="tl"><div class="empty">—</div></div>
-    </div>
-  </section>
-
-  <section class="col">
-    <div class="panel">
-      <h2>War room <button class="btn small cy" data-cypher="chat">Cypher</button> <span class="right muted" id="chat-with"></span></h2>
-      <div class="chat" id="chat"><div class="empty">The responder writes here once it has a diagnosis.</div></div>
-      <div id="ask"></div>
-      <div class="ask">
-        <div class="row">
-          <span class="muted">Where did we leave</span>
-          <select id="recap-pick" class="grow"></select>
-          <button class="btn small" id="recap-go">Ask</button>
-        </div>
-        <div id="recap-out" class="mono muted" style="white-space:pre-wrap"></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>Pager log <button class="btn small cy" data-cypher="pager">Cypher</button> <span class="right muted" id="pager-count"></span></h2>
-      <div id="pager"><div class="empty">Nothing sent.</div></div>
-    </div>
-    <div class="panel">
-      <h2>On call now <button class="btn small cy" data-cypher="org">Cypher</button> <span class="right muted">scenario time</span></h2>
-      <div id="org"></div>
-    </div>
-  </section>
+  <aside class="rail">
+    <div class="rail-head" id="rail-head"></div>
+    <div class="rail-body" id="rail-body"></div>
+  </aside>
+  <section class="agents" id="agents"></section>
+  <section class="scrub" id="scrub"></section>
 </main>
 
-<main id="view-memory" class="single" hidden>
-  <div class="panel">
-    <h2>Playbooks <button class="btn small cy" data-cypher="memory">Cypher</button> <span class="right muted">learned from confirmed incidents; trust moves only on verdicts</span></h2>
-    <div class="pad row wrap" style="border-bottom:1px solid var(--line)">
-      <button class="btn" id="plant">Plant a deliberately wrong playbook</button>
-      <span class="muted">Pinned to postgres-orders; claims any postgres over 30% of connections is saturated.
-        Break <span class="mono">redis-cache</span> a few times and reject the wrong diagnosis: it misleads twice, then retires.</span>
-    </div>
-    <div class="pad"><div class="cards" id="playbooks"></div></div>
-  </div>
-  <div class="panel">
-    <h2>What engineers asked for <span class="right muted">facts are superseded, never edited</span></h2>
-    <div id="facts"></div>
-  </div>
-</main>
+<main id="view-memory" class="page" hidden></main>
+<main id="view-results" class="page" hidden></main>
 
-<main id="view-results" class="single" hidden>
-  <div id="results"></div>
-</main>
-
-<div class="toast" id="toast"></div>
-<div class="modal" id="cymodal"><div class="box">
-  <div class="row pad" style="border-bottom:1px solid var(--line)"><b id="cy-title">Cypher</b>
-    <span class="muted" id="cy-path"></span><span class="grow"></span>
-    <button class="btn small" id="cy-close">Close</button></div>
-  <div class="tabsbar" id="cy-tabs"></div>
-  <pre id="cy-text"></pre>
-  <div class="pad muted" style="border-top:1px solid var(--line)">Every panel is a query like this against FalkorDB, run on each refresh.
-    Try it in the <a href="http://localhost:3000" target="_blank" rel="noopener" style="color:var(--blue)">FalkorDB Browser</a> on graph <span class="mono" id="cy-graph"></span>.</div>
-</div></div>
+<div class="drawer" id="drawer">
+  <div class="dh"><div style="display:flex;gap:10px;align-items:center"><h3 id="dr-title">Cypher</h3><span class="grow"></span><button class="btn small" id="dr-close">Close</button></div>
+    <div class="s" id="dr-why"></div></div>
+  <div class="ft" id="dr-files"></div>
+  <div class="path" id="dr-path"></div>
+  <pre id="dr-text"></pre>
+  <div class="df" id="dr-foot"></div>
+</div>
+<div id="toast"></div>
+<svg class="envelope" id="envelope" viewBox="0 0 22 16" hidden><rect x=".75" y=".75" width="20.5" height="14.5" rx="2" fill="#ededee"/><path d="M1.5 1.5 L11 9 L20.5 1.5" stroke="#0a0a0b" stroke-width="1.5" fill="none"/></svg>
 
 <script>
 "use strict";
+/* Blast Radius UI. Everything shown is read from FalkorDB through the JSON API
+   (web/app.py); nothing here is scripted. Animations play once, when the event
+   they show first appears in the data. */
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const fmt = (x, d = 2) => (x === null || x === undefined) ? "—" : Number(x).toFixed(d);
-const AGENT_COLORS = {"inv-1": "#5aa5f5", "inv-2": "#a78bfa", "responder-1": "#45c486",
-  "learner-1": "#3cc6c0"};
-const agentColor = (a) => AGENT_COLORS[a] || "#8d95a5";
-const badge = (a) => a ? `<span class="badge" style="background:${agentColor(a)}22;color:${agentColor(a)}">${esc(a)}</span>` : "";
+const fmt = (x, d = 2) => (x === null || x === undefined || Number.isNaN(+x)) ? "—" : Number(x).toFixed(d);
+const plural = (n, w, p) => `${n} ${n === 1 ? w : (p || w + "s")}`;
+const secs = (ms) => `+${fmt((ms || 0) / 1000, 1)} s`;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-let S = { settings: null, state: null, selected: null, inc: null, map: null, tab: "incident",
-          mapNode: null, drafts: {} };
+const S = {
+  settings: null, state: null, inc: null, map: null, memory: null, db: null,
+  tab: "live", rail: "story", selected: null, follow: true, open: {},
+  captions: true, seen: new Set(), dbDown: false, dbSince: 0, mapNode: null, armStep: 3,
+};
 
 async function api(path, body) {
   const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify(body)};
-  const r = await fetch(path, opt);
+  let r;
+  try { r = await fetch(path, opt); } catch (e) { setDbDown(true); throw e; }
   const data = await r.json().catch(() => ({}));
-  if (data.db_down) { dbBanner(true); throw new Error(data.detail); }
-  if (!r.ok) { toast(data.detail || r.statusText); throw new Error(data.detail || r.statusText); }
-  dbBanner(false);
+  if (data.db_down) { setDbDown(true); throw new Error(data.detail); }
+  if (!r.ok) { toast(esc(data.detail || r.statusText)); throw new Error(data.detail || r.statusText); }
+  setDbDown(false);
   return data;
 }
-function dbBanner(down) {
-  const b = $("#dbdown");
-  if (down && b.hidden) { b.hidden = false; b.dataset.since = Date.now(); }
-  if (!down && !b.hidden) b.hidden = true;
-  if (!b.hidden) $("#dbdown-s").textContent = Math.round((Date.now() - b.dataset.since) / 1000);
+function toast(html, ms = 4200) {
+  const t = $("#toast");
+  t.innerHTML = `<div class="toast">${html}</div>`;
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.innerHTML = "", ms);
 }
-function toast(text) {
-  const t = $("#toast"); t.textContent = text; t.style.display = "block";
-  clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = "none", 4000);
-}
-const noCites = (t) => String(t || "").split("\n").filter((l) => !l.startsWith("Sent this way ")).join("\n");
 const label = (fam) => (S.settings?.labels || {})[fam] || fam || "—";
+const once = (key) => { if (S.seen.has(key)) return false; S.seen.add(key); return S.booted && !REDUCED; };
 
-/* ------------------------------------------------------------- tabs */
-document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
-  S.tab = b.dataset.tab;
-  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
-  for (const v of ["incident", "memory", "results"]) $("#view-" + v).hidden = v !== S.tab;
-  if (S.tab === "memory") loadMemory();
-  if (S.tab === "results") loadResults();
-});
-
-/* ------------------------------------------------------------- left */
-function renderStories() {
-  $("#stories").innerHTML = Object.entries(S.settings.stories).map(([id, text]) =>
-    `<button class="story" data-story="${id}"><b>${id}</b>${esc(text)}</button>`).join("");
-  document.querySelectorAll("[data-story]").forEach((b) => b.onclick = () => breakIt({story: b.dataset.story}));
+/* ------------------------------------------------------------ plain English */
+// The investigator's own measure rules (memory/playbook.py: Check.measure_of), so
+// the checks can be shown passing one by one before the decision is written.
+function measureOf(measure, obs, target) {
+  if (measure.startsWith("last:")) { const s = (obs || {})[measure.slice(5)]; return s && s.length ? s[s.length - 1] : null; }
+  if (measure === "deploys") return (obs || []).filter((c) => c.kind === "deploy").length;
+  if (measure.startsWith("healthy:")) { const d = (obs || []).find((x) => x.dep === target); return d ? d.healthy : null; }
+  return null;
 }
-async function breakIt(body) {
-  const r = await api("/api/break", body);
-  S.selected = r.key; S.inc = null;
-  await pollState(); await pollIncident();
+const OPS = {"==": (a, b) => a === b, ">=": (a, b) => a >= b, "<=": (a, b) => a <= b,
+  "<": (a, b) => a < b, ">": (a, b) => a > b, "!=": (a, b) => a !== b};
+function humanCheck(tool, arg, measure, op, value, target) {
+  const m = measure.replace("$target", target);
+  if (measure === "deploys") return op === "==" && value === 0 ? `No deploy on ${arg} in the last 2 h` : `${arg} was deployed in the last 2 h`;
+  if (measure.startsWith("healthy:")) return value === false ? `${arg} sees ${target} as unhealthy` : `${arg} sees ${target} as healthy`;
+  if (m.endsWith("db_connections_pct")) return `${arg} uses ${op === ">=" ? "≥" : op} ${value}% of its connections`;
+  if (m.endsWith("error_rate_pct")) return `${arg} error rate ${op === ">=" ? "≥" : op} ${value}%`;
+  if (m.endsWith("cache_hit_rate_pct")) return `${arg} cache hit rate ${op === "<" ? "below" : op} ${value}%`;
+  return `${tool}(${arg}): ${m} ${op} ${value}`;
 }
+function humanObserved(measure, o) {
+  if (o === null || o === undefined) return "no reading";
+  if (measure === "deploys") return plural(o, "deploy");
+  if (measure.startsWith("healthy:")) return o === false ? "unhealthy" : o === true ? "healthy" : String(o);
+  if (measure.endsWith("_pct")) return `${o}%`;
+  return typeof o === "object" ? JSON.stringify(o) : String(o);
+}
+const parseVal = (v) => v === "False" ? false : v === "True" ? true : (v !== "" && !Number.isNaN(+v)) ? +v : v;
+// "inspect_recent_changes(payments-gw): deploys == 0"
+function parseDesc(desc) {
+  const m = /^(\w+)\(([^)]*)\): (\S+) (==|>=|<=|!=|<|>) (.+)$/.exec(desc || "");
+  return m ? {tool: m[1], arg: m[2], measure: m[3], op: m[4], value: parseVal(m[5])} : null;
+}
+const raw = (c) => `${c.tool}(${c.arg}): ${c.measure} ${c.op} ${c.value === false ? "False" : c.value === true ? "True" : c.value}`;
+function humanTool(cp) {
+  const a = cp.args || {}; const r = cp.result;
+  switch (cp.tool) {
+    case "find_upstream_candidates": return [`Listed what the alerting services depend on`, Array.isArray(r) ? plural(r.length, "candidate") : ""];
+    case "inspect_recent_changes": { const n = (r || []).filter((c) => c.kind === "deploy").length; return [`Recent changes on ${a.service}`, plural(n, "deploy")]; }
+    case "check_dependency_health": { const bad = (r || []).filter((d) => d.healthy === false).map((d) => d.dep);
+      return [`Health of what ${a.service} depends on`, bad.length ? `unhealthy: ${bad.join(", ")}` : "all healthy"]; }
+    case "inspect_metrics": { const vals = Object.entries(r || {}).filter(([k, v]) => Array.isArray(v) && k !== "times_ms")
+        .map(([k, v]) => `${k.replace("_pct", "")} ${v[v.length - 1]}${k.endsWith("_pct") ? "%" : ""}`);
+      return [`Metrics for ${a.node}`, vals.join(", ")]; }
+    case "inspect_logs": return [`Logs from ${a.node}`, Array.isArray(r) ? plural(r.length, "line") : ""];
+    case "blast_radius": return [`Blast radius of ${a.node}`, Array.isArray(r) ? plural(r.length, "service") : ""];
+    case "who_to_page": return [`Who is on call for ${a.node}`, r?.person || r?.handle || ""];
+    default: return [cp.tool, ""];
+  }
+}
+const shortTool = (cp) => humanTool(cp)[0];
 
-function renderWorkers() {
-  const st = S.state;
-  const procs = st.workers.map((w) => {
-    const state = w.alive ? `<span class="chip green">pid ${w.pid}</span>`
-      : w.killed ? `<span class="chip red">killed</span>` : `<span class="chip grey">stopped</span>`;
-    const btn = w.alive
-      ? `<button class="btn small danger" data-kill="${w.name}">Kill</button>`
-      : `<button class="btn small" data-start="${w.name}">Start</button>`;
-    return `<div class="worker">${badge(w.name)}<span class="muted">investigator</span>
-      <span class="grow"></span>${state}${btn}</div>`;
+/* ------------------------------------------------------------ the story */
+// Turns one incident (head, lens, tasks, checkpoints, actions, messages) into
+// what the page shows: the stepper, the caption, node states and recall paths.
+function candidatesOf(x) {
+  const pbs = Object.fromEntries((S.memory?.playbooks || []).map((p) => [p.id, p]));
+  if (x.lens.length) {
+    return x.lens.map((l) => {
+      const rows = l.checks.map((c) => { const p = parseDesc(c.description) || {tool: "", arg: "", measure: "", op: "", value: ""};
+        return {...p, text: p.tool ? humanCheck(p.tool, p.arg, p.measure, p.op, p.value, l.target) : c.description,
+          raw: c.description, observed: c.observed, obsText: humanObserved(p.measure, c.observed),
+          state: c.passed ? "pass" : "fail", step: c.step_n, phase: c.phase}; });
+      const pb = pbs[l.memory];
+      const total = pb ? pb.preconditions.length + pb.steps.length : rows.length;
+      return {key: l.memory + ">" + l.target, memory: l.memory, signature: l.signature, target: l.target, path: l.path || [],
+        hops: l.hops, score: l.score, viaKind: !(l.pinned_to || []).includes(l.target), pinned: l.pinned_to || [],
+        trust: l.trust_at_use, trustAfter: l.trust_after, verdict: l.verdict, learned: l.learned_from || [], status: l.status,
+        rows, total, outcome: l.applied ? "holds" : "ruled", final: true};
+    });
+  }
+  let active = false;
+  return (x.recalling || []).map((r) => {
+    const pb = pbs[r.memory_id];
+    const path = r.path || [];
+    const b = {alerting: path[0], caller: path.length >= 2 ? path[path.length - 2] : null, target: r.target};
+    const bind = (v) => typeof v === "string" && v.startsWith("$") ? b[v.slice(1)] : v;
+    const checks = pb ? [...pb.preconditions.map((c) => ({...c, phase: "precondition"})), ...pb.steps.map((c) => ({...c, phase: "step"}))] : [];
+    const rows = []; let failed = false, waiting = false;
+    for (const c of checks) {
+      const args = Object.fromEntries(Object.entries(c.args).map(([k, v]) => [k, bind(v)]));
+      const arg = Object.values(args)[0];
+      const text = humanCheck(c.tool, arg, c.measure, c.op, c.value, r.target);
+      const rr = raw({tool: c.tool, arg, measure: c.measure.replace("$target", r.target), op: c.op, value: c.value});
+      if (failed || waiting) { rows.push({text, raw: rr, state: "wait", phase: c.phase, measure: c.measure}); continue; }
+      const cp = x.checkpoints.find((k) => k.task.endsWith(":investigate") && k.tool === c.tool &&
+        JSON.stringify(k.args) === JSON.stringify(args));
+      if (!cp) { waiting = true; rows.push({text, raw: rr, state: "pend", phase: c.phase, measure: c.measure}); continue; }
+      const o = measureOf(c.measure, cp.result, r.target);
+      const ok = o !== null && OPS[c.op](o, c.value);
+      rows.push({text, raw: rr, observed: o, obsText: humanObserved(c.measure, o), state: ok ? "pass" : "fail", step: cp.n, phase: c.phase, measure: c.measure});
+      if (!ok) failed = true;
+    }
+    let outcome = failed ? "ruled" : waiting ? "checking" : "holds";
+    if (outcome === "checking") {
+      if (active) { outcome = "queued"; rows.forEach((q) => { if (q.state === "pend") q.state = "wait"; }); }
+      active = true;
+    }
+    return {key: r.memory_id + ">" + r.target, memory: r.memory_id, signature: pb?.signature || r.memory_id, target: r.target, path,
+      hops: r.hops, score: r.score, viaKind: !!r.via_kind, pinned: pb?.about || [], trust: r.trust, learned: pb?.learned_from || [],
+      status: pb?.status, rows, total: checks.length, outcome, final: false};
   });
-  const threads = Object.entries(st.threads || {}).map(([n]) =>
-    `<div class="worker">${badge(n)}<span class="muted">${n.startsWith("resp") ? "responder" : "learner"}</span>
-     <span class="grow"></span><span class="chip green">in UI process</span></div>`);
-  const html = procs.join("") + threads.join("") || `<div class="empty">No workers running.</div>`;
-  if ($("#workers").dataset.html === html) return;   // don't replace a button mid-click
-  $("#workers").dataset.html = html;
-  $("#workers").innerHTML = html;
-  $("#workers").querySelectorAll("[data-kill]").forEach((b) => b.onclick = () => kill(b.dataset.kill));
-  document.querySelectorAll("[data-start]").forEach((b) => b.onclick = () =>
-    api(`/api/workers/${b.dataset.start}/start`, {}).then(pollState));
-}
-async function kill(name) {
-  await api(`/api/workers/${name}/kill`, {});
-  await pollState(); pollIncident();
 }
 
-function statusChip(s) {
-  const c = {open: "orange", diagnosed: "blue", resolved: "green", needs_review: "red", planted: "violet"}[s] || "grey";
-  return `<span class="chip ${c}">${esc(s === "needs_review" ? "rejected" : s)}</span>`;
-}
-function renderFeed() {
-  const list = S.state.incidents;
-  $("#feed-count").textContent = list.length ? `${list.length}` : "";
-  $("#feed").innerHTML = list.length ? list.map((i) => {
-    const stuck = i.stuck > 0 ? `<span class="chip red">stuck: needs a human</span>` : "";
-    const mem = i.applied > 0 ? `<span class="chip green">from memory</span>`
-      : i.considered > 0 ? `<span class="chip grey">memory ruled out</span>` : "";
-    return `<button class="feed-item ${i.key === S.selected ? "on" : ""}" data-key="${esc(i.key)}">
-      <div class="row"><span class="mono">${esc(i.id)}</span><span class="grow"></span>${statusChip(i.status)}</div>
-      <div class="row wrap muted" style="margin-top:3px">${i.root ? `<span class="mono">${esc(i.root)}</span> · ${esc(label(i.family))}` : "investigating…"} ${mem} ${stuck}</div>
-    </button>`;
-  }).join("") : `<div class="empty">No incidents yet.</div>`;
-  document.querySelectorAll(".feed-item").forEach((b) => b.onclick = () => {
-    S.selected = b.dataset.key; S.inc = null; renderFeed(); pollIncident();
-  });
-  const pick = $("#recap-pick"); const keep = pick.value;
-  pick.innerHTML = list.filter((i) => i.status !== "planted").map((i) =>
-    `<option value="${esc(i.id)}">${esc(i.id)}</option>`).join("");
-  if (keep) pick.value = keep;
+function storyOf(x) {
+  const T = (k) => x.tasks.find((t) => t.type === k);
+  const inv = T("investigate"), resp = T("respond"), learn = T("learn");
+  const h = x.head, tl = x.timeline;
+  const tOf = (pred) => { const e = tl.find(pred); return e ? secs(e.t_ms) : ""; };
+  const lastOf = (pred) => { const e = [...tl].reverse().find(pred); return e ? secs(e.t_ms) : ""; };
+  const alive = Object.fromEntries((S.state?.workers || []).map((w) => [w.name, w.alive]));
+  const cands = candidatesOf(x);
+  const invCps = x.checkpoints.filter((c) => c.task.endsWith(":investigate"));
+  const claims = inv?.claimed_by || [];
+  const takeover = claims.length > 1 ? {from: claims[claims.length - 2], to: claims[claims.length - 1], epoch: claims.length,
+    step: (invCps.find((c) => c.epoch === claims.length) || {}).n || (invCps.length + 1)} : null;
+  const held = x.tasks.find((t) => t.status === "leased");
+  const deadHolder = held && alive[held.owner] === false ? held : null;
+  const stuck = x.tasks.find((t) => t.status === "stuck");
+  const pending = (S.state?.pending || []).find((p) => p.incident_key === h.key);
+  const action = x.actions[0];
+  const owner = (S.map?.org || []).find((t) => h.root && t.owns.includes(h.root));
+  const newPb = (S.memory?.playbooks || []).find((p) => (p.learned_from || []).includes(h.id));
+  const helped = cands.find((c) => c.verdict === "helped"), misled = cands.find((c) => c.verdict === "misled");
+  const applied = cands.find((c) => c.outcome === "holds");
+  const checking = cands.find((c) => c.outcome === "checking") || (!h.decision_id && cands.find((c) => c.outcome === "queued"));
+  const allRuled = cands.length && cands.every((c) => c.outcome === "ruled");
+
+  let phase = "queued";
+  if (stuck) phase = "stuck";
+  else if (h.status === "needs_review") phase = "rejected";
+  else if (learn?.status === "done") phase = "learned";
+  else if (h.verdict) phase = "confirmed";
+  else if (action) phase = pending ? "review" : "paged";
+  else if (h.decision_id) phase = "diagnosed";
+  else if (claims.length) phase = cands.length ? (allRuled ? "investigating" : "checking") : "investigating";
+
+  const steps = [];
+  const st = (state, title, o = {}) => steps.push({state, title, ...o});
+  // 1 alerts
+  st("done", `Alerts on ${plural(h.alerting.length, "service")}`, {time: secs(0), id: "alerts",
+    kv: h.alert_texts.map((t) => { const i = t.indexOf(": "); return [t.slice(0, i), t.slice(i + 2)]; })});
+  // 2 recall
+  if (!claims.length) st("current", "Recalling playbooks from memory", {id: "recall"});
+  else if (cands.length) st("done", `Recalled ${plural(cands.length, "playbook match", "playbook matches")} from memory`, {time: tOf((e) => e.kind === "claim" && e.task === "investigate"), id: "recall",
+    kv: cands.map((c) => [`${c.signature}`, `${c.target} · ${plural(c.hops, "hop")} · ${c.viaKind ? "same kind of datastore" : "pinned here"} · trust ${fmt(c.trust)}`])});
+  else st("done", "Nothing in memory near these alerts", {time: tOf((e) => e.kind === "claim" && e.task === "investigate"), id: "recall",
+    kv: [["what happens", "first time here: investigate step by step; if confirmed, it becomes a playbook"]]});
+  // 3 check / investigate
+  const toNote = takeover ? {noteTag: `e${takeover.epoch - 1} → e${takeover.epoch}`, note: `${takeover.to} took over at step ${takeover.step}, not from scratch`} : {};
+  if (!claims.length) st("pending", "Check against live evidence");
+  else if (cands.length) {
+    let title, state = "done";
+    if (h.decision_id || phase === "investigating") {
+      if (applied) title = `Checked ${applied.target}: ${applied.rows.filter((r) => r.state === "pass").length} of ${applied.total} hold`;
+      else { title = allRuled ? `Ruled out ${cands.length === 1 ? "the recalled playbook" : "all " + cands.length + " matches"}: the evidence didn't fit` : "Checked against live evidence"; state = "ruled"; }
+      if (!applied && phase === "investigating") { title = title + ", investigating"; state = "current"; }
+    } else if (checking) { title = `Checking ${checking.signature} on ${checking.target} against live evidence`; state = "current"; }
+    else { title = "Checking against live evidence"; state = "current"; }
+    st(state, title, {time: lastOf((e) => e.kind === "checkpoint"), id: "check", lens: cands, ...toNote,
+      extra: (() => { const used = new Set(cands.flatMap((c) => c.rows.map((r) => r.step).filter(Boolean)));
+        const rest = invCps.filter((c) => !used.has(c.n)); return !applied && rest.length ? rest : null; })()});
+  } else {
+    st(h.decision_id ? "done" : "current", h.decision_id ? `Investigated in ${plural(invCps.length, "step")}` : `Investigating step by step${invCps.length ? ` · step ${invCps.length}` : ""}`,
+      {time: lastOf((e) => e.kind === "checkpoint"), id: "check", cps: invCps, ...toNote});
+  }
+  // 4 diagnosis
+  if (h.decision_id) st("done", `Diagnosis: ${h.root}, ${label(h.family)}`, {time: tOf((e) => e.kind === "done" && e.task === "investigate"), id: "diag",
+    kv: [["decided by", `${h.decided_by} · epoch e${h.decided_epoch}`],
+      ["how", applied ? "from memory, after every check held (no model call)" : (S.settings.model === "rule-based" ? "step by step (rule-based planner)" : `step by step with ${S.settings.model}`)],
+      ...(x.impact.length ? [["customers affected via", x.impact.map((r) => `${r.service} (${plural(r.hops, "hop")})`).join(", ")]] : []),
+      ...(h.summary && !applied ? [["finding", h.summary]] : [])]});
+  else st("pending", "Diagnosis");
+  // 5 page
+  if (action) {
+    const n = x.actions.length;
+    st("done", `${n === 1 ? "1" : n} ${action.channel}${n === 1 ? "" : "s"} sent to ${action.recipient}`, {time: tOf((e) => e.kind === "action"), id: "page",
+      kv: [["why " + action.recipient, owner ? `on call for ${owner.team}, which owns ${h.root}` : `on call for the owner of ${h.root}`],
+        ["how", (action.payload?.applied_preferences || []).length ? `${action.channel}, ${action.payload.applied_preferences[0]}` : `${action.channel} (team default)`],
+        ["sent once", `intent ${action.key}`]], action});
+  } else st(resp?.status === "leased" ? "current" : "pending", resp?.status === "leased" ? "Notifying the on-call engineer" : "Page on-call");
+  // 6 human
+  if (h.verdict) st(h.verdict === "confirmed" ? "ok" : "bad", `${h.verdict === "confirmed" ? "Confirmed" : "Rejected"} by ${h.verdict_by}`, {id: "human", time: "", chat: true});
+  else st(pending ? "current" : "pending", pending ? `Waiting for ${action?.recipient || "the engineer"} to confirm` : "Engineer confirms", {id: "human", chat: !!action});
+  // 7 learn
+  if (learn?.status === "done") {
+    const parts = [], kv = [];
+    if (helped) { parts.push(`trust ${fmt(helped.trust)} → ${fmt(helped.trustAfter)}`); kv.push([helped.signature, `helped · trust ${fmt(helped.trust)} → ${fmt(helped.trustAfter)}`]); }
+    if (misled) { parts.push(`trust lowered ${fmt(misled.trust)} → ${fmt(misled.trustAfter)}`); kv.push([misled.signature, `misled · trust ${fmt(misled.trust)} → ${fmt(misled.trustAfter)}${misled.status === "retired" ? " · retired" : ""}`]); }
+    cands.filter((c) => c.verdict === "not_applicable").forEach((c) => kv.push([`${c.signature} on ${c.target}`, `not applicable · trust unchanged`]));
+    if (newPb) { parts.push(`new playbook pinned to ${newPb.about.join(", ")}`); kv.push(["new playbook", `${newPb.signature} on ${newPb.about.join(", ")} · trust ${fmt(newPb.trust)}`]); }
+    st(helped ? "ok" : misled ? "bad" : "done", parts.length ? `Learned: ${parts.join("; ")}` : "Learned: verdicts recorded", {time: tOf((e) => e.kind === "done" && e.task === "learn"), id: "learn", kv});
+  } else st(learn?.status === "leased" ? "current" : "pending", "Learn");
+  if (stuck) steps.splice(3, 0, {state: "bad", title: `Stuck: ${stuck.type} failed ${stuck.attempts} times, a human needs to look`, id: "stuck"});
+
+  // caption: one plain sentence for what is happening now
+  const who = action?.recipient || owner?.on_call?.[0] || "the on-call engineer";
+  let cap;
+  const recentTake = takeover && phase === "checking" || (takeover && phase === "investigating");
+  if (deadHolder) cap = `${deadHolder.owner} was killed mid-task. Its lease runs out in ${fmt(Math.max(0, deadHolder.lease_left_ms) / 1000, 1)} s; until then nobody else can claim the task.`;
+  else if (phase === "queued") cap = `${plural(h.alerting.length, "service")} start breaching their SLO. Triage opens an incident and queues a task in the graph.`;
+  else if (recentTake && !h.decision_id) cap = `${takeover.to} took over from the last checkpoint, at step ${takeover.step}, under a new fencing epoch. Not from scratch.`;
+  else if (phase === "checking") cap = invCps.length ? "Before trusting a recalled playbook, the agent checks it against live evidence." : "Agents recall playbooks by walking the dependency graph from the alerting services.";
+  else if (phase === "investigating") cap = allRuled ? "The recalled playbook doesn't match the evidence, so it is ruled out, trust unchanged. The agent digs in." : "Nothing in memory near these alerts, so the investigator works it out step by step, checkpointing each step to the graph.";
+  else if (phase === "diagnosed") cap = `Diagnosis: ${h.root}. The responder takes over through the graph and looks up who is on call.`;
+  else if (phase === "review") cap = `Exactly one ${action.channel} went to ${who}. The agents now ask ${who} to confirm.`;
+  else if (phase === "paged") cap = `Exactly one ${action.channel} goes to ${who}${(action.payload?.applied_preferences || []).length ? ", the way they asked in an earlier incident" : ""}.`;
+  else if (phase === "confirmed") cap = `${h.verdict_by} confirmed. The learner records what each memory did.`;
+  else if (phase === "learned") cap = helped ? `The playbook helped, so its trust went up: ${fmt(helped.trust)} → ${fmt(helped.trustAfter)}.`
+    : misled ? `The playbook misled the agent, so its trust went down${misled.status === "retired" ? " and it retired" : ""}.`
+    : newPb ? `The confirmed fix becomes a playbook pinned to ${newPb.about.join(", ")}. Next time it is recalled.` : "Verdicts recorded.";
+  else if (phase === "rejected") cap = `${h.verdict_by} rejected the diagnosis. Any memory that led to it loses trust.`;
+  else if (phase === "stuck") cap = "A task failed three times. The stuck sweep took it out of rotation so a human can look.";
+
+  return {steps, phase, cap, cands, applied, checking, allRuled, takeover, deadHolder, action, pending, helped, misled, newPb, invCps, held};
 }
 
-/* ------------------------------------------------------------- map */
+/* ------------------------------------------------------------ graph */
+const GW = 1200, ROWY = [70, 220, 370, 545], NH = 34;
+const nodeW = (name) => Math.max(96, Math.round(name.length * 8.1 + 30));
 function layout(nodes) {
-  const by = Object.fromEntries(nodes.map((n) => [n.name, n]));
   const callers = {}; nodes.forEach((n) => n.depends_on.forEach((d) => (callers[d] ||= []).push(n.name)));
   const depth = {};
   const deep = (n) => depth[n] ??= Math.max(0, ...(callers[n] || []).map((c) => deep(c) + 1));
@@ -417,458 +698,764 @@ function layout(nodes) {
   const layers = []; svc.forEach((n) => (layers[depth[n.name]] ||= []).push(n.name));
   layers[maxSvc + 1] = ds.map((n) => n.name);
   const pos = {};
-  const place = () => layers.forEach((l, y) => l.forEach((n, x) => pos[n] = {x, y, n: l.length}));
+  const place = () => layers.forEach((l, y) => l.forEach((n, i) => pos[n] = {i, y, n: l.length}));
   place();
-  for (let pass = 0; pass < 4; pass++) {   // barycentre ordering: fewer crossings
-    layers.forEach((l, y) => {
-      if (y === 0) return;
-      const bc = (n) => { const ps = (callers[n] || []).map((c) => pos[c].x / Math.max(1, pos[c].n - 1));
-        return ps.length ? ps.reduce((a, b) => a + b) / ps.length : .5; };
-      l.sort((a, b) => bc(a) - bc(b)); place();
-    });
-  }
-  return {pos, layers, by};
-}
-function hopsFrom(alerting, nodes) {
-  const adj = Object.fromEntries(nodes.map((n) => [n.name, n.depends_on]));
-  const hop = {}; const q = [];
-  alerting.forEach((a) => { hop[a] = 0; q.push(a); });
-  while (q.length) { const n = q.shift(); (adj[n] || []).forEach((m) => {
-    if (hop[m] === undefined) { hop[m] = hop[n] + 1; q.push(m); } }); }
-  return hop;
-}
-function renderMap() {
-  if (!S.map) return;
-  const nodes = S.map.nodes;
-  const {pos, layers} = layout(nodes);
-  const W = 860, H = 64 + (layers.length - 1) * 74, bw = 124, bh = 30;
-  const xy = (n) => { const p = pos[n]; const span = W - 40;
-    const x = 20 + (p.n === 1 ? span / 2 : (span - bw) * p.x / (p.n - 1) + bw / 2);
-    return {x, y: 30 + p.y * 74}; };
-  const head = S.inc?.head;
-  const alerting = head?.alerting || [];
-  const hop = hopsFrom(alerting, nodes);
-  const pins = {};
-  (S.memory?.playbooks || []).filter((p) => p.status === "active").forEach((p) =>
-    p.about.forEach((a) => (pins[a] ||= []).push(p.trust)));
-  const usedPaths = (S.inc?.lens || []).map((l) => ({path: l.path || [], applied: l.applied}));
-  const onPath = {};
-  usedPaths.forEach((u) => u.path.forEach((n, i) => { if (i) {
-    const k = u.path[i - 1] + ">" + n; onPath[k] = onPath[k] || (u.applied ? "applied" : "ruled"); } }));
-  let edges = "", boxes = "";
-  nodes.forEach((n) => n.depends_on.forEach((d) => {
-    const a = xy(n.name), b = xy(d); const k = n.name + ">" + d;
-    const st = onPath[k] === "applied" ? `stroke="var(--green)" stroke-width="2.4"`
-      : onPath[k] === "ruled" ? `stroke="#7d8597" stroke-width="1.6" stroke-dasharray="4 3"`
-      : `stroke="#2f3644" stroke-width="1.2"`;
-    edges += `<path d="M${a.x},${a.y + bh / 2} C${a.x},${a.y + 46} ${b.x},${b.y - 46} ${b.x},${b.y - bh / 2}" fill="none" ${st}/>`;
+  for (let pass = 0; pass < 4; pass++) layers.forEach((l, y) => {
+    if (y === 0) return;
+    const bc = (n) => { const ps = (callers[n] || []).map((c) => (pos[c].i + .5) / pos[c].n); return ps.length ? ps.reduce((a, b) => a + b) / ps.length : .5; };
+    l.sort((a, b) => bc(a) - bc(b)); place();
+  });
+  const xy = {};
+  layers.forEach((l, y) => l.forEach((n, i) => {
+    xy[n] = {x: 60 + (GW - 120) * (i + .5) / l.length, y: ROWY[Math.min(y, ROWY.length - 1)] + (y >= ROWY.length ? 0 : 0), db: !!nodes.find((q) => q.name === n).kind};
   }));
-  nodes.forEach((n) => {
-    const {x, y} = xy(n.name); const h = hop[n.name];
-    const fill = h === 0 ? "#3a1519" : h === 1 ? "#3a2412" : h === 2 ? "#352f12" : "#1b1f29";
-    const stroke = h === 0 ? "var(--red)" : h === 1 ? "var(--orange)" : h === 2 ? "var(--yellow)" : "#3a4253";
-    const isRoot = head?.root === n.name; const sel = S.mapNode === n.name;
-    const icon = n.kind ? (n.kind === "postgres" ? "◆" : n.kind === "redis" ? "●" : "≡") : "";
-    boxes += `<g class="node" data-node="${esc(n.name)}">
-      ${isRoot ? `<rect x="${x - bw / 2 - 4}" y="${y - bh / 2 - 4}" width="${bw + 8}" height="${bh + 8}" rx="9" fill="none" stroke="var(--text)" stroke-width="2"/>` : ""}
-      <rect x="${x - bw / 2}" y="${y - bh / 2}" width="${bw}" height="${bh}" rx="6" fill="${fill}" stroke="${sel ? "var(--blue)" : stroke}" ${sel ? 'stroke-width="2.5"' : ""}/>
-      <text x="${x}" y="${y + 4}" text-anchor="middle">${icon ? `<tspan fill="var(--muted)">${icon} </tspan>` : ""}${esc(n.name)}${n.customer_facing ? " ★" : ""}</text>
-      ${(pins[n.name] || []).map((t, i) => `<g transform="translate(${x + bw / 2 - 16 - i * 34},${y - bh / 2 - 9})">
-        <rect width="32" height="15" rx="7.5" fill="#1b1630" stroke="#4b3d7c"/>
-        <text x="16" y="11" text-anchor="middle" style="font-size:9.5px;fill:var(--violet)">${fmt(t)}</text></g>`).join("")}
-    </g>`;
-  });
-  $("#map-svg").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Service dependency graph">${edges}${boxes}</svg>`;
-  document.querySelectorAll("[data-node]").forEach((g) => g.onclick = () => { S.mapNode = g.dataset.node; renderMap(); renderMapBar(); });
-  $("#map-sub").textContent = head ? `${alerting.length} alerting · ★ customer-facing` : "★ customer-facing";
+  return xy;
 }
-function renderMapBar() {
-  const n = S.mapNode; if (!n) return;
-  const fam = S.settings.breakable[n];
-  const owner = (S.map.org || []).find((t) => t.owns.includes(n));
-  const teams = Object.keys(S.settings.teams).filter((t) => t !== owner?.team);
-  $("#mapbar").innerHTML = `<span class="mono">${esc(n)}</span>
-    ${fam ? `<button class="btn small danger" id="mb-break">Break: ${esc(label(fam))}</button>` : `<span class="muted">no failure family for this kind</span>`}
-    <span class="grow"></span><span class="muted">owner ${esc(owner?.team || "—")} →</span>
-    <select id="mb-team">${teams.map((t) => `<option>${esc(t)}</option>`).join("")}</select>
-    <button class="btn small" id="mb-move">Move ownership</button>`;
-  if (fam) $("#mb-break").onclick = () => breakIt({node: n});
-  $("#mb-move").onclick = async () => { await api("/api/org/owner", {node: n, team: $("#mb-team").value});
-    toast(`${n} now owned by ${$("#mb-team").value} (from scenario time now)`); loadMap(); };
-}
-function renderOrg() {
-  if (!S.map) return;
-  $("#org").innerHTML = `<table>${S.map.org.map((t) => {
-    const people = S.settings.teams[t.team] || [];
-    return `<tr><td>${esc(t.team)}</td><td><select data-team="${esc(t.team)}">${people.map((p) =>
-      `<option ${t.on_call.includes(p) ? "selected" : ""}>${esc(p)}</option>`).join("")}</select></td></tr>`;
-  }).join("")}</table>`;
-  document.querySelectorAll("[data-team]").forEach((s) => s.onchange = async () => {
-    await api("/api/org/on-call", {team: s.dataset.team, person: s.value});
-    toast(`${s.value} is now on call for ${s.dataset.team}`); loadMap();
-  });
-}
+const edgeD = (a, b) => `M${a.x},${a.y + NH / 2} C${a.x},${(a.y + b.y) / 2 + 10} ${b.x},${(a.y + b.y) / 2 - 10} ${b.x},${b.y - NH / 2}`;
 
-/* ------------------------------------------------------------- incident */
-function renderIncident() {
-  const x = S.inc;
-  if (!x) { $("#incident").innerHTML = `<div class="empty">No incident selected. Break something to start.</div>`; return; }
-  const h = x.head;
-  const verdict = h.verdict ? `<span class="chip ${h.verdict === "confirmed" ? "green" : "red"}">${esc(h.verdict)} by ${esc(h.verdict_by)}</span>` : "";
-  const fromMem = x.lens.some((l) => l.applied);
-  $("#incident").innerHTML = `<div class="inc-head">
-    <div class="inc-title"><span class="mono">${esc(h.id)}</span>${statusChip(h.status)}${verdict}
-      ${h.root ? `<span class="muted" style="font-weight:400">root</span> <span class="mono">${esc(h.root)}</span>
-      <span class="chip blue">${esc(label(h.family))}</span>` : `<span class="chip orange">investigating</span>`}
-      ${h.root ? (fromMem ? `<span class="chip green">solved from memory, no model call</span>` : `<span class="chip grey">investigated step by step</span>`) : ""}</div>
-    <div class="row wrap"><span class="muted">alerting</span>${h.alerting.map((a) => `<span class="chip red mono">${esc(a)}</span>`).join("")}</div>
-    <div class="summary">${h.alert_texts.map((t) => `“${esc(t)}”`).join(" · ")}</div>
-    ${h.summary ? `<div class="summary"><b style="color:var(--text)">Decision</b> by ${badge(h.decided_by)} (epoch ${esc(h.decided_epoch)}): ${esc(h.summary)}</div>` : ""}
-    <div class="faint mono" style="font-size:11.5px">this view: ${x.db.queries} Cypher queries, ${x.db.ms} ms in FalkorDB</div>
-    ${x.impact.length ? `<div class="row wrap"><span class="muted">blast radius</span>${x.impact.map((r) =>
-      `<span class="chip ${r.customer_facing ? "orange" : "grey"} mono">${esc(r.service)} · ${r.hops}</span>`).join("")}</div>` : ""}
-  </div>`;
-}
-
-function renderLens() {
-  const x = S.inc;
-  if (x && !x.head.decision_id && x.recalling.length) { $("#lens").innerHTML = renderRecalling(x); return; }
-  if (!x || !x.head.decision_id) { $("#lens").innerHTML = `<div class="empty">${x ? "Recall found nothing pinned near these alerts; investigating from scratch…" : "—"}</div>`; return; }
-  if (!x.lens.length) { $("#lens").innerHTML = `<div class="empty">No memory applied to this incident (none was pinned near these alerts yet). It was investigated from scratch; if confirmed, the learner turns it into a playbook.</div>`; return; }
-  $("#lens").innerHTML = x.lens.map((l) => {
-    const pinned = (l.pinned_to || []).includes(l.target);
-    const why = pinned ? `pinned to <span class="mono">${esc(l.target)}</span>`
-      : `same kind as <span class="mono">${esc((l.pinned_to || []).join(", "))}</span>`;
-    const path = (l.path || []).map((p) => `<span>${esc(p)}</span>`).join(`<span class="arrow">→</span>`);
-    const checks = l.checks.length ? l.checks.map((c) => `<div class="check">
-      <span class="${c.passed ? "ok" : "no"}">${c.passed ? "✓" : "✗"}</span>
-      <span class="muted">${esc(c.phase)}</span><span>${esc(c.description)}</span>
-      <span class="mono muted">observed ${esc(typeof c.observed === "object" ? JSON.stringify(c.observed) : c.observed)}</span>
-      ${c.step_n ? `<span class="faint mono">step ${c.step_n}</span>` : ""}</div>`).join("")
-      : `<div class="muted">${esc(l.note || "not checked")}</div>`;
-    const v = l.verdict ? `<span class="chip ${l.verdict === "helped" ? "green" : l.verdict === "misled" ? "red" : "grey"}">${esc(l.verdict.replace("_", " "))}</span>` : `<span class="chip grey">verdict pending</span>`;
-    const after = l.verdict === "not_applicable" ? `trust ${fmt(l.trust_at_use)}, unchanged by this check`
-      : l.trust_after !== null && l.trust_after !== undefined
-      ? `trust ${fmt(l.trust_at_use)} → <b>${fmt(l.trust_after)}</b>` : `trust at use ${fmt(l.trust_at_use)}`;
-    return `<div class="lens-card ${l.applied ? "applied" : "ruled"}">
-      <div class="row wrap">${l.applied ? `<span class="chip green">applied</span>` : `<span class="chip grey">ruled out</span>`}
-        <b class="mono">${esc(l.signature)}</b><span class="muted">on</span><span class="mono">${esc(l.target)}</span>
-        <span class="grow"></span>${l.status === "retired" ? `<span class="chip red">retired</span>` : ""}</div>
-      <div class="kv">
-        <div>why recalled</div><div>${why} · ${l.hops} hop${l.hops === 1 ? "" : "s"} from the alerts · score ${fmt(l.score, 3)}</div>
-        <div>path</div><div class="path">${path}</div>
-        <div>learned from</div><div class="mono">${esc((l.learned_from || []).join(", ") || "—")}</div>
-        <div>evidence</div><div style="display:grid;gap:3px">${checks}</div>
-        <div>afterwards</div><div class="row wrap">${v}<span class="trust">${after}</span>
-          <span class="bar"><i style="width:${Math.round((l.trust_after ?? l.trust_at_use ?? 0) * 100)}%"></i></span></div>
-      </div></div>`;
-  }).join("");
-}
-
-function renderRecalling(x) {
-  const sig = Object.fromEntries((S.memory?.playbooks || []).map((p) => [p.id, p.signature]));
-  const steps = x.checkpoints.filter((c) => c.task.endsWith(":investigate"));
-  const last = steps[steps.length - 1];
-  return `<div class="pad row wrap" style="border-bottom:1px solid var(--line)"><span class="chip orange">checking now</span>
-      <span class="muted">recalled before any evidence was gathered; each is checked against live evidence before it is trusted</span>
-      ${last ? `<span class="grow"></span><span class="mono">latest: step ${last.n} ${esc(last.tool)} by ${esc(last.agent)}</span>` : ""}</div>` +
-    x.recalling.map((r) => `<div class="lens-card ruled">
-      <div class="row wrap"><span class="chip grey">recalled</span><b class="mono">${esc(sig[r.memory_id] || r.memory_id)}</b>
-        <span class="muted">on</span><span class="mono">${esc(r.target)}</span></div>
-      <div class="kv"><div>why recalled</div><div>${r.via_kind ? "same kind of datastore" : "pinned here"} · ${r.hops} hop${r.hops === 1 ? "" : "s"} · score ${fmt(r.score, 3)} · trust ${fmt(r.trust)}</div>
-        <div>path</div><div class="path">${(r.path || []).map(esc).join('<span class="arrow">→</span>')}</div>
-        <div>evidence</div><div class="muted">being checked: see the timeline</div></div></div>`).join("");
-}
-
-function renderTimeline() {
-  const x = S.inc;
-  if (!x) { $("#timeline").innerHTML = `<div class="empty">—</div>`; $("#lease").innerHTML = ""; return; }
-  const alive = Object.fromEntries((S.state?.workers || []).map((w) => [w.name, w.alive]));
-  const held = x.tasks.find((t) => t.status === "leased");
-  const stuck = x.tasks.find((t) => t.status === "stuck");
-  if (stuck) {
-    $("#lease").dataset.sig = "stuck";
-    $("#lease").innerHTML = `<div class="lease expired"><div class="row wrap"><span class="chip red">stuck</span>
-      <b>${esc(stuck.type)}</b><span class="muted">failed ${stuck.attempts} times; the stuck sweep took it out of rotation so no worker retries it forever. A human needs to look.</span></div></div>`;
-  } else if (held) {
-    const ms = S.settings.lease_ms, left = held.lease_left_ms;
-    const dead = alive[held.owner] === false;
-    const expired = left < 0;
-    const sig = [held.id, held.owner, held.epoch, dead, expired, !!alive[held.owner]].join("|");
-    const pct = Math.max(0, Math.min(100, left / ms * 100));
-    const note = expired ? `lease expired ${fmt(-left / 1000, 1)} s ago: the next worker to claim it gets epoch ${held.epoch + 1}; anything ${esc(held.owner)} writes now is rejected by the fence`
-        : dead ? `${fmt(left / 1000, 1)} s until the lease runs out (no heartbeats from a dead worker)`
-        : `${fmt(left / 1000, 1)} s left · renewed every ${S.settings.heartbeat_ms / 1000} s by heartbeat`;
-    if ($("#lease").dataset.sig === sig) {   // only the countdown moves; keep the Kill button
-      $("#lease-meter").style.width = pct + "%"; $("#lease-note").innerHTML = note;
-    } else {
-    $("#lease").dataset.sig = sig;
-    $("#lease").innerHTML = `<div class="lease ${expired ? "expired" : ""}">
-      <div class="row wrap"><b>${esc(held.type)}</b><span class="muted">lease held by</span>${badge(held.owner)}
-        ${dead ? `<span class="chip red">dead</span>` : `<span class="chip green">alive</span>`}
-        <span class="chip grey mono">epoch ${held.epoch}</span><span class="chip grey mono">attempt ${held.attempts}/3</span>
-        <span class="grow"></span>
-        ${alive[held.owner] ? `<button class="btn small danger" data-kill="${esc(held.owner)}">Kill ${esc(held.owner)} (SIGKILL)</button>` : ""}</div>
-      <div class="meter"><i id="lease-meter" style="width:${pct}%"></i></div>
-      <div class="muted mono" id="lease-note">${note}</div>
-    </div>`;
-    $("#lease").querySelectorAll("[data-kill]").forEach((b) => b.onclick = () => kill(b.dataset.kill));
-    }
-  } else { $("#lease").innerHTML = ""; $("#lease").dataset.sig = ""; }
-  $("#timeline").innerHTML = x.timeline.map((e) => `<div class="tl-row ${e.kind === "takeover" ? "takeover" : e.kind === "action" ? "action" : ""}">
-      <span class="t">+${fmt((e.t_ms || 0) / 1000, 1)}s</span>
-      <span>${badge(e.agent)}</span>
-      <span class="mono faint">${e.epoch ? "e" + e.epoch : ""}</span>
-      <span>${esc(e.text)}</span></div>`).join("") || `<div class="empty">Queued…</div>`;
-}
-
-function renderChat() {
-  const x = S.inc;
-  const pending = (S.state?.pending || []).find((p) => p.incident_key === S.selected);
-  if (!x) { $("#chat").innerHTML = `<div class="empty">—</div>`; $("#ask").innerHTML = ""; return; }
-  const action = x.actions[0];
-  $("#chat-with").innerHTML = action ? `with ${esc(action.recipient)} · via ${esc(action.channel)}` : "";
-  let html = "";
-  if (x.earlier?.length) {
-    html += `<details class="muted"><summary>Earlier with ${esc(action.recipient)} (${x.earlier.length} messages, other incidents)</summary>
-      ${x.earlier.map((m) => `<div style="margin:4px 0"><span class="mono faint">${esc(m.incident)}</span> ${m.role === "agent" ? "responder" : esc(action.recipient)}: ${esc(String(m.text).split("\n")[0])}</div>`).join("")}</details>`;
-  }
-  if (x.messages.length) {
-    html += x.messages.map((m) => `<div class="msg ${m.role}"><div class="who">${m.role === "agent" ? "responder" : esc(m.handle)}</div>${esc(m.role === "agent" ? noCites(m.text) : m.text)}</div>`).join("");
-  } else if (action) {
-    html += `<div class="msg agent"><div class="who">responder · ${esc(action.channel)} to ${esc(action.recipient)}</div>${esc(noCites(action.payload?.text))}</div>`;
-  } else html = `<div class="empty">The responder writes here once it has a diagnosis.</div>`;
-  const cites = action?.payload?.applied_preferences || [];
-  if (cites.length) html += cites.map((c) => `<div class="cite">↳ sent this way ${esc(c)}</div>`).join("");
-  $("#chat").innerHTML = html;
-  renderAsk(pending);
-}
-function renderAsk(p) {
-  const box = $("#ask");
-  const sig = p ? p.incident_key + p.kind : "";
-  if (box.dataset.sig === sig) return;   // keep what the person is typing
-  box.dataset.sig = sig;
-  if (!p) { box.innerHTML = ""; return; }
-  if (p.kind === "review") {
-    const d = p.prompt;
-    box.innerHTML = `<div class="ask live">
-      <div><b>You are on call.</b> <span class="muted">The responder says:</span>
-        <span class="mono">${esc(d.root)}</span>, ${esc(label(d.family))}.</div>
-      <textarea id="ask-msg" placeholder="Say anything to the responder (optional). Instructions become preferences after a read-back.">${esc(p.suggestion || "")}</textarea>
-      <div class="row"><button class="btn good" id="ask-yes">Confirm diagnosis</button>
-        <button class="btn danger" id="ask-no">Reject</button><span class="grow"></span>
-        <span class="muted">scripted reply prefilled</span></div></div>`;
-    $("#ask-yes").onclick = () => review(p.incident_key, true);
-    $("#ask-no").onclick = () => review(p.incident_key, false);
-  } else {
-    box.innerHTML = `<div class="ask live">
-      <div class="muted">The responder read back what it understood. Reply:</div>
-      <div class="row"><input id="ask-reply" class="grow" value="${esc(p.suggestion || "")}">
-        <button class="btn good" id="ask-send">Send</button></div></div>`;
-    $("#ask-send").onclick = async () => { await api(`/api/reply/${encodeURIComponent(p.incident_key)}`, {text: $("#ask-reply").value}); };
-  }
-}
-async function review(key, confirmed) {
-  await api(`/api/review/${encodeURIComponent(key)}`, {confirmed, message: $("#ask-msg").value});
-  $("#ask").dataset.sig = "-";
-}
-function renderPager() {
-  const acts = S.inc?.actions || [];
-  $("#pager-count").textContent = S.inc ? `${acts.length} sent for this incident` : "";
-  $("#pager").innerHTML = acts.length ? `<table>${acts.map((a) => `<tr>
-    <td><span class="chip ${a.channel === "ticket" ? "violet" : "orange"}">${esc(a.channel)}</span></td>
-    <td>${esc(a.recipient)}</td><td class="mono muted">${esc(a.key)}</td></tr>`).join("")}</table>`
-    : `<div class="empty">Nothing sent.</div>`;
-}
-$("#recap-go").onclick = async () => {
-  const id = $("#recap-pick").value; if (!id) return;
-  $("#recap-out").textContent = (await api(`/api/recap/${encodeURIComponent(id)}`)).text;
+const NS = {
+  base: ["#131315", "#2c2c31", "#d8d8dc"], alert: ["rgba(239,91,91,.08)", "rgba(239,91,91,.65)", "#ededee", "rgba(239,91,91,.14)"],
+  target: ["rgba(98,201,211,.07)", "#62c9d3", "#ededee", "rgba(98,201,211,.12)"], target2: ["#131315", "rgba(98,201,211,.45)", "#ededee"],
+  suspect: ["rgba(233,162,59,.08)", "rgba(233,162,59,.75)", "#ededee", "rgba(233,162,59,.13)"],
+  root: ["rgba(63,207,142,.08)", "rgba(63,207,142,.75)", "#ededee", "rgba(63,207,142,.13)"],
+  ruled: ["#131315", "#3a3a40", "#a1a1a9"], path: ["#131315", "#3a3a40", "#ededee"], probe: ["#131315", "rgba(233,162,59,.55)", "#ededee"],
 };
 
-/* ------------------------------------------------------------- memory tab */
-function checkText(c) {
-  const args = Object.entries(c.args || {}).map(([k, v]) => `${k}=${v}`).join(", ");
-  return `${c.tool}(${args}) → ${c.measure} ${c.op} ${JSON.stringify(c.value)}`;
+function graphModel(x, s) {
+  // node states, captions, paths, check card for the selected incident
+  const nodes = {}, paths = [];
+  const set = (n, st, cap) => { nodes[n] = {st, cap: cap ?? nodes[n]?.cap}; };
+  if (!x) return {nodes, paths, dim: false};
+  const h = x.head;
+  const over = ["learned", "confirmed"].includes(s.phase);
+  h.alerting.forEach((a) => set(a, over ? "path" : "alert"));
+  s.cands.forEach((c) => {
+    const kind = c.outcome === "ruled" ? "ruled" : (c === s.checking || c === s.applied) ? "main" : "faint";
+    paths.push({hops: c.path, kind, key: `${h.key}|${c.key}`, label: kind === "main" || (kind === "ruled" && s.allRuled && c === s.cands[0])
+      ? `${plural(c.hops, "hop")} · ${c.viaKind ? "same kind of datastore" : "pinned here"}` : null});
+    c.path.slice(1, -1).forEach((n) => { if (!nodes[n]) set(n, "path"); });
+    set(c.target, c.outcome === "ruled" ? "ruled" : kind === "main" ? "target" : "target2");
+  });
+  if (!s.cands.length && !h.decision_id && s.invCps.length) {
+    const last = s.invCps[s.invCps.length - 1]; const n = last.args?.node || last.args?.service;
+    if (n && !h.alerting.includes(n)) set(n, "probe", `step ${last.n}: ${shortTool(last).split(" ")[0].toLowerCase()} ${""}`.trim());
+  }
+  if (h.root) set(h.root, h.verdict === "confirmed" ? "root" : "suspect",
+    h.verdict === "confirmed" ? `root cause · ${label(h.family)}` : `diagnosis · ${label(h.family)}`);
+  if (s.applied && !h.root) nodes[s.applied.target].cap = `checks ${s.applied.rows.filter((r) => r.state === "pass").length} / ${s.applied.total} hold`;
+  // check card: the memory being checked now, or the last one ruled out
+  let card = null;
+  const c = s.checking || (!h.verdict && s.applied) || (s.allRuled && !h.verdict ? s.cands[0] : null);
+  if (c && s.phase !== "learned") card = c;
+  return {nodes, paths, card, dim: true};
 }
-async function loadMemory() {
-  S.memory = await api("/api/memory");
-  if (S.tab !== "memory") return;
-  const pbs = S.memory.playbooks;
-  $("#playbooks").innerHTML = pbs.length ? pbs.map((p) => `<div class="panel pb ${p.status}">
-    <div class="row"><b class="mono">${esc(p.signature)}</b><span class="grow"></span>
-      <span class="chip ${p.status === "active" ? "green" : "red"}">${esc(p.status)}</span></div>
-    <div class="row wrap"><span class="trust">trust <b>${fmt(p.trust)}</b><span class="bar"><i style="width:${Math.round(p.trust * 100)}%"></i></span></span>
-      <span class="chip green">helped ${p.helped}</span><span class="chip ${p.misled ? "red" : "grey"}">misled ${p.misled}</span></div>
-    <div class="kv"><div>pinned to</div><div class="mono">${esc(p.about.join(", "))}</div>
-      <div>applies to</div><div>any <span class="mono">${esc(p.kind)}</span></div>
-      <div>learned from</div><div class="mono">${esc(p.learned_from.join(", ") || "—")}</div>
-      <div>rule out first</div><div class="mono" style="font-size:11.5px">${p.preconditions.map((c) => esc(checkText(c))).join("<br>") || "—"}</div>
-      <div>then expect</div><div class="mono" style="font-size:11.5px">${p.steps.map((c) => esc(checkText(c))).join("<br>")}</div></div>
-  </div>`).join("") : `<div class="empty">Nothing learned yet. Confirm a diagnosis that was investigated from scratch.</div>`;
-  $("#plant").disabled = pbs.some((p) => p.signature.endsWith(":planted") && p.status === "active");
-  const facts = S.memory.facts;
-  $("#facts").innerHTML = facts.length ? facts.map((f) => `<div class="fact ${f.valid_to ? "closed" : ""}">
-    <div class="row wrap"><b>${esc(f.handle)}</b><span class="muted">${esc(f.condition_family ? "for " + label(f.condition_family) : "always")}</span>
-      <span class="mono">${esc(f.predicate)}</span> = <span class="mono val">${esc(f.value)}</span>
-      <span class="chip ${f.source === "human" ? "green" : "grey"}">${f.source === "human" ? "approved by " + esc(f.approved_by) : "agent's reading, unconfirmed"}</span>
-      ${f.valid_to ? `<span class="chip grey">superseded</span>` : ""}
-      ${f.supersedes.length ? `<span class="faint mono">supersedes ${esc(f.supersedes.join(", "))}</span>` : ""}</div>
-    <div class="muted">“${esc(f.said)}” <span class="faint">— incident ${esc(f.learned_in)}</span></div></div>`).join("")
-    : `<div class="empty">No preferences yet. Tell the responder how you want to be notified in the war room.</div>`;
-}
-$("#plant").onclick = async () => { await api("/api/plant-wrong-memory", {}); toast("Wrong playbook planted on postgres-orders"); loadMemory(); };
 
-/* ------------------------------------------------------------- results tab */
-async function loadResults() {
-  const r = await api("/api/results");
-  const ev = r.eval;
-  if (!ev) { $("#results").innerHTML = `<div class="panel empty">No eval results found. Run <span class="mono">make eval</span>.</div>`; return; }
-  const arms = ev.meta.arms.filter((a) => ev.summary[a]);
-  const names = {A: "A · no memory", B: "B · text memory", C: "C · graph memory"};
-  const all = (a) => ev.summary[a].all;
-  const tot = (a, k) => Math.round(all(a)["mean_" + k] * all(a).n);
-  const rows = [
-    ["Root cause correct", (a) => `${Math.round(all(a).accuracy * all(a).n)}/${all(a).n}`, (a) => all(a).accuracy, "max"],
-    ["LLM requests, whole run", (a) => tot(a, "llm_requests"), (a) => tot(a, "llm_requests"), "min"],
-    ["Input tokens", (a) => (tot(a, "input_tokens") / 1000).toFixed(0) + "k", (a) => tot(a, "input_tokens"), "min"],
-    ["Wall-clock seconds", (a) => tot(a, "seconds"), (a) => tot(a, "seconds"), "min"],
-    ["Times memory helped", (a) => all(a).memory_helped, (a) => all(a).memory_helped, "max"],
-    ["Times memory misled", (a) => all(a).memory_misled, (a) => -all(a).memory_misled, "max"],
-    ["Duplicate notifications", (a) => all(a).duplicate_notifications, (a) => -all(a).duplicate_notifications, "max"],
-  ];
-  const table = rows.map(([name, show, val, best]) => {
-    const vals = arms.map(val); const b = best === "max" ? Math.max(...vals) : Math.min(...vals);
-    return `<tr><td>${name}</td>${arms.map((a, i) => `<td class="num ${vals[i] === b && new Set(vals).size > 1 ? "win" : ""}">${show(a)}</td>`).join("")}</tr>`;
+function renderGraph() {
+  if (!S.map) return;
+  const xy = layout(S.map.nodes);
+  S.xy = xy;
+  const x = S.tab === "live" ? S.inc : null;
+  const s = x ? S.story : null;
+  const g = graphModel(x, s || {cands: [], invCps: []});
+  // pins: active playbooks on the nodes they are pinned to, trust shown live
+  const pins = {};
+  (S.memory?.playbooks || []).forEach((p) => p.about.forEach((a) => (pins[a] ||= []).push(p)));
+  const lensFor = (pid) => s?.cands.find((c) => c.memory === pid && c.final);
+  const sig = JSON.stringify([x?.head.key, g, Object.entries(pins).map(([k, v]) => [k, v.map((p) => [p.id, fmt(p.trust), p.status])]), S.mapNode, s?.phase]);
+  if ($("#graph").dataset.sig === sig) return;
+  $("#graph").dataset.sig = sig;
+
+  let edges = "", over = "", boxes = "", fx = "";
+  S.map.nodes.forEach((n) => n.depends_on.forEach((d) => { edges += `<path class="edge" d="${edgeD(xy[n.name], xy[d])}"/>`; }));
+  g.paths.forEach((p) => {
+    const segs = []; for (let i = 1; i < p.hops.length; i++) if (xy[p.hops[i - 1]] && xy[p.hops[i]]) segs.push(edgeD(xy[p.hops[i - 1]], xy[p.hops[i]]));
+    const fresh = once("path:" + p.key + ":" + p.kind);
+    segs.forEach((d, i) => { over += `<path pathLength="1" class="rp ${p.kind} ${fresh ? "draw" : ""}" style="--d:.4s;animation-delay:${i * .4}s" d="${d}"/>`; });
+    if (fresh && p.kind === "main" && segs.length) over += `<circle class="travel" r="4"><animateMotion dur="${.4 * segs.length + .2}s" fill="freeze" path="${segs.join(" ").replace(/ M/g, " L")}"/></circle>`;
+    if (p.label && p.hops.length >= 2) {
+      const a = xy[p.hops[p.hops.length - 2]], b = xy[p.hops[p.hops.length - 1]];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + 12;
+      over += `<text class="plabel ${p.kind === "ruled" ? "ruled" : ""}" x="${mx + (b.x >= a.x ? 14 : -14)}" y="${my}" text-anchor="${b.x >= a.x ? "start" : "end"}" style="${fresh ? "animation:fade .3s .6s both" : ""}">${esc(p.label)}</text>`;
+    }
+  });
+  let ai = 0;
+  S.map.nodes.forEach((n) => {
+    const p = xy[n.name]; const st = g.nodes[n.name]; const [fill, stroke, col, ring] = NS[st?.st || "base"];
+    const w = nodeW(n.name), rx = p.db ? 5 : NH / 2;
+    const faded = g.dim && !st ? "faded" : "";
+    const pulse = st?.st === "alert" && once("pulse:" + x.head.key + ":" + n.name);
+    boxes += `<g class="node ${faded}" data-node="${esc(n.name)}">
+      ${ring ? `<rect x="${p.x - w / 2 - 4}" y="${p.y - NH / 2 - 4}" width="${w + 8}" height="${NH + 8}" rx="${rx + 4}" fill="none" stroke="${ring}" stroke-width="4"/>` : ""}
+      ${pulse ? `<rect class="pulse" style="--delay:${.2 + (ai++) * .08}s" x="${p.x - w / 2}" y="${p.y - NH / 2}" width="${w}" height="${NH}" rx="${rx}"/>` : ""}
+      <rect class="box" x="${p.x - w / 2}" y="${p.y - NH / 2}" width="${w}" height="${NH}" rx="${rx}" fill="${fill}" stroke="${S.mapNode === n.name ? "#ededee" : stroke}" stroke-width="1"/>
+      <text x="${p.x}" y="${p.y + 4.5}" text-anchor="middle" style="fill:${col}">${esc(n.name)}</text>
+      ${st?.cap ? `<text class="cap" x="${p.x}" y="${p.y + NH / 2 + 18}" text-anchor="middle" style="fill:${st.st === "root" ? "var(--grn)" : st.st === "suspect" || st.st === "probe" ? "var(--amb)" : "var(--t2)"}">${esc(st.cap)}</text>` : ""}
+    </g>`;
+    (pins[n.name] || []).forEach((pb, i) => {
+      const l = lensFor(pb.id);
+      let txt = fmt(pb.trust), cls = "";
+      if (pb.status === "retired") cls = "ret";
+      else if (l && l.verdict === "helped" && s.phase === "learned") { txt = `${fmt(l.trust)} → ${fmt(l.trustAfter)}`; cls = "grn"; }
+      else if (s && s.cands.length && s.cands.every((c) => c.memory !== pb.id || c.outcome === "ruled") && s.cands.some((c) => c.memory === pb.id)) cls = "neu";
+      const tw = txt.length * 6.8 + 22, px = p.x + w / 2 - tw + 10 - i * (tw + 4), py = p.y - NH / 2 - 11;
+      const fresh = once("pin:" + pb.id + ":" + txt);
+      boxes += `<g transform="translate(${px},${py})"><g class="pin ${cls} ${fresh ? "pop-in" : ""}"><title>${esc(pb.signature)} · learned from ${esc(pb.learned_from.join(", "))}</title>
+        <rect width="${tw}" height="18" rx="9"/><circle cx="9" cy="9" r="2.5"/><text x="16" y="12.5">${esc(txt)}</text></g></g>`;
+    });
+  });
+  if (g.card && xy[g.card.target]) {
+    const c = g.card, p = xy[c.target];
+    const rows = (c.outcome === "ruled" ? c.rows.filter((r) => r.state !== "wait" && r.state !== "pend") : c.rows).map((r) => {
+      const fresh = once("row:" + x.head.key + ":" + c.key + ":" + r.text + ":" + r.state);
+      const gl = r.state === "pass" ? "✓" : r.state === "fail" ? "✕" : "";
+      const o = r.state === "pass" || r.state === "fail" ? `observed ${esc(r.obsText)}` : r.state === "pend" ? `<span style="color:var(--amb)">reading…</span>` : "waiting";
+      return `<div class="crow ${fresh ? "new" : ""}"><span class="glyph g-${r.state}">${gl}</span><div>${esc(r.text)}<div class="o">${o}</div></div></div>`;
+    }).join("");
+    const done = c.rows.filter((r) => r.state === "pass").length;
+    const msg = c.outcome === "ruled" ? `<div class="cmsg">Not applicable · trust unchanged</div>` : "";
+    const cw = 330;
+    const lines = (t) => Math.max(1, Math.ceil(t.length * 7.4 / (cw - 62)));
+    const ch = 56 + (c.outcome === "ruled" ? c.rows.filter((r) => r.state !== "wait" && r.state !== "pend") : c.rows).reduce((n, r) => n + 19 * lines(r.text) + 36, 0) + (msg ? 36 : 0);
+    // put the card next to its node, where it covers the fewest nodes in play
+    const boxOf = (name, pad = 8) => { const q = xy[name], w = nodeW(name); return [q.x - w / 2 - pad, q.y - NH / 2 - pad, q.x + w / 2 + pad, q.y + NH / 2 + 26]; };
+    const busy = Object.keys(g.nodes).filter((n) => xy[n]).map((n) => [boxOf(n), n === c.target ? 6 : 1]);
+    const ov = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+    let best = null;
+    for (const sx of [p.x + nodeW(c.target) / 2 + 24, p.x - nodeW(c.target) / 2 - 24 - cw]) {
+      for (const sy of [p.y - ch + 30, p.y - ch / 2, p.y - 30, 40, 600 - ch]) {
+        const x0 = Math.max(8, Math.min(GW - cw - 8, sx)), y0 = Math.max(36, Math.min(600 - ch, sy));
+        const r = [x0, y0, x0 + cw, y0 + ch];
+        const cost = busy.reduce((n, [b, w]) => n + ov(r, b) * w * 4, 0) + Math.hypot(x0 + cw / 2 - p.x, y0 + ch / 2 - p.y) * 3;
+        if (!best || cost < best.cost) best = {cost, x0, y0};
+      }
+    }
+    const cx = best.x0, cy = best.y0;
+    fx = `<foreignObject x="${cx}" y="${cy}" width="${cw}" height="${ch + 60}"><div xmlns="http://www.w3.org/1999/xhtml" class="checkcard" style="${once("card:" + x.head.key + ":" + c.key) ? "" : "animation:none"}">
+      <div class="hd"><div><b>${c.outcome === "ruled" ? esc(c.signature) : "Checking " + esc(c.signature)}</b><div class="s">on ${esc(c.target)} · trust ${fmt(c.trust)}</div></div>
+      <span class="n">${c.outcome === "ruled" ? "✕" : `${done} / ${c.total}`}</span></div>${rows}${msg}</div></foreignObject>`;
+  }
+  $("#graph").innerHTML = `<svg viewBox="0 30 ${GW} 570" preserveAspectRatio="xMidYMid meet" class="${g.dim ? "dim" : ""}" role="img" aria-label="Service dependency graph">
+    ${edges}${over}${boxes}${fx}</svg>`;
+  $("#graph").querySelectorAll("[data-node]").forEach((el) => el.onclick = (e) => { e.stopPropagation(); openNodePop(el.dataset.node); });
+  const svc = S.map.nodes.filter((n) => !n.kind).length;
+  $("#graph-sub").textContent = `${svc} services · ${S.map.nodes.length - svc} datastores`;
+}
+
+function nodeScreen(name) {
+  const svg = $("#graph svg"); const p = S.xy?.[name]; if (!svg || !p) return null;
+  const pt = svg.createSVGPoint(); pt.x = p.x; pt.y = p.y;
+  const r = pt.matrixTransform(svg.getScreenCTM()); return {x: r.x, y: r.y};
+}
+function openNodePop(name) {
+  if (S.mapNode === name) { closeNodePop(); return; }
+  S.mapNode = name; $("#graph").dataset.sig = ""; renderGraph();
+  const fam = S.settings.breakable[name];
+  const owner = (S.map.org || []).find((t) => t.owns.includes(name));
+  const teams = Object.keys(S.settings.teams).filter((t) => t !== owner?.team);
+  const pb = (S.memory?.playbooks || []).filter((p) => p.about.includes(name));
+  const sp = nodeScreen(name), st = $("#stage").getBoundingClientRect();
+  const left = Math.min(Math.max(12, sp.x - st.left + 20), st.width - 302), top = Math.min(sp.y - st.top + 24, st.height - 220);
+  $("#npop").innerHTML = `<div class="npop" style="left:${left}px;top:${top}px" onclick="event.stopPropagation()">
+    <div class="t">${esc(name)}</div>
+    <div class="m">${owner ? `owned by ${esc(owner.team)} · on call ${esc(owner.on_call.join(", ") || "nobody")}` : "a datastore with no owning team"}${pb.length ? ` · ${plural(pb.length, "playbook")} pinned` : ""}</div>
+    ${fam ? `<button class="btn small danger" id="np-break">Break it: ${esc(label(fam))}</button>` : `<div class="m">No failure family for this kind.</div>`}
+    ${owner ? `<div class="r"><span class="m" style="margin:0">Move ownership to</span><select class="sel" id="np-team">${teams.map((t) => `<option>${esc(t)}</option>`).join("")}</select>
+      <button class="btn small" id="np-move">Move</button></div>` : ""}</div>`;
+  if (fam) $("#np-break").onclick = () => { closeNodePop(); breakIt({node: name}); };
+  if (owner) $("#np-move").onclick = async () => { const t = $("#np-team").value; await api("/api/org/owner", {node: name, team: t});
+    toast(`<b>${esc(name)}</b> is now owned by ${esc(t)}, from scenario time now.`); closeNodePop(); loadMap(); };
+}
+function closeNodePop() { if (!S.mapNode) return; S.mapNode = null; $("#npop").innerHTML = ""; $("#graph").dataset.sig = ""; renderGraph(); }
+document.addEventListener("click", () => { closeNodePop(); });
+
+function renderStageBits() {
+  const x = S.inc, s = S.story;
+  // stage event pill
+  let ev = "";
+  if (s?.deadHolder) ev = `<span class="kbadge">SIGKILL</span>${esc(s.deadHolder.owner)} stopped mid-task. Its lease expires in ${fmt(Math.max(0, s.deadHolder.lease_left_ms) / 1000, 1)} s, then the task can be claimed.`;
+  else if (s?.takeover && !x.head.decision_id) ev = `<span class="kbadge">SIGKILL</span>Lease expired. ${esc(s.takeover.to)} claimed the task at epoch e${s.takeover.epoch}.`;
+  const evSig = ev.replace(/[\d.]+ s,/, "");
+  if ($("#stage-event").dataset.sig !== evSig) { $("#stage-event").dataset.sig = evSig; $("#stage-event").innerHTML = ev ? `<div class="stage-event">${ev}</div>` : ""; }
+  else if (ev) $("#stage-event .stage-event").innerHTML = ev;
+  // caption
+  let cap = !x ? "Agents share one graph. Confirmed fixes are saved there as playbooks, pinned to the service that failed." : s.cap;
+  if (S.dbDown) cap = "FalkorDB is restarting. The agents wait; nothing is lost.";
+  const on = S.captions && cap;
+  const capKey = (cap || "").replace(/[\d.]+ s;/, "");
+  if ($("#caption").dataset.sig !== capKey + on) { $("#caption").dataset.sig = capKey + on; $("#caption").innerHTML = on ? `<div class="caption"><span>${esc(cap)}</span></div>` : ""; }
+  else if (on) $("#caption .caption span").textContent = cap;
+  $("#legend").hidden = !!on;
+  // on call + notification counter
+  const org = S.map?.org || [];
+  const hot = s?.action?.recipient;
+  const people = org.flatMap((t) => t.on_call.map((p) => ({p, team: t.team})));
+  const oc = `<span>On call</span>${people.map(({p, team}) => `<span class="avatar ${p === hot ? "hot" : ""}" data-av="${esc(p)}" title="${esc(p)} · ${esc(team)}">${esc(p.slice(0, 2).toUpperCase())}</span>`).join("")}
+    <button class="qbtn" data-q="org" title="Who to page, from the graph">‹›</button>`;
+  if ($("#oncall").dataset.sig !== oc) { $("#oncall").dataset.sig = oc; $("#oncall").innerHTML = oc; bindQ($("#oncall")); }
+  const n = x?.actions.length || 0;
+  const nt = n ? `<span class="notif">${plural(n, "notification")}</span>` : "";
+  if ($("#notif").innerHTML !== nt) $("#notif").innerHTML = nt;
+  // the envelope: once per sent action, from the root cause to the person
+  if (s?.action && x.head.root && once("env:" + s.action.key)) flyEnvelope(x.head.root, s.action.recipient);
+}
+function flyEnvelope(from, to) {
+  const a = nodeScreen(from), av = document.querySelector(`[data-av="${CSS.escape(to)}"]`);
+  if (!a || !av) return;
+  const b = av.getBoundingClientRect(), e = $("#envelope");
+  e.hidden = false; e.style.transition = "none"; e.style.opacity = "1";
+  e.style.left = "0px"; e.style.top = "0px"; e.style.transform = `translate(${a.x - 11}px, ${a.y - 8}px)`;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    e.style.transition = "transform 1.1s cubic-bezier(.16,1,.3,1), opacity .3s 1.1s";
+    e.style.transform = `translate(${b.left + b.width / 2 - 11}px, ${b.top + b.height / 2 - 8}px) scale(.8)`;
+    e.style.opacity = "0";
+    setTimeout(() => { e.hidden = true; }, 1500);
+  }));
+}
+
+/* ------------------------------------------------------------ rail */
+function titleOf(h) {
+  const sid = (h.id || "").split("-")[0];
+  const story = S.settings.stories[sid];
+  if (story) return `${sid} · ${story}`;
+  return h.root ? `${h.root} · ${label(h.family)}` : `Incident ${h.id}`;
+}
+function statusBadge(x, s) {
+  const p = s.phase;
+  if (p === "stuck") return `<span class="badge red">Stuck</span>`;
+  if (p === "rejected") return `<span class="badge red">Rejected</span>`;
+  if (p === "learned" || x.head.status === "resolved") return `<span class="badge grn">Resolved</span>`;
+  if (p === "review") return `<span class="badge amb">Needs engineer</span>`;
+  return `<span class="badge amb">In progress</span>`;
+}
+function renderRailHead() {
+  const list = S.state?.incidents || [];
+  const x = S.inc;
+  let html;
+  if (!x) {
+    html = `<div class="meta"><span class="badge">No active incident</span><span class="grow"></span></div>`;
+  } else {
+    const s = S.story;
+    const opts = list.map((i) => `<option value="${esc(i.key)}" ${i.key === x.head.key ? "selected" : ""}>${esc(i.id)}${i.status === "planted" ? " (planted)" : ""}</option>`).join("");
+    html = `<div class="meta"><select class="incpick" id="incpick" title="Switch incident">${opts}</select>${statusBadge(x, s)}
+        ${x.lens.some((l) => l.applied) && x.head.decision_id ? `<span class="badge acc">solved from memory</span>` : ""}
+        <span class="grow"></span><button class="qbtn" data-q="${S.rail === "timeline" ? "timeline" : "lens"}" title="The Cypher behind this panel">‹›</button></div>
+      <h1>${esc(titleOf(x.head))}</h1>
+      <div class="alerts">${esc(x.head.alert_texts.join(" · "))}</div>
+      <div class="seg"><button data-rail="story" class="${S.rail === "story" ? "on" : ""}">What happened</button>
+        <button data-rail="timeline" class="${S.rail === "timeline" ? "on" : ""}">Agent timeline</button></div>`;
+  }
+  if ($("#rail-head").dataset.sig === html) return;
+  $("#rail-head").dataset.sig = html; $("#rail-head").innerHTML = html;
+  $("#incpick")?.addEventListener("change", (e) => { S.selected = e.target.value; S.follow = S.selected === list[0]?.key; S.inc = null; pollIncident(); });
+  document.querySelectorAll("[data-rail]").forEach((b) => b.onclick = () => { S.rail = b.dataset.rail; renderRail(); renderRailHead(); });
+  bindQ($("#rail-head"));
+}
+
+function lensCard(c) {
+  const vb = c.final ? (c.verdict === "helped" ? `<span class="badge grn">helped</span>` : c.verdict === "misled" ? `<span class="badge red">misled</span>`
+    : c.verdict === "not_applicable" ? `<span class="badge">not applicable</span>` : `<span class="badge">verdict pending</span>`)
+    : `<span class="badge ${c.outcome === "ruled" ? "" : c.outcome === "holds" ? "grn" : "amb"}">${c.outcome === "ruled" ? "ruled out" : c.outcome === "holds" ? "all checks hold" : c.outcome === "checking" ? "checking now" : "queued"}</span>`;
+  const after = !c.final ? "decided after the diagnosis is confirmed"
+    : c.verdict === "not_applicable" ? `trust ${fmt(c.trust)}, unchanged: it never steered the investigation`
+    : c.trustAfter !== null && c.trustAfter !== undefined ? `trust ${fmt(c.trust)} → <b>${fmt(c.trustAfter)}</b>` : `trust at use ${fmt(c.trust)}`;
+  const bar = Math.round((c.final && c.verdict !== "not_applicable" ? (c.trustAfter ?? c.trust) : c.trust) * 100);
+  return `<div class="lens">
+    <div class="lh">${vb}<b>${esc(c.signature)}</b><span style="color:var(--t3)">on</span><b>${esc(c.target)}</b>${c.status === "retired" ? `<span class="badge red">retired</span>` : ""}</div>
+    <div class="q">
+      <div class="k">What</div><div>A playbook learned from <span class="mono">${esc(c.learned.join(", ") || "—")}</span>, pinned to <span class="mono">${esc(c.pinned.join(", "))}</span></div>
+      <div class="k">Why recalled</div><div>${c.viaKind ? "Same kind of datastore as where it was learned" : "Pinned right here"}, ${plural(c.hops, "hop")} from the alerts
+        <div class="mono" style="font-size:12px;color:var(--t3);margin-top:3px">${c.path.map(esc).join(" → ")} · score ${fmt(c.score, 3)}</div></div>
+      <div class="k">Evidence</div><div>${(c.outcome === "ruled" ? c.rows.filter((r) => r.state !== "wait" && r.state !== "pend") : c.rows).map((r) => `<div class="ck"><span class="glyph g-${r.state}">${r.state === "pass" ? "✓" : r.state === "fail" ? "✕" : ""}</span>
+        <div>${esc(r.text)}<div class="o">${esc(r.raw)}${r.obsText ? ` · observed ${esc(String(r.observed))}` : ""}${r.step ? ` · step ${r.step}` : ""}</div></div></div>`).join("") || `<span style="color:var(--t3)">not checked</span>`}${c.outcome === "ruled" ? `<div style="font-size:12px;color:var(--t3)">Stopped at the first check that failed; the rest never ran.</div>` : ""}</div>
+      <div class="k">Afterwards</div><div>${after}<span class="trustbar"><i style="width:${bar}%;background:${c.verdict === "helped" ? "var(--grn)" : c.verdict === "misled" ? "var(--red)" : "var(--t2)"}"></i></span></div>
+    </div></div>`;
+}
+const kvHtml = (kv) => kv?.length ? `<div class="kv">${kv.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>`).join("")}</div>` : "";
+function cpsHtml(cps) {
+  return `<div class="kv">${cps.map((c) => { const [t, r] = humanTool(c);
+    return `<div class="k">step ${c.n} · ${esc(c.agent)} e${c.epoch}</div><div class="v">${esc(t)}${r ? ` <span style="color:var(--t3)">→ ${esc(r)}</span>` : ""}</div>`; }).join("")}</div>`;
+}
+function chatHtml(x, s) {
+  const a = s.action; if (!a) return "";
+  let html = "";
+  const msgs = x.messages.length ? x.messages : [{role: "agent", text: a.payload?.text || "", handle: ""}];
+  html += `<div class="msgs">${msgs.map((m) => `<div class="msg ${m.role}"><div class="who">${m.role === "agent" ? `responder · ${esc(a.channel)} to ${esc(a.recipient)}` : esc(m.handle || a.recipient)}</div>${esc(String(m.text).split("\n").filter((l) => !l.startsWith("Sent this way ")).join("\n"))}</div>`).join("")}</div>`;
+  (a.payload?.applied_preferences || []).forEach((c) => { html += `<div class="cite">↳ sent this way ${esc(c)}</div>`; });
+  if (x.earlier?.length) {
+    const inc = [...new Set(x.earlier.map((m) => m.incident))];
+    html += `<details class="more"><summary>Earlier with ${esc(a.recipient)}: ${plural(x.earlier.length, "message")} from incident ${esc(inc.join(", "))}, read back from the graph</summary>
+      <div class="msgs">${[...x.earlier].reverse().map((m) => `<div class="msg ${m.role}"><div class="who">${m.role === "agent" ? "responder" : esc(a.recipient)} · ${esc(m.incident)}</div>${esc(String(m.text).split("\n")[0])}</div>`).join("")}</div>
+      <button class="btn small" style="margin-top:8px" data-recap="${esc(inc[0])}">Where did we leave ${esc(inc[0])}?</button><div class="pre" id="recap-out" hidden style="margin-top:8px"></div></details>`;
+  }
+  return html;
+}
+function warCard(x, s) {
+  const p = s.pending; if (!p) return "";
+  const who = s.action?.recipient || "you";
+  if (p.kind === "review") {
+    const d = p.prompt || {};
+    const ctx = s.applied ? `Recalled ${s.applied.signature} and all ${s.applied.total} checks held on ${s.applied.target}.`
+      : s.allRuled ? `Recalled memory was ruled out on evidence. ${x.head.summary || ""}` : (x.head.summary || "");
+    return `<div class="war"><div class="top"><span class="avatar hot" style="width:22px;height:22px;font-size:9px">${esc(who.slice(0, 2).toUpperCase())}</span>${esc(who)} · war room<span class="grow"></span><span class="badge amb">Agent · needs you</span></div>
+      <h3>Confirm diagnosis?</h3><div class="q">${esc(d.root)} · ${esc(label(d.family))}</div><div class="ctx">${esc(ctx)}</div>
+      <textarea id="war-msg" placeholder="Reply to the agents (optional). Instructions become preferences after a read-back.">${esc(p.suggestion || "")}</textarea>
+      <div class="acts"><button class="btn primary" id="war-yes">Confirm</button><button class="btn" id="war-no">Not this</button><span class="grow"></span>
+      <span style="font-size:12px;color:var(--t3)">${p.suggestion ? "scripted reply prefilled" : ""}</span></div></div>`;
+  }
+  const last = [...x.messages].reverse().find((m) => m.role === "agent");
+  return `<div class="war"><div class="top"><span class="avatar hot" style="width:22px;height:22px;font-size:9px">${esc(who.slice(0, 2).toUpperCase())}</span>${esc(who)} · war room<span class="grow"></span><span class="badge amb">Read-back</span></div>
+    <h3>Is this what you meant?</h3><div class="ctx">${esc(last?.text || "")}</div>
+    <input id="war-reply" value="${esc(p.suggestion || "")}"><div class="acts"><button class="btn primary" id="war-send">Send</button></div></div>`;
+}
+
+function renderRail() {
+  const x = S.inc, body = $("#rail-body");
+  if (!x) {
+    const next = Object.entries(S.settings.stories);
+    const html = `<div class="idle"><h2>No active incident</h2><p>Agents are watching ${esc(S.settings.graph)}. Memory holds ${plural((S.memory?.playbooks || []).filter((p) => p.status === "active").length, "playbook")} from past incidents. Start a scenario to watch the loop run.</p>
+      <div class="loop"><div><b>1</b><div><h5>Remember</h5><span>When an engineer confirms a diagnosis, the agents save it as a playbook pinned to the failing service.</span></div></div>
+        <div><b>2</b><div><h5>Recall and check</h5><span>On the next incident they walk the dependency graph to nearby playbooks and test each one against live evidence.</span></div></div>
+        <div><b>3</b><div><h5>Act and learn</h5><span>The on-call engineer gets exactly one page. The outcome raises or lowers the playbook's trust.</span></div></div></div>
+      <div class="next"><span style="font-size:12px;color:var(--t3)">Scenario</span><select id="idle-pick">${next.map(([id, t]) => `<option value="${id}">${id} · ${esc(t)}</option>`).join("")}</select>
+        <button class="btn primary" id="idle-go">Start</button></div></div>`;
+    if (body.dataset.sig !== html) { body.dataset.sig = html; body.innerHTML = html; $("#idle-go").onclick = () => breakIt({story: $("#idle-pick").value}); }
+    return;
+  }
+  const s = S.story;
+  let html;
+  if (S.rail === "timeline") {
+    const alive = Object.fromEntries((S.state?.workers || []).map((w) => [w.name, w.alive]));
+    html = `<div>${x.timeline.map((e, i) => `<div class="tl-row ${e.kind === "takeover" ? "takeover" : e.kind === "action" ? "action" : ""}" data-tl="${i}">
+      <span class="t">${secs(e.t_ms)}</span><span class="a">${esc(e.agent || "")}${e.agent && alive[e.agent] === false ? ' <span style="color:var(--red)">✕</span>' : ""}</span>
+      <span class="e">${e.epoch ? "e" + e.epoch : ""}</span><span>${esc(tlText(e, x))}</span></div>`).join("") || `<div style="color:var(--t3)">Queued…</div>`}</div>
+      <div class="foot" style="margin-top:14px">Tasks, claims, checkpoints and handoffs, in database-clock order. A claim takes a new fencing epoch; a write from an older epoch is rejected.</div>`;
+  } else {
+    html = warCard(x, s) + `<div class="steps">${s.steps.map((st, i) => {
+      const has = !!(st.kv?.length || st.lens || st.cps?.length || st.chat || st.action);
+      const k = x.head.key + ":" + st.id;
+      const auto = st.state === "current" || (st.id === "check") || (st.id === "learn" && st.state !== "pending") || (st.id === "page" && s.phase === "paged");
+      const open = has && (S.open[k] ?? auto);
+      const fresh = once("step:" + k + ":" + st.title);
+      const next = s.steps[i + 1];
+      let inner = "";
+      if (open) {
+        if (st.note) inner += `<div class="note"><b>${esc(st.noteTag)}</b>${esc(st.note)}</div>`;
+        if (st.kv) inner += kvHtml(st.kv);
+        if (st.lens) inner += [...st.lens].sort((a, b) => (a.outcome === "ruled") - (b.outcome === "ruled")).map(lensCard).join("") + (st.extra ? `<div style="font-size:12px;color:var(--t3);margin:4px 0 6px">Then, step by step:</div>` + cpsHtml(st.extra) : "");
+        if (st.cps?.length) inner += cpsHtml(st.cps);
+        if (st.action) inner += `<details class="more"><summary>The ${esc(st.action.channel)} as sent</summary><div class="pre">${esc(String(st.action.payload?.text || "").split("\n").filter((l) => !l.startsWith("Sent this way ")).join("\n"))}</div></details>`;
+        if (st.chat) inner += chatHtml(x, s);
+      }
+      return `<div class="step s-${st.state} ${has ? "has" : ""} ${fresh ? "new" : ""}" style="--lc:${next && next.state !== "pending" ? "#3a3a40" : "#222226"}">
+        <span class="mk">${st.state === "current" ? "" : st.state === "pending" ? i + 1 : st.state === "ruled" || st.state === "bad" ? "✕" : "✓"}</span>
+        <span class="ti" data-step="${esc(k)}" data-open="${open ? 1 : 0}">${esc(st.title)}</span><span class="tm">${esc(st.time || "")}</span>
+        ${inner ? `<div class="body">${inner}</div>` : ""}</div>`;
+    }).join("")}</div>`;
+  }
+  if (body.dataset.sig === html) return;
+  const typing = document.activeElement && ["war-msg", "war-reply"].includes(document.activeElement.id);
+  if (typing) return;   // don't wipe what the engineer is typing
+  const scroll = body.scrollTop;
+  body.dataset.sig = html; body.innerHTML = html; body.scrollTop = scroll;
+  body.querySelectorAll("[data-step]").forEach((el) => el.onclick = () => { S.open[el.dataset.step] = el.dataset.open !== "1"; renderRail(); });
+  body.querySelectorAll("[data-recap]").forEach((b) => b.onclick = async () => {
+    const r = await api(`/api/recap/${encodeURIComponent(b.dataset.recap)}`); const o = $("#recap-out"); o.hidden = false; o.textContent = r.text; });
+  const p = s.pending;
+  if (p?.kind === "review") {
+    $("#war-yes").onclick = () => review(p.incident_key, true);
+    $("#war-no").onclick = () => review(p.incident_key, false);
+  } else if (p) $("#war-send").onclick = async () => { await api(`/api/reply/${encodeURIComponent(p.incident_key)}`, {text: $("#war-reply").value}); $("#war-reply").blur(); };
+}
+function tlText(e, x) {
+  if (e.kind === "checkpoint") { const cp = x.checkpoints.find((c) => c.n === e.n && c.task.endsWith(":" + e.task)); if (cp) { const [t, r] = humanTool(cp); return `step ${e.n}: ${t}${r ? " → " + r : ""}`; } }
+  return e.text;
+}
+async function review(key, confirmed) {
+  const msg = $("#war-msg")?.value || "";
+  $("#war-msg")?.blur();
+  await api(`/api/review/${encodeURIComponent(key)}`, {confirmed, message: msg});
+}
+
+/* ------------------------------------------------------------ agents strip */
+function renderAgents() {
+  const st = S.state; if (!st) return;
+  const x = S.inc, s = S.story;
+  const lease = S.settings.lease_ms;
+  const C = 2 * Math.PI * 21;
+  const cards = [];
+  const tasks = x?.tasks || [];
+  const cpsBy = (name) => (x?.checkpoints || []).filter((c) => c.agent === name);
+  const item = (name, role, o) => cards.push({name, role, ...o});
+  st.workers.forEach((w) => {
+    const holds = tasks.find((t) => t.owner === w.name && t.status === "leased");
+    const mine = cpsBy(w.name); const last = mine[mine.length - 1];
+    const took = s?.takeover?.to === w.name && !x.head.decision_id;
+    if (!w.alive) {
+      item(w.name, "investigator", {tone: "dead", badge: w.killed ? "SIGKILL" : "stopped", badgeMono: true,
+        step: last ? `Last checkpoint · step ${last.n}` : "Not running", epoch: last ? `e${last.epoch}` : "—",
+        note: holds ? "lease draining · no heartbeats" : (last ? "lease expired" : ""), left: holds ? holds.lease_left_ms : 0, max: lease, start: true});
+    } else if (holds) {
+      item(w.name, "investigator", {tone: "amb", badge: took ? "took over" : "running",
+        step: last ? `Step ${last.n} · ${shortTool(last)}` : "Claimed the task", epoch: took ? `e${holds.epoch - 1} → e${holds.epoch}` : `e${holds.epoch}`, hot: took,
+        note: `renews every ${S.settings.heartbeat_ms / 1000} s`, left: holds.lease_left_ms, max: lease, kill: true});
+    } else {
+      const done = tasks.find((t) => t.owner === w.name && t.status === "done");
+      item(w.name, "investigator", {tone: "", badge: done ? "done" : "idle", step: done && x?.head.root ? `Diagnosed ${x.head.root}` : `Watching ${S.settings.graph}`,
+        epoch: done ? `e${done.epoch}` : "—", note: done ? "lease released" : "no lease", left: 0, max: lease, kill: true});
+    }
+  });
+  const thread = (name, role, type, busy, done, idle) => {
+    const t = tasks.find((q) => q.type === type);
+    if (t?.status === "leased") item(name, role, {tone: "amb", badge: "running", step: busy, epoch: `e${t.epoch}`, note: `renews every ${S.settings.heartbeat_ms / 1000} s`, left: t.lease_left_ms, max: lease});
+    else if (t?.status === "done") item(name, role, {tone: s?.helped && type === "learn" ? "grn" : "", badge: "done", step: done, epoch: `e${t.epoch}`, note: "lease released", left: 0, max: lease});
+    else item(name, role, {tone: "", badge: "idle", step: idle, epoch: "—", note: "no lease", left: 0, max: lease});
+  };
+  const resp = Object.keys(st.threads || {}).find((n) => n.startsWith("resp")) || "responder-1";
+  const lrn = Object.keys(st.threads || {}).find((n) => n.startsWith("learn")) || "learner-1";
+  const a = s?.action;
+  thread(resp, "responder", "respond", s?.pending ? `Waiting for ${a?.recipient || "the engineer"} to confirm` : "Notifying the on-call engineer",
+    a ? `Sent ${plural(x.actions.length, a.channel)} to ${a.recipient} · 0 duplicates` : "Done", "Waits for a diagnosis");
+  thread(lrn, "learner", "learn", "Writing verdicts and trust",
+    s?.helped ? `${s.helped.signature} trust ${fmt(s.helped.trust)} → ${fmt(s.helped.trustAfter)}` : s?.newPb ? `New playbook on ${s.newPb.about.join(", ")}` : "Verdicts recorded", "Waits for an outcome");
+  const html = cards.map((c) => {
+    const frac = c.left > 0 ? Math.min(1, c.left / c.max) : 0;
+    const rc = c.tone === "dead" ? "#6e6e76" : c.tone === "amb" ? "#e9a23b" : c.tone === "grn" ? "#3fcf8e" : "#3a3a40";
+    const badgeCls = c.tone === "amb" ? "amb" : c.tone === "grn" ? "grn" : "";
+    const btn = c.kill ? `<button class="btn small danger kill" data-kill="${esc(c.name)}" title="Send a real SIGKILL to this process">Kill</button>`
+      : c.start ? `<button class="btn small kill" data-start="${esc(c.name)}">Start</button>` : "";
+    return `<div class="agent ${c.tone}" data-agent="${esc(c.name)}">
+      <div class="lring"><svg width="50" height="50"><circle class="tr" cx="25" cy="25" r="21"/><circle class="fg" cx="25" cy="25" r="21" stroke="${rc}"
+        stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - frac)).toFixed(1)}"/></svg><span>${c.left > 0 ? (c.tone === "dead" ? fmt(c.left / 1000, 1) : Math.ceil(c.left / 1000)) + "s" : "–"}</span></div>
+      <div style="min-width:0"><div class="nm"><b>${esc(c.name)}</b><span class="r">${esc(c.role)}</span><span class="badge ${badgeCls} ${c.badgeMono ? "mono" : ""}">${esc(c.badge)}</span>${btn}</div>
+        <div class="st" title="${esc(c.step)}">${esc(c.step)}</div>
+        <div class="ep">epoch <b class="${c.hot ? "hot" : ""}">${esc(c.epoch)}</b>${c.note ? ` · ${esc(c.note)}` : ""}</div></div></div>`;
+  }).join("") + `<div style="display:flex;align-items:flex-start"><button class="qbtn" data-q="agents" title="Claims, heartbeats, fenced checkpoints">‹›</button></div>`;
+  const shape = html.replace(/stroke-dashoffset="[\d.]+"/g, "").replace(/<span>[\d.]+s<\/span>/g, "");
+  const box = $("#agents");
+  if (box.dataset.shape === shape) {   // only the lease rings move: keep the buttons under the cursor
+    cards.forEach((c, i) => { const el = box.children[i]; if (!el) return;
+      const frac = c.left > 0 ? Math.min(1, c.left / c.max) : 0;
+      el.querySelector(".fg").setAttribute("stroke-dashoffset", (C * (1 - frac)).toFixed(1));
+      el.querySelector(".lring span").textContent = c.left > 0 ? (c.tone === "dead" ? fmt(c.left / 1000, 1) : Math.ceil(c.left / 1000)) + "s" : "–"; });
+    return;
+  }
+  box.dataset.shape = shape; box.innerHTML = html;
+  box.querySelectorAll("[data-kill]").forEach((b) => b.onclick = async () => { await api(`/api/workers/${b.dataset.kill}/kill`, {}); pollState(); });
+  box.querySelectorAll("[data-start]").forEach((b) => b.onclick = async () => { await api(`/api/workers/${b.dataset.start}/start`, {}); pollState(); });
+  bindQ(box);
+}
+
+/* ------------------------------------------------------------ timeline scrubber */
+function renderScrub() {
+  const x = S.inc;
+  if (!x) { $("#scrub").innerHTML = `<span class="tm">—</span><div class="track"></div><span class="lbl">Every step is stored in the graph</span>`; return; }
+  const tl = x.timeline; const end = Math.max(1, ...tl.map((e) => e.t_ms || 0));
+  const live = x.tasks.some((t) => t.status === "leased" || t.status === "open") || !!S.story.pending;
+  const now = live ? Math.max(end, Date.now() - (x.tasks[0]?.created_at || Date.now()) ) : end;
+  const span = Math.max(now, 1000);
+  const dots = tl.map((e, i) => {
+    const major = ["takeover", "action"].includes(e.kind) || (e.kind === "done" && e.task === "investigate") || (e.kind === "claim" && e.task === "investigate") || e.kind === "checkpoint";
+    const cls = e.kind === "takeover" ? "takeover" : e.kind === "action" ? "action" : major ? "" : "minor";
+    return `<button class="dt ${cls}" style="left:${(e.t_ms || 0) / span * 100}%" title="${esc(secs(e.t_ms) + " · " + tlText(e, x))}" data-dot="${i}"></button>`;
   }).join("");
-  const maxReq = Math.max(...arms.map((a) => tot(a, "llm_requests")));
-  const bars = arms.map((a) => `<div class="row" style="margin:6px 0"><span style="width:130px">${names[a] || a}</span>
-    <span class="hbar" style="width:${tot(a, "llm_requests") / maxReq * 420}px;background:${a === "C" ? "var(--green)" : a === "B" ? "var(--violet)" : "var(--muted)"}"></span>
-    <span class="mono">${tot(a, "llm_requests")}</span></div>`).join("");
-  const m2 = ev.summary.m2, m5 = ev.m5;
-  const load = (r.load || []).map((l) => `<tr><td class="num">${l.worker_pairs_per_company}</td>
-    <td>${l.chaos_ms ? "lease expired every " + l.chaos_ms + " ms" : "none"}</td><td class="num">${l.completed}/${l.incidents}</td>
-    <td class="num">${Math.round(l.incidents_per_minute)}</td><td class="num">${l.memory_reads.p50_ms} / ${l.memory_reads.p95_ms}</td>
-    <td class="num">${l.memory_writes.p50_ms} / ${l.memory_writes.p95_ms}</td><td class="num win">${l.duplicate_notifications}</td><td class="num">${l.takeovers}</td></tr>`).join("");
-  $("#results").innerHTML = `<div class="col">
-  <div class="panel"><h2>Three arms, same model and tools <span class="right muted mono">${esc(ev.name)} · ${esc(ev.meta.model)}</span></h2>
-    <table><tr><th></th>${arms.map((a) => `<th class="num">${names[a] || a}</th>`).join("")}</tr>${table}</table>
-    <div class="pad"><div class="muted" style="margin-bottom:4px">LLM requests over the ${all(arms[0]).n}-incident benchmark</div>${bars}</div></div>
-  <div class="row wrap" style="align-items:stretch">
-    ${m2 ? `<div class="panel grow"><h2>Recall@5 (M2)</h2><div class="pad">
-      <div class="row" style="margin:4px 0"><span style="width:110px">graph proximity</span><span class="hbar" style="width:${m2.graph_recall_at_5 * 260}px;background:var(--green)"></span><b>${Math.round(m2.graph_recall_at_5 * 100)}%</b></div>
-      <div class="row" style="margin:4px 0"><span style="width:110px">text similarity</span><span class="hbar" style="width:${m2.text_recall_at_5 * 260}px;background:var(--violet)"></span><b>${Math.round(m2.text_recall_at_5 * 100)}%</b></div>
-      <div class="muted">${m2.n} incidents where a memory with the right answer existed; same graph snapshot.</div></div></div>` : ""}
-    ${m5 ? `<div class="panel grow"><h2>A deliberately wrong playbook (M5)</h2><div class="pad">
-      Misled <b>${m5.misleading_uses_before_retirement}</b> times, retired after incident <b>${m5.retired_after_incident}</b>,
-      ${m5.correct_after_retirement ? `<span class="win">next incident correct</span>` : "next incident wrong"}.</div></div>` : ""}
-  </div>
-  ${load ? `<div class="panel"><h2>Concurrency (M8): two companies, all agents at once</h2><table>
-    <tr><th class="num">pairs</th><th>stalled workers</th><th class="num">done</th><th class="num">per min</th><th class="num">read p50/p95 ms</th><th class="num">write p50/p95 ms</th><th class="num">duplicates</th><th class="num">takeovers</th></tr>${load}</table></div>` : ""}
-  <div class="panel pad muted">Synthetic 15-node company, three failure families; numbers describe this benchmark only. Rerun: <span class="mono">make eval</span> · <span class="mono">make bench</span> · <span class="mono">make isolation</span>.</div>
-  </div>`;
+  const lk = S.state?.last_kill;
+  const html = `<span class="tm">${secs(now)}</span><div class="track"><div class="fill" style="width:${end / span * 100}%"></div>${dots}</div>
+    <span class="lbl">${live ? "Live" : "Replay"} · every step is stored in the graph${lk && x.head.key === lk.task.replace(":investigate", "") ? ` · SIGKILL ${esc(lk.worker)} after step ${lk.after_step}` : ""}</span>
+    <button class="qbtn" data-q="timeline" title="The Cypher behind the timeline">‹›</button>`;
+  if ($("#scrub").dataset.sig === html) return;
+  $("#scrub").dataset.sig = html; $("#scrub").innerHTML = html;
+  $("#scrub").querySelectorAll("[data-dot]").forEach((b) => b.onclick = () => {
+    S.rail = "timeline"; renderRailHead(); renderRail();
+    const row = document.querySelector(`[data-tl="${b.dataset.dot}"]`);
+    if (row) { row.scrollIntoView({block: "center", behavior: "smooth"}); row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 1600); }
+  });
+  bindQ($("#scrub"));
 }
 
-/* ------------------------------------------------------------- cypher viewer */
+/* ------------------------------------------------------------ memory tab */
+const checkLine = (c) => {
+  const arg = Object.values(c.args)[0];
+  const nice = String(arg).replace("$alerting", "the alerting service").replace("$caller", "its caller").replace("$target", "the datastore");
+  const tgt = "the datastore";
+  return humanCheck(c.tool, nice, c.measure, c.op, c.value, tgt).replace(/^\w/, (m) => m.toUpperCase());
+};
+function renderMemory() {
+  const m = S.memory; if (!m) return;
+  const pbs = m.playbooks;
+  const act = pbs.filter((p) => p.status === "active").length;
+  const planted = pbs.some((p) => p.signature.endsWith(":planted") && p.status === "active");
+  const rows = pbs.map((p) => {
+    const k = "pb:" + p.id, open = !!S.open[k];
+    const tc = p.status === "retired" ? "#47474e" : p.trust >= .6 ? "var(--grn)" : "var(--t2)";
+    const isNew = (S.inc && (p.learned_from || []).includes(S.inc.head.id));
+    return `<tr class="main ${p.status}" data-pb="${esc(k)}">
+      <td><div class="sig">${esc(p.signature)}</div><div class="desc">${esc(label(p.family))} on any ${esc(p.kind)} · ${plural(p.preconditions.length, "check")} to rule out first, then ${plural(p.steps.length, "expected reading")}</div></td>
+      <td>${p.about.map((a) => `<span class="chipn ${p.kind !== "service" ? "db" : ""}">${esc(a)}</span>`).join(" ")}</td>
+      <td class="mono" style="color:var(--t2)">${esc((p.learned_from || []).join(", ") || (p.source === "human" ? "planted" : "—"))}</td>
+      <td style="white-space:nowrap"><span class="trustbar" style="margin:0 8px 0 0;width:90px"><i style="width:${Math.round(p.trust * 100)}%;background:${tc}"></i></span><span class="mono">${fmt(p.trust)}</span></td>
+      <td class="mono" style="color:var(--t2)">${p.helped} · ${p.misled}</td>
+      <td><span class="badge ${p.status === "retired" ? "" : isNew ? "acc" : ""}">${p.status === "retired" ? "Retired" : isNew ? "New" : "Active"}</span></td></tr>
+      ${open ? `<tr><td colspan="6"><div class="rules"><b style="color:var(--t1);font-weight:500">Rule out first</b>${p.preconditions.map((c) => `<span>· ${esc(checkLine(c))}</span>`).join("") || "<span>· nothing</span>"}
+        <b style="color:var(--t1);font-weight:500;margin-top:6px">Then expect</b>${p.steps.map((c) => `<span>· ${esc(checkLine(c))}</span>`).join("")}
+        <span style="color:var(--t3);margin-top:6px">Stops at the first check that fails; the playbook is then "not applicable" and its trust is untouched.</span></div></td></tr>` : ""}`;
+  }).join("");
+  // preferences: the approved version, and the agent's reading it superseded
+  const byId = Object.fromEntries(m.facts.map((f) => [f.id, f]));
+  const current = m.facts.filter((f) => !f.valid_to);
+  const facts = current.map((f) => {
+    const old = (f.supersedes || []).map((id) => byId[id]).filter(Boolean);
+    const val = `${f.predicate === "preferred_channel" ? "Notify by" : f.predicate === "wants_detail" ? "Include" : f.predicate.replace(/_/g, " ")} ${String(f.value).replace("_", " ")}${f.condition_family ? `, for ${label(f.condition_family)}` : ""}`;
+    return `<div class="fact"><div class="key">${esc(f.handle)}.${esc(f.predicate)}</div>
+      <div class="ver"><span class="badge mono">v${old.length + 1}</span>${f.source === "human" ? `<span class="badge grn">Approved by ${esc(f.approved_by)}</span>` : `<span class="badge">Agent's reading, unconfirmed</span>`}<span>incident ${esc(f.learned_in)}</span></div>
+      <div class="val">${esc(val)}</div>
+      <div class="src">Source message · ${esc(f.handle)} in the war room</div><div class="said">“${esc(f.said)}”</div>
+      ${old.map((o) => `<div class="sup">SUPERSEDES</div><div class="ver" style="margin-top:0"><span class="badge mono">v1</span><span>Agent's reading, before the read-back</span></div>
+        <div class="old">${esc(o.predicate)} = ${esc(o.value)}</div>`).join("")}</div>`;
+  }).join("");
+  const html = `<div class="cols"><section>
+      <div class="sechead"><div class="grow"><h2>Playbooks</h2><p class="lead">What the agents remembered, pinned to the service where it happened. Click one to see its checks.</p></div>
+        <span style="font-size:13px;color:var(--t3);margin-top:6px">${act} active · ${pbs.length - act} retired</span><button class="qbtn" data-q="memory" style="margin-top:4px">‹›</button></div>
+      ${pbs.length ? `<table class="pb"><tr><th>Signature</th><th>Pinned to</th><th>Learned from</th><th>Trust</th><th>Helped · misled</th><th>Status</th></tr>${rows}</table>`
+        : `<p class="lead">Nothing learned yet. Run s01: once the engineer confirms, the learner writes the first playbook.</p>`}
+      <p class="foot">Trust starts at 0.50 and moves only on verdicts: helped (h+1)/(h+m+2). A playbook that misleads twice with trust under 0.5 retires and is never recalled again.</p>
+      <div style="margin-top:20px;display:flex;gap:12px;align-items:center"><button class="btn" id="plant" ${planted ? "disabled" : ""}>Plant a deliberately wrong playbook</button>
+        <span style="font-size:13px;color:var(--t3)">Claims any postgres over 30% of connections is saturated. Break redis-cache a few times and reject the wrong diagnosis: it misleads twice, then retires.</span></div>
+    </section><section>
+      <div class="sechead"><div class="grow"><h2>Engineer preferences</h2><p class="lead">Versioned facts. The engineer-approved version supersedes the agent's reading; both stay in the graph.</p></div><button class="qbtn" data-q="prefs" style="margin-top:4px">‹›</button></div>
+      ${facts || `<p class="lead">None yet. In s01, tell the responder how you want database incidents handled.</p>`}
+    </section></div>`;
+  const v = $("#view-memory");
+  if (v.dataset.sig === html) return;
+  v.dataset.sig = html; v.innerHTML = html;
+  v.querySelectorAll("[data-pb]").forEach((r) => r.onclick = () => { S.open[r.dataset.pb] = !S.open[r.dataset.pb]; renderMemory(); });
+  $("#plant").onclick = async () => { await api("/api/plant-wrong-memory", {}); toast("A wrong playbook is planted on <b style='color:var(--t1)'>postgres-orders</b>."); await loadMemory(); };
+  bindQ(v);
+}
+
+/* ------------------------------------------------------------ results tab */
+async function renderResults() {
+  const r = await api("/api/results");
+  const ev = r.eval, v = $("#view-results");
+  if (!ev) { v.innerHTML = `<h2>No results yet</h2><p class="lead">Run <span class="mono">make eval</span> and <span class="mono">make bench</span>.</p>`; return; }
+  const A = ev.summary.A?.all, B = ev.summary.B?.all, C = ev.summary.C?.all;
+  const req = (x) => Math.round(x.mean_llm_requests * x.n);
+  const ok = (x) => Math.round(x.accuracy * x.n);
+  const cut = A && req(A) ? Math.round((1 - req(C) / req(A)) * 100) : null;
+  const COL = ["#3a3a40", "#6e6e76", "var(--acc)"];
+  const chart = (title, sub, vals, max) => `<div class="cardx"><h5>${title}</h5><div class="s">${sub}</div><div class="bars">${vals.map((x, i) =>
+    `<div><span style="${i === 2 ? "color:var(--t1)" : ""}">${x}</span><i style="height:${Math.max(2, x / max * 82)}%;background:${COL[i]};animation-delay:${i * .08}s"></i></div>`).join("")}</div></div>`;
+  const m2 = ev.summary.m2, m5 = ev.m5;
+  const rows5 = m5?.rows || [];
+  const load = r.load || [];
+  const dupBench = load.reduce((n, l) => n + l.duplicate_notifications, 0);
+  const dup = [A, B, C].reduce((n, x) => n + (x?.duplicate_notifications || 0), 0) + dupBench;
+  const best = load.reduce((a, l) => Math.max(a, l.incidents_per_minute), 0);
+  const p95 = load.reduce((a, l) => Math.max(a, l.memory_writes.p95_ms), 0);
+  v.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--t3);font-size:13px;margin-bottom:24px">
+      Benchmark · ${C.n} synthetic incidents · 3 memory arms, same model and tools · <span class="mono">${esc(ev.meta.model)}</span>
+      <span class="grow"></span><span style="display:flex;gap:14px"><span><i style="display:inline-block;width:9px;height:9px;background:#3a3a40;margin-right:6px"></i>No memory</span>
+      <span><i style="display:inline-block;width:9px;height:9px;background:#6e6e76;margin-right:6px"></i>Text memory</span><span><i style="display:inline-block;width:9px;height:9px;background:var(--acc);margin-right:6px"></i>Graph memory</span></span></div>
+    <div class="res-grid"><section style="display:flex;flex-direction:column">
+      ${cut !== null ? `<div class="hero">${cut}%</div><div class="hero-sub">fewer model calls</div>
+      <p class="lead" style="font-size:16px;margin-top:18px;max-width:520px">Graph memory made <b style="color:var(--t1)">${req(C)}</b> model requests where no memory made <b style="color:var(--t1)">${req(A)}</b>, with ${ok(C) >= ok(A) ? "the same number of" : ""} correct diagnoses (${ok(C)} of ${C.n}).</p>`
+        : `<div class="hero-sub">Rule-based run</div>`}
+      <div class="grow"></div>
+      <div style="display:flex;gap:48px;border-top:1px solid var(--line);padding-top:22px;margin-top:30px">
+        <div class="stat"><b>${dup}</b><div>duplicate notifications,<br>including under randomly expired leases</div></div>
+        <div class="stat"><b>${C.memory_helped}</b><small>of ${C.n}</small><div>solved straight from memory,<br>with no model call</div></div>
+        ${m2 ? `<div class="stat"><b>${Math.round(m2.graph_recall_at_5 * 100)}%</b><div>right memory in the top 5,<br>text similarity: ${Math.round(m2.text_recall_at_5 * 100)}%</div></div>` : ""}
+      </div></section>
+    <section style="display:grid;gap:18px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+        ${chart("Correct diagnoses", `out of ${C.n}`, [ok(A), ok(B), ok(C)], C.n)}
+        ${chart("Model requests", "lower is better", [req(A), req(B), req(C)], Math.max(req(A), req(B), req(C), 1))}
+        ${chart("Solved from memory", `no model call · out of ${C.n}`, [A.memory_helped, B.memory_helped, C.memory_helped], C.n)}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        ${m2 ? `<div class="cardx"><h5>Right memory in the top 5 recalled</h5><div class="s">${m2.n} incidents where a playbook with the right answer existed</div>
+          <div class="hb"><span>Text memory</span><span class="tr"><i style="width:${m2.text_recall_at_5 * 100}%;background:#6e6e76"></i></span><b>${Math.round(m2.text_recall_at_5 * 100)}%</b></div>
+          <div class="hb"><span>Graph memory</span><span class="tr"><i style="width:${m2.graph_recall_at_5 * 100}%;background:var(--acc)"></i></span><b>${Math.round(m2.graph_recall_at_5 * 100)}%</b></div></div>` : ""}
+        ${m5 ? `<div class="cardx"><h5>A wrong playbook retires itself</h5><div class="s">Deliberately planted, then used on incidents it doesn't fit</div>
+          <div class="m5"><div><i></i>Planted<div class="o">trust 0.50</div></div>
+            ${rows5.slice(0, 2).map((x, i) => `<div><i class="r"></i>Use ${i + 1} · misled<div class="o">trust ${fmt(x.wrong_playbook?.trust)}</div></div>`).join("")}
+            <div><i class="x"></i>Retired<div class="o">${m5.correct_after_retirement ? "next incident correct" : "next incident wrong"}</div></div></div></div>` : ""}
+      </div>
+      ${load.length ? `<div class="cardx"><h5>Agents at once, two companies</h5><div class="s">Up to ${Math.round(best).toLocaleString()} incidents a minute; memory writes p95 ≤ ${p95} ms; ${dupBench} duplicate notifications</div>
+        <table class="load"><tr><th>worker pairs</th><th>stalled workers</th><th>done</th><th>per min</th><th>read p50 / p95 ms</th><th>write p50 / p95 ms</th><th>duplicates</th><th>takeovers</th></tr>
+        ${load.map((l) => `<tr><td>${l.worker_pairs_per_company}</td><td>${l.chaos_ms ? "lease expired every " + l.chaos_ms + " ms" : "none"}</td><td>${l.completed}/${l.incidents}</td><td>${Math.round(l.incidents_per_minute).toLocaleString()}</td>
+          <td>${l.memory_reads.p50_ms} / ${l.memory_reads.p95_ms}</td><td>${l.memory_writes.p50_ms} / ${l.memory_writes.p95_ms}</td><td style="color:var(--grn)">${l.duplicate_notifications}</td><td>${l.takeovers}</td></tr>`).join("")}</table></div>` : ""}
+    </section></div>
+    <p class="foot">Run <span class="mono">${esc(ev.name)}</span>. Synthetic 15-node company, three failure families; the numbers describe this benchmark only. Rerun with <span class="mono">make eval</span> · <span class="mono">make bench</span> · <span class="mono">make isolation</span>.</p>`;
+}
+
+/* ------------------------------------------------------------ director */
+function renderDirector() {
+  const d = $("#director"); if (d.hidden) return;
+  const st = S.state || {};
+  const armed = !!st.kill_after;
+  const org = S.map?.org || [];
+  d.innerHTML = `<h4>Scenario</h4>${Object.entries(S.settings.stories).map(([id, t]) => `<button class="sc" data-story="${id}"><b>${id}</b><span>${esc(t)}</span></button>`).join("")}
+    <div class="hint">Or click any service on the graph to break it.</div><hr>
+    <div class="row"><label>Kill the investigator after step</label><input class="num" id="arm-step" type="number" min="1" max="10" value="${st.kill_after || S.armStep}"><button class="toggle ${armed ? "on" : ""}" id="arm"><i></i></button></div>
+    <div class="hint">One shot: a real SIGKILL to whichever investigator holds the lease, right after it checkpoints that step.</div>
+    <div class="row"><label>Scripted engineer</label><button class="toggle ${st.autopilot ? "on" : ""}" id="auto"><i></i></button></div>
+    <div class="row"><label>Captions</label><button class="toggle ${S.captions ? "on" : ""}" id="caps"><i></i></button></div><hr>
+    <h4>On call now</h4>${org.map((t) => `<div class="row"><label>${esc(t.team)}</label><select class="sel" data-team="${esc(t.team)}">${(S.settings.teams[t.team] || []).map((p) =>
+      `<option ${t.on_call.includes(p) ? "selected" : ""}>${esc(p)}</option>`).join("")}</select></div>`).join("")}<hr>
+    <div class="row"><button class="btn small" id="plant2">Plant a wrong playbook</button><span class="grow"></span><button class="btn small danger" id="reset">Reset company</button></div>
+    <div class="hint" style="padding-top:4px"><a href="/classic">Classic view</a> shows every panel at once.</div>`;
+  d.querySelectorAll("[data-story]").forEach((b) => b.onclick = () => { d.hidden = true; breakIt({story: b.dataset.story}); });
+  const arm = (on) => api("/api/arm-kill", {after: on ? Number($("#arm-step").value) : null}).then(pollState).then(renderDirector);
+  $("#arm").onclick = () => arm(!armed);
+  $("#arm-step").onchange = () => { S.armStep = Number($("#arm-step").value); if (armed) arm(true); };
+  $("#auto").onclick = () => api("/api/autopilot", {on: !st.autopilot}).then(pollState).then(renderDirector);
+  $("#caps").onclick = () => { S.captions = !S.captions; renderDirector(); renderStageBits(); };
+  d.querySelectorAll("[data-team]").forEach((s) => s.onchange = async () => { await api("/api/org/on-call", {team: s.dataset.team, person: s.value});
+    toast(`<b style="color:var(--t1)">${esc(s.value)}</b> is now on call for ${esc(s.dataset.team)}.`); loadMap(); });
+  $("#plant2").onclick = async () => { await api("/api/plant-wrong-memory", {}); toast("A wrong playbook is planted on postgres-orders."); loadMemory(); };
+  $("#reset").onclick = async (e) => {
+    if (e.target.dataset.sure !== "1") { e.target.dataset.sure = "1"; e.target.textContent = "Click again to reset"; return; }
+    d.hidden = true; await api("/api/reset", {}); S.selected = null; S.inc = null; S.seen.clear(); S.follow = true;
+    await Promise.all([loadMap(), loadMemory()]); await pollState(); await pollIncident(); toast("company_a reset to the seeded company.");
+  };
+}
+$("#dir-btn").onclick = (e) => { e.stopPropagation(); const d = $("#director"); d.hidden = !d.hidden; renderDirector(); };
+$("#director").onclick = (e) => e.stopPropagation();
+document.addEventListener("click", () => { $("#director").hidden = true; });
+
+/* ------------------------------------------------------------ cypher drawer */
 const CYPHER = {
-  map: ["Company graph", [["this panel", "web/queries/service_map.cypher"],
-    ["A1 recall: walk downstream from the alerts", "memory/queries/recall.cypher"],
-    ["A1b recall: another datastore of the same kind", "memory/queries/recall_kind.cypher"],
-    ["blast radius", "tools/queries/blast_radius.cypher"]]],
-  lens: ["Memory Lens", [["this panel", "web/queries/lens.cypher"],
-    ["what the investigator writes (fenced)", "agents/queries/record_usage.cypher"],
-    ["A2 trust update after the verdict", "memory/queries/feedback.cypher"]]],
-  timeline: ["Agent timeline", [["this panel: tasks", "web/queries/tasks.cypher"],
-    ["this panel: checkpoints", "web/queries/checkpoints.cypher"],
-    ["claim: new fencing epoch, DB clock", "coord/queries/claim.cypher"],
-    ["fenced checkpoint", "coord/queries/checkpoint.cypher"],
-    ["handoff to the next agent", "coord/queries/handoff.cypher"]]],
-  chat: ["War room", [["this panel", "web/queries/messages.cypher"],
-    ["preferences in force at incident time", "chat/queries/preferences_for.cypher"],
-    ["A3 facts superseded, never edited", "memory/queries/fact_supersede.cypher"]]],
-  pager: ["Pager log", [["this panel", "web/queries/actions.cypher"],
-    ["sent exactly once per intent (fenced)", "coord/queries/send_action.cypher"]]],
-  org: ["On call now", [["this panel", "web/queries/org.cypher"],
-    ["who to page at scenario time", "tools/queries/who_to_page.cypher"]]],
-  memory: ["What it remembers", [["playbooks", "web/queries/playbooks.cypher"],
-    ["facts", "web/queries/facts.cypher"],
-    ["A4 a new playbook from a confirmed incident", "memory/queries/write_playbook.cypher"]]],
+  graph: ["Dependency graph", "The graph panel, and the walks agents run over it to recall memory.",
+    [["this panel", "web/queries/service_map.cypher"], ["recall: walk downstream from the alerts", "memory/queries/recall.cypher"],
+     ["recall: same kind of datastore", "memory/queries/recall_kind.cypher"], ["blast radius", "tools/queries/blast_radius.cypher"]]],
+  lens: ["What happened", "Every memory considered, why, the evidence, and what changed afterwards.",
+    [["memory lens", "web/queries/lens.cypher"], ["what the investigator recalled (fenced)", "agents/queries/record_recall.cypher"],
+     ["each use, written by the investigator", "agents/queries/record_usage.cypher"], ["trust after the verdict", "memory/queries/feedback.cypher"]]],
+  timeline: ["Agent timeline", "Tasks, claims, checkpoints and handoffs.",
+    [["tasks", "web/queries/tasks.cypher"], ["checkpoints", "web/queries/checkpoints.cypher"], ["claim: new fencing epoch, DB clock", "coord/queries/claim.cypher"],
+     ["fenced checkpoint", "coord/queries/checkpoint.cypher"], ["handoff to the next agent", "coord/queries/handoff.cypher"]]],
+  agents: ["Agents", "Agents share nothing but these queries: a lease, a heartbeat, a fenced write.",
+    [["claim", "coord/queries/claim.cypher"], ["heartbeat", "coord/queries/heartbeat.cypher"], ["fenced checkpoint", "coord/queries/checkpoint.cypher"],
+     ["send exactly once per intent", "coord/queries/send_action.cypher"]]],
+  org: ["On call", "Who to page, at scenario time.",
+    [["this panel", "web/queries/org.cypher"], ["who to page", "tools/queries/who_to_page.cypher"]]],
+  memory: ["Playbooks", "What the agents remembered.",
+    [["playbooks", "web/queries/playbooks.cypher"], ["a new playbook from a confirmed incident", "memory/queries/write_playbook.cypher"], ["trust after the verdict", "memory/queries/feedback.cypher"]]],
+  prefs: ["Engineer preferences", "Facts are superseded, never edited.",
+    [["facts", "web/queries/facts.cypher"], ["supersede a fact", "memory/queries/fact_supersede.cypher"], ["preferences in force", "chat/queries/preferences_for.cypher"],
+     ["war-room messages", "web/queries/messages.cypher"]]],
 };
 function highlight(text) {
   return text.split("\n").map((line) => {
     if (line.trim().startsWith("//")) return `<span class="c">${esc(line)}</span>`;
-    return esc(line)
-      .replace(/\$[A-Za-z_]\w*/g, (m) => `<span class="p">${m}</span>`)
-      .replace(/\b(OPTIONAL MATCH|MATCH|WHERE|RETURN|WITH|SET|MERGE|CREATE|ON CREATE SET|ON MATCH SET|UNWIND|ORDER BY|LIMIT|AS|AND|OR|NOT|IN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|DISTINCT|DESC|ASC|CALL|YIELD)\b/g,
-        (m) => `<span class="k">${m}</span>`)
+    return esc(line).replace(/\$[A-Za-z_]\w*/g, (m) => `<span class="p">${m}</span>`)
+      .replace(/\b(OPTIONAL MATCH|MATCH|WHERE|RETURN|WITH|SET|MERGE|CREATE|ON CREATE SET|ON MATCH SET|UNWIND|ORDER BY|LIMIT|AS|AND|OR|NOT|IN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|DISTINCT|DESC|ASC|CALL|YIELD|DELETE|DETACH)\b/g, (m) => `<span class="k">${m}</span>`)
       .replace(/\(([a-z]\w*)?(:[A-Z]\w*(?::[A-Z]\w*)*)/g, (m, v, l) => `(${v || ""}<span class="l">${l}</span>`)
       .replace(/\[(\w*)?(:[A-Z_]+)/g, (m, v, l) => `[${v || ""}<span class="l">${l}</span>`);
   }).join("\n");
 }
 async function showCypher(key, i = 0) {
-  const [title, files] = CYPHER[key];
-  $("#cy-title").textContent = `${title}: the Cypher behind it`;
-  $("#cy-graph").textContent = S.settings.graph;
-  $("#cy-tabs").innerHTML = files.map(([lbl], j) =>
-    `<button class="tab ${j === i ? "on" : ""}" data-cyi="${j}">${esc(lbl)}</button>`).join("");
-  $("#cy-tabs").querySelectorAll("[data-cyi]").forEach((b) => b.onclick = () => showCypher(key, +b.dataset.cyi));
+  const [title, why, files] = CYPHER[key];
+  $("#dr-title").textContent = title; $("#dr-why").textContent = why;
+  $("#dr-files").innerHTML = files.map(([l], j) => `<button class="${j === i ? "on" : ""}" data-f="${j}">${esc(l)}</button>`).join("");
+  $("#dr-files").querySelectorAll("[data-f]").forEach((b) => b.onclick = () => showCypher(key, +b.dataset.f));
   const r = await api(`/api/cypher?path=${encodeURIComponent(files[i][1])}`);
-  $("#cy-path").textContent = r.path;
-  $("#cy-text").innerHTML = highlight(r.text);
-  $("#cymodal").classList.add("on");
+  $("#dr-path").textContent = r.path; $("#dr-text").innerHTML = highlight(r.text);
+  const db = S.inc?.db;
+  $("#dr-foot").innerHTML = `${db && S.tab === "live" ? `This incident view: ${db.queries} Cypher queries, ${db.ms} ms in FalkorDB, every refresh. ` : ""}Try it in the
+    <a href="http://localhost:3000" target="_blank" rel="noopener">FalkorDB Browser</a> on graph <span class="mono">${esc(S.settings.graph)}</span>.`;
+  $("#drawer").classList.add("on");
 }
-document.querySelectorAll("[data-cypher]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); showCypher(b.dataset.cypher); });
-$("#cy-close").onclick = () => $("#cymodal").classList.remove("on");
-$("#cymodal").onclick = (e) => { if (e.target.id === "cymodal") $("#cymodal").classList.remove("on"); };
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#cymodal").classList.remove("on"); });
-async function loadDb() {
-  const d = await api("/api/db");
-  $("#hdr-graph").textContent = `FalkorDB ${d.version || ""} · ${d.graph} · ${d.nodes.toLocaleString()} nodes · ${d.edges.toLocaleString()} edges`;
+function bindQ(root) { root.querySelectorAll("[data-q]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); showCypher(b.dataset.q); }); }
+$("#dr-close").onclick = () => $("#drawer").classList.remove("on");
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { $("#drawer").classList.remove("on"); $("#director").hidden = true; closeNodePop(); } });
+
+/* ------------------------------------------------------------ restart */
+function setDbDown(down) {
+  if (down === S.dbDown) { if (down) updateDbDown(); return; }
+  S.dbDown = down;
+  if (down) { S.dbSince = Date.now(); updateDbDown(); }
+  else {
+    $("#dbdown").innerHTML = "";
+    $("#dbdot").style.background = ""; $("#dbtext").textContent = "· connected";
+    // the proof: what is still there after the restart, read back from the graph
+    Promise.all([api("/api/memory"), api("/api/state")]).then(([m, st]) => {
+      S.memory = m; S.state = st;
+      const pb = m.playbooks.filter((p) => p.status === "active").length;
+      const inc = st.incidents.filter((i) => i.status !== "planted").length;
+      toast(`<b>Memory survived the restart:</b> ${plural(pb, "playbook")}, ${plural(inc, "incident")}, ${plural(m.facts.filter((f) => !f.valid_to).length, "preference")}.`, 6000);
+    }).catch(() => {});
+  }
+  renderStageBits();
+}
+function updateDbDown() {
+  $("#dbdot").style.background = "var(--amb)"; $("#dbtext").textContent = "· reconnecting";
+  const s = Math.round((Date.now() - S.dbSince) / 1000);
+  $("#dbdown").innerHTML = `<div class="dbdown"><div><b>FalkorDB restarting…</b><span>The agents are waiting. Nothing is lost · ${s} s</span></div></div>`;
 }
 
-/* ------------------------------------------------------------- polling */
+/* ------------------------------------------------------------ polling */
+async function breakIt(body) {
+  const r = await api("/api/break", body);
+  S.selected = r.key; S.follow = true; S.inc = null; S.rail = "story";
+  await pollState(); await pollIncident();
+}
 async function pollState() {
   S.state = await api("/api/state");
-  $("#autopilot").checked = S.state.autopilot;
-  $("#arm-kill").checked = !!S.state.kill_after;
-  if (S.state.kill_after && document.activeElement !== $("#arm-step")) $("#arm-step").value = S.state.kill_after;
-  const lk = S.state.last_kill;
-  $("#last-kill").textContent = S.state.kill_after ? `armed: next investigation is killed after step ${S.state.kill_after}`
-    : lk ? `last: SIGKILL ${lk.worker} after step ${lk.after_step} (${lk.task.replace(":investigate", "")})` : "";
-  renderWorkers(); renderFeed();
-  if (!S.selected && S.state.incidents.length) { S.selected = S.state.incidents[0].key; }
+  const list = S.state.incidents;
+  if (S.follow && list.length && list[0].key !== S.selected) { S.selected = list[0].key; S.inc = null; }
+  if (!S.selected && list.length) S.selected = list[0].key;
+  if (S.selected && !list.find((i) => i.key === S.selected)) { S.selected = list[0]?.key || null; S.inc = null; }
+  if (!$("#director").hidden && document.activeElement?.id !== "arm-step") renderDirector();
 }
 async function pollIncident() {
-  if (!S.selected) { renderIncident(); renderLens(); renderTimeline(); renderChat(); renderPager(); return; }
-  try { S.inc = await api(`/api/incident/${encodeURIComponent(S.selected)}`); }
-  catch (e) { S.inc = null; S.selected = null; }
-  renderIncident(); renderLens(); renderTimeline(); renderChat(); renderPager(); renderMap();
+  if (S.selected) {
+    try { S.inc = await api(`/api/incident/${encodeURIComponent(S.selected)}`); }
+    catch (e) { if (!S.dbDown) { S.inc = null; S.selected = null; } }
+  } else S.inc = null;
+  render();
 }
-async function loadMap() { S.map = await api("/api/map"); renderMap(); renderOrg(); if (S.mapNode) renderMapBar(); }
-$("#autopilot").onchange = (e) => api("/api/autopilot", {on: e.target.checked});
-const arm = () => api("/api/arm-kill", {after: $("#arm-kill").checked ? Number($("#arm-step").value) : null});
-$("#arm-kill").onchange = arm;
-$("#arm-step").onchange = () => { if ($("#arm-kill").checked) arm(); };
+function render() {
+  S.story = S.inc ? storyOf(S.inc) : null;
+  if (S.tab === "live") { renderGraph(); renderStageBits(); renderRailHead(); renderRail(); renderAgents(); renderScrub(); }
+  if (S.tab === "memory") renderMemory();
+}
+async function loadMap() { S.map = await api("/api/map"); $("#graph").dataset.sig = ""; render(); }
+async function loadMemory() { S.memory = await api("/api/memory"); render(); }
+async function loadDb() { S.db = await api("/api/db"); $("#dbver").textContent = `FalkorDB ${S.db.version || ""}`; $("#dbstat").title = `${S.db.graph}: ${S.db.nodes} nodes, ${S.db.edges} edges. Open the FalkorDB Browser.`; }
+
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
+  S.tab = b.dataset.tab;
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
+  for (const v of ["live", "memory", "results"]) $("#view-" + v).hidden = v !== S.tab;
+  if (S.tab === "results") renderResults().catch(() => {});
+  if (S.tab === "live") { $("#graph").dataset.sig = ""; }
+  render();
+});
 
 async function boot() {
+  bindQ(document);
   S.settings = await api("/api/settings");
-  $("#hdr-graph").textContent = `FalkorDB · ${S.settings.graph}`;
+  $("#hdr-co").textContent = S.settings.graph;
   const ms = S.settings.model_status || "";
-  $("#hdr-model").textContent = ms.startsWith("unavailable")
-    ? `${S.settings.model} unavailable: rule-based fallback` : S.settings.model;
-  if (ms.startsWith("unavailable")) { $("#hdr-model").className = "chip red"; $("#hdr-model").title = ms; }
-  $("#hdr-timing").textContent = S.settings.timing_profile === "demo"
-    ? `demo timing: lease ${S.settings.lease_ms / 1000} s, heartbeat ${S.settings.heartbeat_ms / 1000} s (production 30 s / 10 s)`
-    : `lease ${S.settings.lease_ms / 1000} s, heartbeat ${S.settings.heartbeat_ms / 1000} s`;
-  renderStories();
-  await Promise.all([loadMap(), loadMemory().catch(() => {})]);
+  const bad = ms.startsWith("unavailable");
+  $("#hdr-model").textContent = bad ? `${S.settings.model} unavailable · rule-based` : S.settings.model;
+  $("#hdr-model").className = "model" + (bad ? " bad" : ""); if (bad) $("#hdr-model").title = ms;
+  const t = S.settings;
+  $("#hdr-timing").textContent = t.timing_profile === "demo" ? "demo timing" : `lease ${t.lease_ms / 1000} s`;
+  $("#hdr-timing").title = `lease ${t.lease_ms / 1000} s, heartbeat ${t.heartbeat_ms / 1000} s${t.timing_profile === "demo" ? " (production: 30 s / 10 s)" : ""}`;
+  $("#dbtext").textContent = "· connected";
+  await Promise.all([api("/api/map").then((m) => S.map = m), api("/api/memory").then((m) => S.memory = m).catch(() => {}), loadDb().catch(() => {})]);
   await pollState(); await pollIncident();
-  const loop = async (fn, ms) => { try { await fn(); } catch (e) { /* toast already shown */ } setTimeout(() => loop(fn, ms), ms); };
+  // everything already in the graph at load time is shown in its final state
+  S.booted = true;
+  const loop = async (fn, ms) => { try { await fn(); } catch (e) { /* shown already */ } setTimeout(() => loop(fn, ms), S.dbDown ? 1000 : ms); };
   setTimeout(() => loop(pollState, 1000), 1000);
   setTimeout(() => loop(pollIncident, 600), 600);
-  setTimeout(() => loop(async () => { await loadMemory(); await loadMap(); await loadDb(); }, 3000), 3000);
-  loadDb().catch(() => {});
+  setTimeout(() => loop(async () => { S.memory = await api("/api/memory"); S.map = await api("/api/map"); await loadDb(); render(); }, 3000), 3000);
 }
 boot();
+
 </script>
 </body>
 </html>

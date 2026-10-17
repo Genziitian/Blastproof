@@ -15,27 +15,34 @@ One page and a small JSON API (`web/app.py`). Everything on screen is read back 
 
 They share nothing but FalkorDB. The investigators read evidence from the shared simulator (`sim/store.py`: one JSON file per incident under `.sim/`), so either can investigate any incident and take over the other's. The hidden scenario (root, family) never goes into the graph.
 
-The UI plays only the two outside roles: the world (break a service, change the org chart) and the on-call engineer (confirm or reject, talk in the war room). Tick "scripted engineer" to let the eval oracle's script answer instead; if nobody answers within 10 minutes, it answers anyway.
+The UI plays only the two outside roles: the world (break a service, change the org chart) and the on-call engineer (confirm or reject, talk in the war room). Switch on "scripted engineer" in Director to let the eval oracle's script answer instead; if nobody answers within 10 minutes, it answers anyway.
 
-## Panels
+## What you see
 
-- **Company graph:** the dependency graph as stored. Alerting services red, 1 hop orange, 2 hops yellow, the diagnosed root ringed, active playbooks shown as trust badges on the node they are pinned to. The paths recall followed are drawn green (applied) or dashed (ruled out). Click a node to break it or move its ownership.
-- **Memory Lens:** while the investigation runs, the memories recall returned and why. After the decision, every memory considered: what (signature, target), why (pinned here or same kind, path, hops, score, trust at use), the evidence (each precondition and step, pass or fail, with the observed value and the step it came from), and what changed (verdict, trust before → after, retired).
-- **Agent timeline:** tasks, claims, takeovers, checkpoints and sends in database-clock order, with the worker and fencing epoch of each. The task holding a lease shows a live countdown and a **Kill** button that sends SIGKILL to that worker process. A task that failed three times is flagged *stuck* by the stuck sweep (every 2 s), in the timeline and the incident feed.
-- **Armed kill** (Agents panel): "Kill the investigator after step N" sends the same real SIGKILL to whichever investigator holds a fresh lease right after it checkpoints step N. One shot; it makes the takeover repeatable on camera.
-- **War room:** the notification, what the engineer says, the read-back and the reply, all stored as messages; the engineer's earlier conversations from other incidents are one click away. "Where did we leave …?" answers from the stored conversation and checkpoints.
-- **Pager log:** every action sent for the incident (there should be exactly one).
-- **Memory tab:** every playbook (trust, helped, misled, pins, sources, checks) and every preference fact, including superseded versions. "Plant a deliberately wrong playbook" sets up the M5 demo.
-- **Results tab:** the newest eval run in `eval/results/` and the load benchmark.
-- **Cypher** buttons on every panel show the query files behind it (the panel's read query and the agent-side writes), and the header shows the FalkorDB version and live node and edge counts, linking to the FalkorDB Browser.
+The page tells one incident as a story, in the order of the learning loop in the plan: **alerts → recall → check → diagnose → page → engineer confirms → learn**. Every animation is a real event appearing in the graph for the first time (a new checkpoint, a claim, a sent action, a trust change); nothing is scripted. With `prefers-reduced-motion`, things appear in their final state.
+
+- **Dependency graph** (centre): services are pills, datastores are squared. Alerting services pulse red; recall paths draw hop by hop from the alerting service to the playbook's datastore (cyan = being checked or applied, dashed = queued or ruled out), labelled "1 hop · same kind of datastore". Playbooks sit on their node as pins showing trust, which counts up when a memory helped. Uninvolved nodes dim. A **checking card** beside the node shows each check passing or failing with the observed value, computed from the investigator's checkpoints with the same measure rules as `memory/playbook.py`. The diagnosed root turns amber, then green once confirmed. Click a node to break it or move its ownership.
+- **Caption bar**: one plain sentence for what is happening now (toggle in Director).
+- **What happened** (right): the seven steps, each with its evidence. The *check* step is the **Memory Lens**: for every memory considered, *what* it is, *why* it was recalled (pinned or same kind, path, hops, score, trust at use), the *evidence* (each check, pass or fail, observed value, step), and *afterwards* (verdict, trust before → after). When the responder needs the engineer, the **war room** card appears on top: confirm or reject, say how you want to be notified, then answer the read-back. Earlier conversations with the same engineer, and "Where did we leave …?", are under the page step.
+- **Agent timeline** (right, second tab): tasks, claims, takeovers, checkpoints and sends in database-clock order, with worker and fencing epoch.
+- **Agents** (bottom): inv-1, inv-2 (OS processes), responder and learner. The ring is the time left on the lease; **Kill** sends a real SIGKILL. A killed worker shows `SIGKILL` and its lease draining; the one that takes over shows `e1 → e2`.
+- **Timeline strip** (bottom): one dot per stored event; click to jump to it in the Agent timeline.
+- **On call** (top right): who is on call per team; the person paged lights up as the envelope reaches them, and the counter shows how many notifications went out (one).
+- **Director** (header): scenarios s01–s05, "Kill the investigator after step N" (a one-shot real SIGKILL right after that checkpoint), scripted engineer, captions, on-call changes, plant the wrong playbook (M5), reset.
+- **Memory tab**: playbooks (pinned node, source incident, trust, helped · misled, status; click for its checks) and engineer preferences as versioned facts, the approved version superseding the agent's reading.
+- **Results tab**: the newest valid eval run in `eval/results/` and the load benchmark.
+- **‹›** buttons open the Cypher behind each part in a side panel, with the number of queries and milliseconds the incident view took in FalkorDB.
+- **Restart**: if FalkorDB goes away, the stage dims ("FalkorDB restarting…") and the agents wait; when it is back, a toast reports what survived, read back from the graph.
+
+`/classic` keeps the first UI (every panel at once) on the same API.
 
 ## The demo, from the UI
 
-1. **s01**: the investigator works from scratch. Confirm, and keep Priya's line ("for DB saturation, open a ticket with the raw slow-query lines"). Reply yes to the read-back.
-2. The learner writes a playbook (Memory tab, and a badge on `postgres-orders`).
-3. Optional: restart FalkorDB (`docker compose down && docker compose up -d falkordb`) and `make ui` again.
-4. **s04**: tick *Kill the investigator after step 3* first (or press **Kill** on the lease yourself). The playbook is recalled by kind for `postgres-payments`; after step 3 the holder is SIGKILLed, the countdown runs out, and the other worker resumes at step 4 under epoch 2. One ticket, citing s01.
-5. **s05**: same checkout symptoms, a bad deploy. The Lens shows the DB playbook ruled out (`deploys == 0`, observed 1), trust unchanged.
+1. **s01** (Director): the investigator works from scratch. Confirm in the war room, keeping Priya's line ("for DB saturation, open a ticket with the raw slow-query lines"), then send yes to the read-back.
+2. The learner writes a playbook: a pin appears on `postgres-orders` (Memory tab for details).
+3. Optional: restart FalkorDB (`docker compose down && docker compose up -d falkordb`); the page dims and recovers.
+4. **s04**: switch on *Kill the investigator after step 3* in Director first. The playbook is recalled by kind for `postgres-payments` and checked; after step 3 the holder is SIGKILLed, its lease drains, and the other worker resumes at step 4 under epoch 2. One ticket, citing s01; trust 0.50 → 0.67.
+5. **s05**: same checkout symptoms, a bad deploy. The DB playbook is ruled out (`deploys == 0`, observed 1), trust unchanged.
 6. **Results** tab.
 
 ## API

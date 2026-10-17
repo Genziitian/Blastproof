@@ -31,6 +31,7 @@ from web.supervisor import Supervisor
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(__file__).resolve().parent / "static"
 log = logging.getLogger("web")
+FONT = re.compile(r"[a-z-]+-\d00\.woff2")
 CYPHER_PATH = re.compile(r"(web|memory|coord|chat|tools|agents|sim)/queries/\w+\.cypher")
 
 
@@ -96,6 +97,19 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
     @app.get("/")
     def index() -> FileResponse:
         return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
+
+    @app.get("/classic")
+    def classic() -> FileResponse:
+        """The first UI: every panel at once. Same API, kept as a fallback."""
+        return FileResponse(STATIC / "classic.html", headers={"Cache-Control": "no-store"})
+
+    @app.get("/fonts/{name}")
+    def font(name: str) -> FileResponse:
+        path = STATIC / "fonts" / name
+        if not FONT.fullmatch(name) or not path.is_file():
+            raise HTTPException(status_code=404, detail="no such font")
+        return FileResponse(path, media_type="font/woff2",
+                            headers={"Cache-Control": "max-age=86400"})
 
     @app.get("/api/settings")
     def settings() -> dict[str, Any]:
