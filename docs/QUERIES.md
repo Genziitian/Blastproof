@@ -21,7 +21,7 @@ Every query the product runs lives in a `.cypher` file; this index is generated 
 | [`memory/queries/recall_direct.cypher`](../memory/queries/recall_direct.cypher) | A1, 0 hops: memories pinned to an alerting service itself. $scenario_now is SIMULATED time, so a replayed scenario never sees later memory. |
 | [`memory/queries/recall_kind.cypher`](../memory/queries/recall_kind.cypher) | A1b: playbooks learned on another datastore of the same kind (e.g. any postgres), at half weight. Restricted to Datastore so service-level playbooks stay specific. |
 | [`memory/queries/set_embedding.cypher`](../memory/queries/set_embedding.cypher) | Arm B indexing: store a playbook's text embedding (index data, not content). |
-| [`memory/queries/vector_recall.cypher`](../memory/queries/vector_recall.cypher) | Arm B retrieval: nearest memories to the alert text by exact cosine distance, with the same validity rules as graph recall. Exact search over a few dozen memories is cheap; FalkorDB's approximate HNSW index returned incomplete neighbour lists on graphs this small, which would have handicapped this arm. |
+| [`memory/queries/vector_recall.cypher`](../memory/queries/vector_recall.cypher) | Arm B retrieval: nearest memories to the alert text by exact cosine distance, with the same validity rules as graph recall. Exact search over a few dozen memories is cheap, and exact by definition, so this arm is never handicapped by approximate search. |
 | [`memory/queries/write_playbook.cypher`](../memory/queries/write_playbook.cypher) | A4: a candidate playbook from a confirmed incident. Idempotent by id (derived from the decision), pinned ABOUT the root it was learned on, sourced to the incident. |
 
 ## Coordination: fenced leases, checkpoints, actions, handoffs

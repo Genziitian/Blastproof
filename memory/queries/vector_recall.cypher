@@ -1,7 +1,7 @@
 // Arm B retrieval: nearest memories to the alert text by exact cosine distance,
 // with the same validity rules as graph recall. Exact search over a few dozen
-// memories is cheap; FalkorDB's approximate HNSW index returned incomplete
-// neighbour lists on graphs this small, which would have handicapped this arm.
+// memories is cheap, and exact by definition, so this arm is never handicapped
+// by approximate search.
 MATCH (node:Memory)
 WHERE node.embedding IS NOT NULL
   AND node.status = 'active'

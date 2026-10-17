@@ -1,6 +1,6 @@
 # Demo video: script and setup (3 minutes)
 
-The plan's six moments, mapped to the UI. Record at 1920×1080 with the browser at about 90% zoom so the whole Incidents view fits. Keep a Terminal visible in a corner running `make ui`, so the worker's death shows up as a real process exit. Record moments 3–4 twice and keep the cleaner take.
+The plan's six moments, mapped to the UI. Record at 1920×1080 with the browser at about 90% zoom so the whole Incidents view fits. Keep a Terminal visible in a corner running `make ui`, so the worker's death shows up as a real process exit. Record moments 3–4 twice and keep the cleaner take. Upload to **YouTube as public or unlisted** (the form only takes a YouTube link) and open the link in a private window to check it plays.
 
 ## Before recording
 

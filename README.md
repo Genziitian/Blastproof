@@ -2,7 +2,7 @@
 
 **On-call agents that remember previous incidents, check whether that memory still applies, and show how it changed the next investigation, even after a restart.**
 
-Built for Graph Hacks 2026 on FalkorDB, **Track 02: Agent Memory and Coordination**. Its agent tools are multi-hop graph queries also served over MCP (Track 01). FalkorDB holds the agents' memory, the shared task state they coordinate through, the conversation history and the evidence trail. Take it out and nothing works.
+Built for Graph Hacks 2026 on FalkorDB by team **Blastproof** (sri ram, Aditi Akansha). Tracks: **Agent Memory and Coordination** (primary) and **Agents That Act on Connected Data**: the agents act through multi-hop graph queries, also served over MCP. FalkorDB holds the agents' memory, the shared task state they coordinate through, the conversation history and the evidence trail. Take it out and nothing works: the UI refuses to start without it, and the agents pause until it is back.
 
 ![The UI after a worker was killed mid-investigation: the replacement took over at step 4 under a new fencing epoch, the playbook learned from an earlier incident was recalled by kind and checked against live evidence, and exactly one ticket went out, citing the engineer's earlier request](docs/img/ui-takeover.png)
 
@@ -279,7 +279,7 @@ make isolation   # tenant isolation
 make story       # s01 -> s04 -> s05 in the terminal
 ```
 
-The integration suites are written once and run on two backends: FalkorDB when it is reachable, and `tests/graph_double.py` always. The double runs each query's Python twin and checks every call against the real `.cypher` file (parameters, RETURN columns, property types). Only FalkorDB proves the Cypher itself, and it caught what the double could not (the `SET` finding above).
+The integration suites are written once and run on two backends: FalkorDB when it is reachable, and `tests/graph_double.py` always. The double runs each query's Python twin and checks every call against the real `.cypher` file (parameters, RETURN columns, property types). Only FalkorDB proves the Cypher itself, and it caught what the double could not (the `SET` finding above). The double lives in `tests/` and only tests use it: the UI, workers, eval, benchmark and acceptance test all connect to FalkorDB, and a test fails if product code imports anything from `tests/`.
 
 **Model.** Everything runs without a model (rule-based planner and preference parser). With a model, the investigator plans with it and the war room reads the engineer's messages with it; any invalid answer falls back to the rule-based step.
 - **Claude** (what the results use): `LLM_BASE_URL=https://api.anthropic.com`, `LLM_MODEL=claude-haiku-5-5`, `LLM_API_KEY=...`. Native Messages API with prompt caching: tools, instructions and earlier steps are re-read from cache on each turn.

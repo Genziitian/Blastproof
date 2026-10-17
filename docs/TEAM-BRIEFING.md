@@ -134,9 +134,10 @@ Say the caveats before they're asked: synthetic benchmark; no accuracy gain beca
 | What happens when a worker dies? | Fenced leases, synchronous checkpoints and intent-keyed actions: the next worker continues from the last checkpoint, and the dead one can't write even if it comes back. Shown live with a real SIGKILL. |
 | How is tenant data kept apart? | A graph per company from trusted config; no tool takes a graph argument; canary tests over stored data and the UI API. |
 | Where does FalkorDB do real work? | Recall is a variable-length `DEPENDS_ON` walk; who-to-page is a time-valid two-hop query; blast radius is up to four hops; coordination relies on single-query atomicity and `timestamp()`; every panel is a Cypher query (Cypher button). |
+| Would it still work without FalkorDB? | No. The UI refuses to start without it, agents pause while it is down, and memory, coordination and conversation history are only in the graph. The Python graph double in `tests/` exists so offline tests can check every query's parameters and columns; product code never imports it (a test enforces that). |
 | What did you learn about FalkorDB? | Three findings with reproductions in `docs/FALKORDB-FINDINGS.md`: the AOF replay crash on 4.22.1, triple-written constraints, and `SET`-clause visibility. |
 | Is the data real? | Synthetic and seeded, so every number is reproducible with one command. Ground truth sits only in `eval/truth/`, and a test fails if agent code imports it. |
-| Did you use AI tools? | Yes, as allowed and disclosed in the README: Claude for pair-programming and verification, ChatGPT and Gemini for plan reviews. The design and every decision are ours, and we can walk through any query. |
+| Did you use AI tools? | Yes, as allowed and disclosed in the README: Claude for pair-programming and verification, ChatGPT and Gemini for plan reviews. Be specific and honest about who did what, and show you understand it by walking through any query or file they point at. |
 | Why Claude Haiku? | Cheap, fast, and good enough to solve the benchmark from scratch, which makes the comparison about memory, not model skill. Every arm uses the same model. |
 | What would you do next? | A harder benchmark where the model fails without memory; a neural embedder for arm B; Librarian consolidation of similar playbooks; live deployment on FalkorDB Cloud. |
 

@@ -37,6 +37,17 @@ class BoundaryTests(unittest.TestCase):
                     bad = {m for m in imported_modules(path) if m == "eval" or m.startswith("eval.")}
                     self.assertFalse(bad, f"{rel} imports {bad}")
 
+    def test_product_never_imports_the_test_double(self):
+        """Rule 3: the product runs on FalkorDB; the graph double is for tests only."""
+        offenders = []
+        for path in ROOT.rglob("*.py"):
+            rel = path.relative_to(ROOT).as_posix()
+            if rel.startswith(("tests/", ".venv/", "venv/")) or "/site-packages/" in rel:
+                continue
+            if any(m == "tests" or m.startswith("tests.") for m in imported_modules(path)):
+                offenders.append(rel)
+        self.assertEqual(offenders, [])
+
     def test_query_index_is_current(self):
         from scripts import query_index
         self.assertEqual((ROOT / "docs" / "QUERIES.md").read_text(encoding="utf-8"),
