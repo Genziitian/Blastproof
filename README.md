@@ -14,9 +14,9 @@ On-call agents that turn every confirmed fix into a playbook pinned to the faili
 
 These come from a synthetic company (15 nodes, three failure families) in which the model already solves every incident from scratch, so here memory buys **cost, not accuracy**. The caveats are spelled out in [Results](#results) and [Limits](#limits-and-what-didnt-work).
 
-![Mission control during the takeover: inv-2 was killed after step 3, inv-1 took over at step 4 under epoch 2, and the playbook learned from an earlier incident was recalled one hop from the alerts and is being checked against live evidence](docs/img/ui-takeover.png)
+![Mission control playing s04 live: the playbook learned on postgres-orders is recalled for postgres-payments and checked against evidence; the investigator is killed after step 3, its lease drains, the other worker takes over at step 4, one ticket goes out, and the playbook's trust goes from 0.50 to 0.67](docs/img/demo.gif)
 
-*Mission control, live (deterministic planner, demo timing): inv-2 was killed after step 3 and inv-1 took over at step 4. The playbook learned on `postgres-orders` was recalled for `postgres-payments` (one hop, same kind of datastore) and is being checked against live evidence. Every element is read from FalkorDB.*
+*s04, captured live (deterministic planner, demo timing). The playbook is recalled by kind and checked against evidence. inv-2 is killed after step 3, and inv-1 takes over at step 4, not from scratch. One ticket goes out, and trust moves 0.50 → 0.67. Every element is read from FalkorDB; the still frame is [`docs/img/ui-takeover.png`](docs/img/ui-takeover.png).*
 
 ### The problem
 
