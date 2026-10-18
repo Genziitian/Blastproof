@@ -42,6 +42,7 @@ from agents.worker import Worker
 from chat.war_room import WarRoom
 from common import db, logs
 from common.db import raw_graph
+from coord import tasks
 from eval import scenarios, truth
 from eval.oracle import Oracle
 from scripts.seed import seed_graph
@@ -118,7 +119,7 @@ def run_load(make_graph: Callable[[str], Any], pairs: int, incidents: int,
             list(graphs.values()), chaos_ms / 1000, stop, expired)))
     timings = db.Timings()
     db.record_timings(timings)
-    losses_before = Worker.lease_losses
+    losses_before, absorbed_before = Worker.lease_losses, tasks.absorbed_sends
     started = time.perf_counter()
     try:
         for g in graphs.values():  # every incident fires at once, then workers start
@@ -163,7 +164,11 @@ def run_load(make_graph: Callable[[str], Any], pairs: int, incidents: int,
         "seconds": round(elapsed, 3),
         "incidents_per_minute": round(total / elapsed * 60, 1) if elapsed else None,
         "memory_reads": _pct(reads), "memory_writes": _pct(writes),
-        "duplicate_notifications": duplicates, "takeovers": takeovers,
+        "duplicate_notifications": duplicates,
+        # Attempts to notify again (retries, takeovers, stalled workers) that the
+        # intent key turned into already_done: the mechanism behind the 0 above.
+        "duplicate_sends_absorbed": tasks.absorbed_sends - absorbed_before,
+        "takeovers": takeovers,
         "lost_leases": Worker.lease_losses - losses_before, "errors": errors[:10],
         "chaos_ms": chaos_ms, "leases_expired_by_chaos": len(expired),
         "stuck_for_a_human": stuck,
@@ -182,6 +187,7 @@ def main() -> int:
     ap.add_argument("--pairs", type=int, nargs="+", default=[1, 2, 4])
     ap.add_argument("--incidents", type=int, default=20)
     ap.add_argument("--chaos-ms", type=int, default=0, help="expire a held lease this often")
+    ap.add_argument("--out", default="load.json", help="file name under bench/results/")
     args = ap.parse_args()
     logs.setup("ERROR")
     results = [run_load(live_graph, p, args.incidents, chaos_ms=args.chaos_ms)
@@ -189,20 +195,21 @@ def main() -> int:
     if not args.chaos_ms:  # the same load again with stalled workers
         results += [run_load(live_graph, max(args.pairs), args.incidents, chaos_ms=50)]
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / "load.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
+    (RESULTS / args.out).write_text(json.dumps(results, indent=2), encoding="utf-8")
     print("| worker pairs / company | chaos | incidents | per minute | read p50 / p95 ms | "
-          "write p50 / p95 ms | duplicate notifications | takeovers | lost leases |")
-    print("|---|---|---|---|---|---|---|---|---|")
+          "write p50 / p95 ms | duplicate notifications | duplicate sends absorbed | "
+          "takeovers | lost leases |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
     for r in results:
         rd, wr = r["memory_reads"], r["memory_writes"]
         chaos = f"every {r['chaos_ms']} ms" if r["chaos_ms"] else "none"
         print(f"| {r['worker_pairs_per_company']} | {chaos} | {r['completed']}/{r['incidents']} | "
               f"{r['incidents_per_minute']} | {rd['p50_ms']} / {rd['p95_ms']} | "
               f"{wr['p50_ms']} / {wr['p95_ms']} | {r['duplicate_notifications']} | "
-              f"{r['takeovers']} | {r['lost_leases']} |")
+              f"{r['duplicate_sends_absorbed']} | {r['takeovers']} | {r['lost_leases']} |")
         if r["errors"]:
             print("errors:", *r["errors"], sep="\n  ")
-    print(f"\nwritten to {RESULTS / 'load.json'}")
+    print(f"\nwritten to {RESULTS / args.out}")
     ok = all(r["duplicate_notifications"] == 0 and r["completed"] == r["incidents"]
              for r in results)
     return 0 if ok else 1

@@ -8,6 +8,7 @@ Every call returns an Outcome so a successful retry never looks like a lost leas
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -15,6 +16,18 @@ from common import config
 from common.db import run
 
 Q = "coord/queries/"
+
+# Sends the intent key turned into already_done instead of a second notification,
+# across all workers in this process (the load benchmark reports it).
+absorbed_sends = 0
+_absorbed_lock = threading.Lock()
+
+
+def _absorbed(result: Result) -> Result:
+    global absorbed_sends
+    with _absorbed_lock:
+        absorbed_sends += 1
+    return result
 
 
 class Outcome(str, Enum):
@@ -89,10 +102,12 @@ def send_action(g, lease: Lease, intent_key: str, kind: str, recipient: str,
         "payload_json": json.dumps(payload, sort_keys=True)})
     if rows:
         r = rows[0]
-        return Result(Outcome.OK if r["before"] == "pending" else Outcome.ALREADY_DONE, r)
+        if r["before"] == "pending":
+            return Result(Outcome.OK, r)
+        return _absorbed(Result(Outcome.ALREADY_DONE, r))
     existing = run(g, Q + "read_action.cypher", {"intent_key": intent_key})
     if existing and existing[0]["status"] == "sent":
-        return Result(Outcome.ALREADY_DONE, existing[0])
+        return _absorbed(Result(Outcome.ALREADY_DONE, existing[0]))
     return Result(Outcome.LEASE_LOST)
 
 
