@@ -146,6 +146,10 @@ button { cursor: pointer; }
 .stage .n { font-size: 14.5px; font-weight: 600; color: var(--t3); transition: color .4s; }
 .stage.done { border-color: var(--t4); } .stage.done .n { color: var(--ink2); }
 .stage.on { border-color: var(--ink); } .stage.on .n { color: var(--ink); } .stage.on .v { color: var(--t2); }
+@media (max-width: 600px) {   /* phones: one short label per stage */
+  .stages { gap: 6px; } .stage .v { display: none; }
+  .stage .n { font-size: 11.5px; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 
 /* war-room card */
 .war { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
