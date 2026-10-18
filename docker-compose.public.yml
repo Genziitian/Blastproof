@@ -1,0 +1,30 @@
+# Public, read-only demo: the UI (agents included) and FalkorDB on one host.
+#   FALKORDB_PASSWORD=$(openssl rand -hex 16) docker compose -f docker-compose.public.yml up -d --build
+#   open http://localhost:8080
+# FalkorDB is not published outside this compose network.
+services:
+  falkordb:
+    image: falkordb/falkordb@sha256:b0bdcac2cbaff989e77cb0610439b7a9289e86de033ccbbd4368b66fb680ae7a
+    environment:
+      REDIS_ARGS: "--appendonly no --save 30 1 --requirepass ${FALKORDB_PASSWORD:?set FALKORDB_PASSWORD}"
+    volumes:
+      - falkordb_public:/var/lib/falkordb/data
+    restart: unless-stopped
+
+  app:
+    build: .
+    environment:
+      FALKORDB_HOST: falkordb
+      FALKORDB_PORT: "6379"
+      FALKORDB_PASSWORD: ${FALKORDB_PASSWORD}
+      PUBLIC_MODE: "1"
+      # The host names visitors use, e.g. blastradius.example.com (comma-separated).
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    ports:
+      - "${PUBLIC_PORT:-8080}:8000"
+    depends_on:
+      - falkordb
+    restart: unless-stopped
+
+volumes:
+  falkordb_public:

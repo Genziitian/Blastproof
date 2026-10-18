@@ -12,14 +12,18 @@ import argparse
 import contextlib
 import json
 import logging
+import os
 import re
 import sys
+import threading
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from common import config, llm, logs
 from common.db import graph, run, unavailable
@@ -38,18 +42,23 @@ BLOG_FILE = re.compile(r"(assets|media|assets/fonts|assets/i18n)/[a-z0-9_-]+\.(j
 CYPHER_PATH = re.compile(r"(web|memory|coord|chat|tools|agents|sim)/queries/\w+\.cypher")
 
 
+# What the engineer types goes to the graph verbatim and to the preference parser:
+# bounded, so nobody can store or send a novel.
+TEXT_MAX = 2000
+
+
 class Break(BaseModel):
-    node: str | None = None
-    story: str | None = None
+    node: str | None = Field(default=None, max_length=64)
+    story: str | None = Field(default=None, max_length=16)
 
 
 class Review(BaseModel):
     confirmed: bool
-    message: str | None = None
+    message: str | None = Field(default=None, max_length=TEXT_MAX)
 
 
 class Reply(BaseModel):
-    text: str
+    text: str = Field(max_length=TEXT_MAX)
 
 
 class Toggle(BaseModel):
@@ -225,11 +234,11 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
 
     @app.post("/api/review/{key}")
     def review(key: str, body: Review) -> dict[str, bool]:
-        return {"ok": demo.engineer.submit(key, body.model_dump())}
+        return {"ok": demo.engineer.submit(key, body.model_dump(), kind="review")}
 
     @app.post("/api/reply/{key}")
     def reply(key: str, body: Reply) -> dict[str, bool]:
-        return {"ok": demo.engineer.submit(key, body.model_dump())}
+        return {"ok": demo.engineer.submit(key, body.model_dump(), kind="readback")}
 
     @app.post("/api/autopilot")
     def autopilot(body: Toggle) -> dict[str, bool]:
@@ -279,6 +288,20 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
         return {"ok": True}
 
     @app.middleware("http")
+    async def guard_writes(request: Any, call_next: Any) -> Any:
+        """Every POST changes state. A public deployment refuses them all; locally,
+        a POST sent by another site's page (CSRF, DNS rebinding) is refused too.
+        Same-page requests and curl (no Origin header) still work."""
+        if request.method == "POST":
+            if config.PUBLIC_MODE:
+                return JSONResponse(status_code=403, content={
+                    "detail": "This public demo is read-only; run it locally for the controls."})
+            origin = request.headers.get("origin")
+            if origin and urlsplit(origin).netloc != request.headers.get("host"):
+                return JSONResponse(status_code=403, content={"detail": "cross-site request refused"})
+        return await call_next(request)
+
+    @app.middleware("http")
     async def db_outage(request: Any, call_next: Any) -> Any:
         try:
             return await call_next(request)
@@ -290,9 +313,12 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
 
     @app.exception_handler(Exception)
     def failed(_: Any, exc: Exception) -> JSONResponse:
-        log.exception("request failed")
-        return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"})
+        log.exception("request failed")  # the details stay in the server log
+        detail = f"{type(exc).__name__}: {exc}" if not config.PUBLIC_MODE else "internal error"
+        return JSONResponse(status_code=500, content={"detail": detail})
 
+    if "*" not in config.ALLOWED_HOSTS:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.ALLOWED_HOSTS)
     return app
 
 
@@ -318,7 +344,14 @@ def main() -> int:
         print("FalkorDB is not reachable: start it with `make db` (docker compose up -d falkordb)")
         return 1
     g = graph(args.company)
-    if not run(g, "web/queries/service_map.cypher", {}):
+    if config.PUBLIC_MODE:
+        # A public deployment starts every run from the seeded company, so a restart
+        # never shows half-finished incidents from before it.
+        with contextlib.suppress(Exception):
+            g.delete()
+        setup_schema.setup(args.company)
+        seed.seed_company(args.company)
+    elif not run(g, "web/queries/service_map.cypher", {}):
         print(f"{config.graph_name(args.company)} is empty: run `make schema seed` first")
         return 1
     store = ScenarioStore(ROOT / ".sim" / config.graph_name(args.company))
@@ -335,7 +368,7 @@ def main() -> int:
         setup_schema.setup(args.company)
         seed.seed_company(args.company)
 
-    engineer = Engineer(autopilot=args.autopilot, handle_for=handle_for)
+    engineer = Engineer(autopilot=args.autopilot or config.PUBLIC_MODE, handle_for=handle_for)
     def db_version() -> str:
         from common.db import client
         mods = client().connection.execute_command("MODULE", "LIST")
@@ -347,7 +380,8 @@ def main() -> int:
                 return f"{v // 10000}.{v // 100 % 100}.{v % 100}"
         return "?"
 
-    model = llm.from_config()
+    # In public mode the model is off unless PUBLIC_LLM=1: visitors can't run up a bill.
+    model = None if config.PUBLIC_MODE and not os.getenv("PUBLIC_LLM") else llm.from_config()
     problem = llm.check(model)
     if problem:
         print(f"WARNING: {config.LLM_MODEL} did not answer a test request ({problem[:160]}).\n"
@@ -364,11 +398,17 @@ def main() -> int:
         supervisor.start_all()
     if config.TIMING_PROFILE != "demo":
         print("note: TIMING_PROFILE is not 'demo'; a takeover waits for a 30 s lease")
+    stop_public = threading.Event()
+    if config.PUBLIC_MODE:
+        print("PUBLIC_MODE: read-only; the story plays itself (s01 -> s04 with a kill -> s05)")
+        threading.Thread(target=demo.public_loop, name="public-loop", daemon=True,
+                         args=(stop_public, 8.0, config.PUBLIC_RESET_EVERY)).start()
     print(f"Blast Radius UI on http://{args.host}:{args.port}  ({config.graph_name(args.company)})")
     try:
         uvicorn.run(create_app(demo, supervisor), host=args.host, port=args.port,
                     log_level="warning")
     finally:
+        stop_public.set()
         supervisor.stop_all()
         demo.stop_agents()
     return 0

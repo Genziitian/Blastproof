@@ -309,6 +309,8 @@ make ui          # http://localhost:8000 (landing page), /mission-control (the l
 
 ![The landing page: the idea, told with a replay of a real incident read from the graph](docs/img/landing.png)
 
+**A public, read-only copy** runs in one container beside FalkorDB: `FALKORDB_PASSWORD=... docker compose -f docker-compose.public.yml up -d --build`, then http://localhost:8080. Every write is refused, and the story plays by itself, with a real kill and takeover every round. Details and platform notes are in [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 If something else already listens on port 6379 (a local Redis), set `FALKORDB_PORT=6380` in `.env`; Docker Compose and the Python client both read it.
 
 **On Windows** the `make` targets need Git Bash (or WSL). From PowerShell, the same steps are: `python -m venv .venv`, `.venv\Scripts\activate`, `pip install -r requirements.txt`, `copy .env.example .env`, `docker compose up -d falkordb`, `python -m scripts.setup_schema`, `python -m scripts.seed`, then `$env:TIMING_PROFILE='demo'; python -m web.app --company a`.
@@ -357,7 +359,7 @@ The integration suites are written once and run on two backends: FalkorDB when i
 | `sim/` | Synthetic company, incident simulator (in-process, or shared between processes via `sim/store.py`), deploy history, org changes |
 | `eval/` | Benchmark definition, truth files, oracle, runner, results |
 | `bench/` | Load benchmark with stalled workers, tenant-isolation check |
-| `web/` | The UI: one page, a JSON API, its read queries, the investigator supervisor |
+| `web/` | The UI: landing page and mission control, a JSON API, its read queries, the investigator supervisor, the public read-only mode |
 | `scripts/` | Schema, seed, runners, acceptance test, persistence check, query index |
 | `tests/` | Offline tests and live tests against FalkorDB |
 | `docs/` | [Implementation plan](docs/Implementation-Plan.md), [FalkorDB findings](docs/FALKORDB-FINDINGS.md), [query index](docs/QUERIES.md), [team briefing](docs/TEAM-BRIEFING.md) (the system explained, with judge Q&A), [demo script](docs/DEMO-SCRIPT.md), screenshots |
@@ -369,9 +371,10 @@ The integration suites are written once and run on two backends: FalkorDB when i
 - **Checking costs steps.** Ruling out recalled memories takes tool calls; on novel incidents graph memory takes more steps than no memory, and text memory once ran out of its step budget. When steps are capped this matters: with an 8-step budget (`python -m eval.run --rule-based --max-steps 8`, [results](eval/results/2026-10-18-rule-based-max-steps-8/summary.md)) no memory solves 30/30, graph memory 14/30 and text memory 12/30. Checks on cold incidents push them over the budget, and an unsolved incident teaches nothing, so later repeats fail too. Next: batch each playbook's first check into one evidence read, and learn from the engineer's diagnosis when the agent fails, so memory never costs more than it saves.
 - **Kind transfer is datastore-only.** A playbook learned on one postgres helps another; a bad-deploy playbook spreads to another service only once a confirmed incident pins it there. We kept arms B and C symmetric rather than widen this.
 - **Text arm uses a hashed bag of words** by default, a weak opponent for graph recall; a neural embedder is supported.
-- **Workers are processes, not containers.** The UI starts and kills them; the database is the only container.
+- **Workers are processes, not containers.** The UI starts and kills them. For a public demo the app and its workers are one container beside FalkorDB ([`docs/DEPLOY.md`](docs/DEPLOY.md)).
 - **Persistence trades durability for safety:** RDB snapshots can lose up to 30 s of writes if FalkorDB itself crashes hard (a clean `docker compose down` loses nothing). We moved off AOF because of the 4.22.1 replay failure above.
-- **No live deployment yet**; complete local setup above.
+- **Live deployment is read-only.** `PUBLIC_MODE=1` (Dockerfile, `docker-compose.public.yml`, [`docs/DEPLOY.md`](docs/DEPLOY.md)) refuses every write and plays the story by itself, with the model off. The full, interactive demo is local.
+- **Pins carry no time.** A pin added to an existing playbook (a new `ABOUT` edge) has no timestamp, so a replay run out of time order could see a pin from its future. The benchmark replays in time order, so its results are unaffected.
 - **What didn't work:**
   - *HNSW for text recall.* Early on it seemed to return too few neighbours on a tiny graph. We couldn't reproduce that in isolation, so it isn't reported as a bug, but arm B uses exact cosine distance.
   - *Gemini as the eval model.* Free-tier quota and model availability (404s and 503s) blocked full runs.

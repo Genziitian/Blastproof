@@ -36,7 +36,7 @@ https://github.com/Genziitian/Blastproof
 
 ### Live demo or deployment
 
-Leave empty, or paste https://github.com/Genziitian/Blastproof#run-it (complete local setup: `make db schema seed ui`).
+If the read-only public copy is deployed (docs/DEPLOY.md: one container plus FalkorDB, playing s01 → s04 with a real kill → s05 by itself), paste its URL. Otherwise paste the write-up with its interactive replay, https://genziitian.github.io/Blastproof/blog/ (Pages must be on), plus https://github.com/Genziitian/Blastproof#run-it for the full local setup (`make db schema seed ui`).
 
 ### How did you use FalkorDB? (technical problems solved)
 

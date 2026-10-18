@@ -6,6 +6,10 @@
 <title>Blast Radius · Mission control</title>
 <link rel="stylesheet" href="/static/v2.css">
 <style>
+/* public, read-only deployment: no controls, a line that says so */
+.public #dir-btn, .public #idle-go, .public [data-kill], .public [data-start], .public .war .acts { display: none !important; }
+.public .db { pointer-events: none; }
+.pubnote { font-size: 13px; color: var(--ink2); background: var(--sunk); border-bottom: 1px solid var(--line); padding: 8px 24px; text-align: center; }
 .nav .tabs { display: flex; gap: 4px; margin: 0 auto; }
 .tab { border: 0; background: transparent; color: var(--t2); padding: 7px 14px; border-radius: 999px; font-size: 15px; font-weight: 500; }
 .tab:hover { color: var(--ink); } .tab.on { background: var(--sunk); color: var(--ink); }
@@ -545,6 +549,10 @@ async function untilUp(fn) {
 async function boot() {
   bindQ(document);
   S.settings = await untilUp(() => api("/api/settings"));
+  if (S.settings.public_mode) {
+    document.body.classList.add("public");
+    qs(".nav").insertAdjacentHTML("afterend", `<div class="pubnote">Live and read-only: the agents play the story on their own on FalkorDB (s01 → s04, with a real kill and takeover → s05). Run it locally for the controls.</div>`);
+  }
   qs("#co").textContent = S.settings.graph;
   const bad = (S.settings.model_status || "").startsWith("unavailable");
   qs("#model").textContent = bad ? `${S.settings.model} unavailable · rule-based` : S.settings.model; qs("#model").className = "model" + (bad ? " bad" : "");

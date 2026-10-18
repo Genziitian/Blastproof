@@ -90,10 +90,11 @@ class Engineer:
         with self._lock:
             return [p.view() for p in self._pending.values()]
 
-    def submit(self, incident_key: str, reply: dict[str, Any]) -> bool:
+    def submit(self, incident_key: str, reply: dict[str, Any], kind: str | None = None) -> bool:
+        """Answer what the agent is waiting for; False if nothing (or something else) is."""
         with self._lock:
             p = self._pending.get(incident_key)
-            if p is None:
+            if p is None or (kind is not None and p.kind != kind):
                 return False
             p.reply = reply
         p.done.set()

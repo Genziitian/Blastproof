@@ -54,6 +54,16 @@ else:
 
 MAX_ATTEMPTS = 3
 
+# A public, read-only deployment of the UI (docs/DEPLOY.md): every POST is refused,
+# the scripted engineer answers, and the server plays s01 -> s04 (with a real kill)
+# -> s05 on its own, resetting the graph every PUBLIC_RESET_EVERY rounds.
+PUBLIC_MODE = os.getenv("PUBLIC_MODE", "").lower() in ("1", "true", "yes")
+PUBLIC_RESET_EVERY = int(os.getenv("PUBLIC_RESET_EVERY", "5"))
+# Host names the UI answers to (DNS-rebinding guard); "*" turns the check off.
+ALLOWED_HOSTS = [h.strip() for h in
+                 os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
+                 if h.strip()]
+
 # Any OpenAI-compatible chat endpoint, or Anthropic's Messages API (chosen
 # automatically when LLM_BASE_URL is api.anthropic.com, or set LLM_PROVIDER).
 # Leave LLM_MODEL empty to run without a model: the rule-based planner and the

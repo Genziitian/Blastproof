@@ -318,6 +318,40 @@ class WebCases:
         with self.assertRaises(ValueError):
             self.demo.break_node("kafka-events")
 
+    def test_writes_are_guarded(self):
+        from unittest import mock
+
+        from common import config
+        api = TestClient(create_app(self.demo))
+        # Another site's page can't drive the local UI (CSRF / DNS rebinding) ...
+        evil = api.post("/api/reset", headers={"Origin": "http://evil.example"})
+        self.assertEqual(evil.status_code, 403)
+        self.assertEqual(TestClient(create_app(self.demo)).get(
+            "/api/settings", headers={"Host": "evil.example"}).status_code, 400)
+        # ... the page itself and curl still can; text is bounded.
+        same = api.post("/api/autopilot", json={"on": False},
+                        headers={"Origin": "http://testserver"})
+        self.assertEqual(same.status_code, 200)
+        self.assertEqual(api.post("/api/reply/x", json={"text": "x" * 5000}).status_code, 422)
+        # A public deployment refuses every write and says so; reads still work.
+        with mock.patch.object(config, "PUBLIC_MODE", True):
+            public = TestClient(create_app(self.demo))
+            for path, body in (("/api/reset", None), ("/api/break", {"story": "s01"}),
+                               ("/api/workers/inv-1/kill", None),
+                               ("/api/plant-wrong-memory", None),
+                               ("/api/review/k", {"confirmed": True})):
+                self.assertEqual(public.post(path, json=body).status_code, 403, path)
+            self.assertEqual(public.get("/api/state").status_code, 200)
+            self.assertTrue(public.get("/api/settings").json()["public_mode"])
+
+    def test_a_reply_only_answers_the_question_that_was_asked(self):
+        from web.engineer import Pending
+        eng = self.demo.engineer
+        with eng._lock:
+            eng._pending["incident:k"] = Pending("incident:k", "review", {}, None)
+        self.assertFalse(eng.submit("incident:k", {"text": "yes"}, kind="readback"))
+        self.assertTrue(eng.submit("incident:k", {"confirmed": True}, kind="review"))
+
     def test_http_api(self):
         api = TestClient(create_app(self.demo))
         self.assertIn("Blast Radius", api.get("/").text)

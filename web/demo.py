@@ -77,6 +77,7 @@ class Demo:
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
         self._lock = threading.Lock()
+        self._reset_lock = threading.Lock()
         self.thread_state: dict[str, str] = {}
         self.model_status: str | None = None     # set at startup from llm.check()
         self.kill_after: int | None = None       # armed kill: SIGKILL after this step
@@ -244,14 +245,49 @@ class Demo:
     def reset(self) -> None:
         if self.reset_graph is None:
             raise RuntimeError("reset is not available here")
-        if self.supervisor:
-            self.supervisor.stop_all()
-        self.stop_agents()
-        self.store.clear()
-        self.reset_graph()
-        self.start_agents()
-        if self.supervisor:
-            self.supervisor.start_all()
+        # One reset at a time: two interleaved resets would delete and seed over each
+        # other and start the agents twice.
+        with self._reset_lock:
+            if self.supervisor:
+                self.supervisor.stop_all()
+            self.stop_agents()
+            self.store.clear()
+            self.reset_graph()
+            self.start_agents()
+            if self.supervisor:
+                self.supervisor.start_all()
+
+    def public_loop(self, stop: threading.Event, pause_s: float = 8.0,
+                    reset_every: int = 5) -> None:
+        """The public demo plays the story by itself: s01 (nothing in memory), s04
+        (recalled by kind, investigator killed after step 3, taken over), s05 (memory
+        ruled out on evidence). The scripted engineer answers. Resets now and then."""
+        rounds = 0
+        while not stop.is_set():
+            for sid in ("s01", "s04", "s05"):
+                if stop.is_set():
+                    return
+                try:
+                    # The kill in s04 is real: start the killed investigator again, as
+                    # an operator would, so every round has a worker to take over.
+                    if self.supervisor:
+                        for name, proc in self.supervisor.procs.items():
+                            if not proc.alive():
+                                self.supervisor.start(name)
+                    self.arm_kill(3 if sid == "s04" else None)
+                    key = self.run_story(sid)
+                    deadline = time.time() + 180
+                    while not stop.wait(1.0) and time.time() < deadline:
+                        found = self.incident(key)
+                        if found and found["head"]["status"] in ("resolved", "needs_review"):
+                            break
+                except Exception:  # FalkorDB restarting, etc.: try again shortly
+                    log.exception("public loop: %s failed", sid)
+                stop.wait(pause_s)
+            rounds += 1
+            if reset_every and rounds % reset_every == 0 and not stop.is_set():
+                with contextlib.suppress(Exception):
+                    self.reset()
 
     # ------------------------------------------------------------ reads
     def incidents(self, limit: int = 40) -> list[dict[str, Any]]:
@@ -349,7 +385,7 @@ class Demo:
             "heartbeat_ms": config.HEARTBEAT_MS, "model": config.LLM_MODEL or "rule-based",
             "model_status": self.model_status,
             "stories": STORIES, "breakable": self.breakable(), "teams": self.people(),
-            "labels": LABELS,
+            "labels": LABELS, "public_mode": config.PUBLIC_MODE,
         }
 
 
