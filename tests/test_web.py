@@ -326,7 +326,7 @@ class WebCases:
             self.assertEqual(api.get(path).status_code, 200, path)
         self.assertEqual(api.get("/static/app.py").status_code, 404)
         self.assertIn("Teaching on-call agents", api.get("/blog/").text)
-        for path in ("/blog/assets/core.js", "/blog/media/takeover.mp4", "/blog/assets/fonts/inter-400.woff2"):
+        for path in ("/blog/assets/core.js", "/blog/media/takeover.mp4", "/blog/assets/fonts/inter-400.woff2", "/blog/assets/i18n/he.json"):
             self.assertEqual(api.get(path).status_code, 200, path)
         for bad in ("/blog/../web/app.py", "/blog/assets/..%2F..%2F..%2F.env", "/blog/index.md"):
             self.assertEqual(api.get(bad).status_code, 404, bad)
@@ -415,3 +415,19 @@ class ResultsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BlogTranslationTests(unittest.TestCase):
+    def test_every_language_covers_the_page(self):
+        import contextlib
+        import io
+        import json
+        import re
+
+        from scripts import blog_i18n
+        page = blog_i18n.PAGE.read_text()
+        en = json.loads((blog_i18n.I18N / "en.json").read_text())
+        self.assertEqual(set(re.findall(r'data-i18n="(k\d+)"', page)), set(en["html"]), "run: python -m scripts.blog_i18n mark")
+        self.assertEqual(set(blog_i18n.dyn_strings(page)), set(en["dyn"]), "run: python -m scripts.blog_i18n mark")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(blog_i18n.check(), 0)

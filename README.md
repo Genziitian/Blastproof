@@ -8,7 +8,7 @@ Built for Graph Hacks 2026 on FalkorDB by team **Blastproof** (sri ram, Aditi Ak
 
 *The war room during demo moment 4, live (deterministic planner, demo timing). inv-2 was SIGKILLed after step 3; inv-1 took over at step 4 under epoch 2, not from scratch. The playbook learned on `postgres-orders` was recalled for `postgres-payments` (one hop, same kind of datastore, the dashed line) and is being checked against live evidence; the left column is the Memory Lens. Every element is read from FalkorDB.*
 
-**Read the write-up:** [Teaching on-call agents to remember](https://genziitian.github.io/Blastproof/blog/), what we built, how it works and what we learned (also served locally at `/blog/` by `make ui`; source in [`docs/blog/`](docs/blog/)).
+**Read the write-up:** [Teaching on-call agents to remember](https://genziitian.github.io/Blastproof/blog/), what we built, how it works and what we learned (also served locally at `/blog/` by `make ui`; source in [`docs/blog/`](docs/blog/)). Read it in English, हिन्दी, Español, Français or עברית (FalkorDB is from Tel Aviv), or any other language Chrome can translate on your device: [`?lang=hi`](https://genziitian.github.io/Blastproof/blog/?lang=hi).
 
 ## Contents
 

@@ -34,7 +34,7 @@ BLOG = ROOT / "docs" / "blog"
 log = logging.getLogger("web")
 ASSET = re.compile(r"[a-z0-9-]+\.(js|css|json)")
 FONT = re.compile(r"[a-z-]+-\d00\.woff2")
-BLOG_FILE = re.compile(r"(assets|media|assets/fonts)/[a-z0-9_-]+\.(js|css|json|jpg|png|mp4|webm|woff2)")
+BLOG_FILE = re.compile(r"(assets|media|assets/fonts|assets/i18n)/[a-z0-9_-]+\.(js|css|json|jpg|png|mp4|webm|woff2)")
 CYPHER_PATH = re.compile(r"(web|memory|coord|chat|tools|agents|sim)/queries/\w+\.cypher")
 
 
