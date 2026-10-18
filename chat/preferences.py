@@ -63,8 +63,8 @@ def _negated(text: str, word: str) -> bool:
 
 
 def parse_rules(text: str) -> list[Preference]:
-    # Curly apostrophes (phones, docs) would hide "don’t" from the negation check.
-    t = text.lower().replace("’", "'").replace("‘", "'")
+    # Curly apostrophes (phones, docs) would hide "don't" from the negation check.
+    t = text.lower().replace("\u2019", "'").replace("\u2018", "'")
     family = next((f for f, words in _FAMILY_WORDS.items() if any(w in t for w in words)), None)
     prefs = []
 
@@ -116,7 +116,7 @@ def parse_with_model(model: ChatModel, text: str) -> list[Preference] | None:
             return None
         if family is not None and family not in FAMILY_LABELS:
             return None
-        prefs.append(Preference(predicate, value, family))
+        prefs.append(Preference(str(predicate), str(value), family))
     return prefs
 
 

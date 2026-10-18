@@ -952,8 +952,10 @@ def _rank_suspects(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
 @implements("tools/queries/explain_path.cypher")
 def _explain_path(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     target = g.entity(p["node"])
+    if target is None:
+        return []
     rows = []
-    for a in (_alerting(g, p["alerting"]) if target else []):
+    for a in _alerting(g, p["alerting"]):
         best = min((path for path in g.paths(a, "DEPENDS_ON", 1, 4) if path[-1].id == target.id),
                    key=len, default=None)
         if best is not None:

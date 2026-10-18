@@ -29,7 +29,7 @@ DISSENT = re.compile(r"\b(no|not|nope|wrong|incorrect|don'?t|isn'?t|never)\b", r
 def affirms(reply: str | None) -> bool:
     if not reply:
         return False
-    reply = reply.replace("’", "'")
+    reply = reply.replace("\u2019", "'")
     return bool(AFFIRMATIVE.match(reply)) and not DISSENT.search(reply)
 
 

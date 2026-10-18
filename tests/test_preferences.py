@@ -50,7 +50,7 @@ class RuleParserTests(unittest.TestCase):
              Preference("wants_detail", "raw_logs", None)])
 
     def test_curly_apostrophes_still_negate(self):
-        self.assertEqual(parse_rules("For DB saturation, don’t open a ticket, page me."),
+        self.assertEqual(parse_rules("For DB saturation, don\u2019t open a ticket, page me."),
                          [Preference("preferred_channel", "page", "db_saturation")])
 
     def test_only_a_plain_yes_approves_a_read_back(self):
@@ -58,7 +58,7 @@ class RuleParserTests(unittest.TestCase):
             with self.subTest(reply=reply):
                 self.assertTrue(affirms(reply))
         for reply in ("No, that's wrong.", "Correct me if I am wrong, but no", "Yes? No.",
-                      "Right, but don’t use Slack", "", None):
+                      "Right, but don\u2019t use Slack", "", None):
             with self.subTest(reply=reply):
                 self.assertFalse(affirms(reply))
 
