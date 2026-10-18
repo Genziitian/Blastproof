@@ -36,7 +36,7 @@ The incident is told in the order of the learning loop in the plan: **alerts →
 - **Right:** the service graph. Alerting services pulse; recall paths draw hop by hop, with a dashed line to where a playbook was learned when it was recalled by kind; pins show each playbook's trust and count up when it helped. A **checking card** ticks off each check from the investigator's checkpoints. Click a node to break it or move its ownership. Above: on call now and the notification count; the envelope flies to the person paged. Below: one sentence for what is happening and the five-stage strip.
 - **← ▶ →** replays the selected incident from its stored steps (claims, checkpoints, the takeover, the page, the learning); **Live** returns to the live view.
 - **Director:** scenarios s01–s05, "Kill the investigator after step N" (one-shot real SIGKILL), scripted engineer, on-call changes, plant the wrong playbook (M5), reset.
-- **Memory tab:** playbooks (pinned node, source incident, trust, helped · misled, status; click for checks) and engineer preferences as versioned facts. **Results tab:** the newest valid eval run and the load benchmark.
+- **Memory tab:** playbooks (pinned node, source incident, trust, helped · misled, status; click for checks) and engineer preferences as versioned facts. **Results tab:** the newest completed 30-incident comparison (including deterministic runs and capped budgets), dated load results, tenant isolation and a direct stale-write probe. Each result shows its own source. New results appear automatically within five seconds.
 - **{ } query** buttons open the Cypher behind each part, with the number of queries and milliseconds the incident view took in FalkorDB.
 - **Restart:** if FalkorDB goes away, the graph card dims (*FalkorDB restarting…*) and the agents wait; when it is back, a toast reports what survived, read back from the graph.
 
@@ -58,3 +58,16 @@ The incident is told in the order of the learning loop in the plan: **alerts →
 If FalkorDB restarts while the UI runs, the agents log one line and wait, the API answers 503, and the page shows a banner until the database is back (demo moment 3 restarts it on camera).
 
 Tests: `tests/test_web.py` drives the same story through `web.demo.Demo` on the graph double and on FalkorDB, including a takeover, and checks every panel's read model and the HTTP API.
+
+## Result freshness
+
+The headline follows the latest complete comparison by `meta.at`, across model and
+deterministic runs. It no longer prefers an older model run. Model-request savings
+are computed only when the baseline made model calls; otherwise the headline shows
+graph accuracy, with tool calls beside accuracy. Partial, malformed, invalid and
+in-progress evaluations cannot replace the completed comparison. Step budget and
+model are shown, so an 8-step experiment is distinguishable from the default run.
+
+`make bench`, `make isolation` and `make fencing` save dated evidence independently.
+Missing evidence says “Not run yet”; a newer failure stays visible. The landing
+page's memory count says “Stored in FalkorDB”, without claiming a restart occurred.

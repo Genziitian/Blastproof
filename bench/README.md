@@ -12,3 +12,10 @@
 
 Both use the deterministic planner: they measure FalkorDB and the coordination protocol,
 not a model. Results go to `bench/results/`.
+
+- `fencing.py` (M7): five real stale-write attempts after a takeover; reports rejected
+  writes, checkpoint preservation and replacement progress. `make fencing`.
+
+Each command now saves an atomic, timestamped JSON artifact with its recorded run time.
+The portal selects the newest completed result of each kind, including failed checks,
+and labels its source separately. Legacy load arrays remain readable with their file date.

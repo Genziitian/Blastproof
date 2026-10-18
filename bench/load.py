@@ -24,12 +24,10 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import json
 import sys
 import threading
 import time
 from collections.abc import Callable
-from pathlib import Path
 from statistics import quantiles
 from typing import Any
 
@@ -39,6 +37,7 @@ from agents.planning import RuleBasedPlanner
 from agents.responder import Responder
 from agents.triage import incident_key, open_incident
 from agents.worker import Worker
+from bench.artifacts import save
 from chat.war_room import WarRoom
 from common import db, logs
 from common.db import raw_graph
@@ -49,7 +48,6 @@ from scripts.seed import seed_graph
 from sim import deploys
 from sim.runtime import SimulatedWorld
 
-RESULTS = Path(__file__).resolve().parent / "results"
 READS = ("memory/queries/recall", "memory/queries/playbooks_by_id", "chat/queries/preferences_for",
          "coord/queries/read_checkpoints", "agents/queries/decision_usage",
          "agents/queries/learn_context", "agents/queries/respond_context")
@@ -187,15 +185,14 @@ def main() -> int:
     ap.add_argument("--pairs", type=int, nargs="+", default=[1, 2, 4])
     ap.add_argument("--incidents", type=int, default=20)
     ap.add_argument("--chaos-ms", type=int, default=0, help="expire a held lease this often")
-    ap.add_argument("--out", default="load.json", help="file name under bench/results/")
+    ap.add_argument("--out", default=None, help="file name under bench/results/ (default: timestamped)")
     args = ap.parse_args()
     logs.setup("ERROR")
     results = [run_load(live_graph, p, args.incidents, chaos_ms=args.chaos_ms)
                for p in args.pairs]
     if not args.chaos_ms:  # the same load again with stalled workers
         results += [run_load(live_graph, max(args.pairs), args.incidents, chaos_ms=50)]
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / args.out).write_text(json.dumps(results, indent=2), encoding="utf-8")
+    path = save("load", results, args.out)
     print("| worker pairs / company | chaos | incidents | per minute | read p50 / p95 ms | "
           "write p50 / p95 ms | duplicate notifications | duplicate sends absorbed | "
           "takeovers | lost leases |")
@@ -209,7 +206,7 @@ def main() -> int:
               f"{r['duplicate_sends_absorbed']} | {r['takeovers']} | {r['lost_leases']} |")
         if r["errors"]:
             print("errors:", *r["errors"], sep="\n  ")
-    print(f"\nwritten to {RESULTS / args.out}")
+    print(f"\nwritten to {path}")
     ok = all(r["duplicate_notifications"] == 0 and r["completed"] == r["incidents"]
              for r in results)
     return 0 if ok else 1

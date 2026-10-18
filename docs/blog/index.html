@@ -1,19 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Teaching on-call agents to remember · Blast Radius</title>
-<meta name="description" content="How we built on-call agents that remember every incident, check that memory against live evidence, and survive being killed mid-investigation. FalkorDB Graph Hacks, Agent Memory and Coordination.">
-<meta property="og:title" content="Teaching on-call agents to remember">
-<meta property="og:description" content="A graph for memory, a lease for coordination, and a lot of checking. Built on FalkorDB for Graph Hacks.">
-<meta property="og:image" content="https://genziitian.github.io/Blastproof/blog/media/og.png">
+<title>Blast Radius: Agents that remember and recover</title>
+<meta name="description" content="How we built Blast Radius: four on-call agents that share persistent graph memory, verify past fixes, and hand off work when a worker fails.">
+<meta property="og:title" content="Agents that remember and recover">
+<meta property="og:description" content="Four on-call agents. Persistent graph memory. Verified fixes and resilient handoffs. Built with FalkorDB for Graph Hacks.">
+<meta property="og:image" content="https://blast.genziitian.in/blog/media/og.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta property="og:type" content="article"><meta property="og:url" content="https://genziitian.github.io/Blastproof/blog/">
+<meta property="og:type" content="article"><meta property="og:url" content="https://blast.genziitian.in/blog/">
+<link rel="canonical" href="https://blast.genziitian.in/blog/">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Teaching on-call agents to remember">
-<meta name="twitter:image" content="https://genziitian.github.io/Blastproof/blog/media/og.png">
-<script>/* theme before first paint: the reader's choice, else the system's */ try { document.documentElement.dataset.theme = localStorage.getItem("blog-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); if (localStorage.getItem("blog-depth") === "quick") document.documentElement.classList.add("quick"); } catch (e) { /* storage blocked */ }</script>
+<meta name="twitter:title" content="Agents that remember and recover">
+<meta name="twitter:image" content="https://blast.genziitian.in/blog/media/og.png">
+<script>/* Light on first visit; preserve an explicit reader choice. */
+try {
+  document.documentElement.dataset.theme = localStorage.getItem("blog-theme") === "dark" ? "dark" : "light";
+  if (localStorage.getItem("blog-depth") === "quick") document.documentElement.classList.add("quick");
+} catch (e) { /* The HTML default remains light when storage is blocked. */ }
+</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23111' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23E2552B'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/v2.css">
 <style>
@@ -34,10 +40,10 @@ article { min-width: 0; }
 .toc a { display: block; color: var(--t2); padding: 3px 0 3px 10px; border-left: 2px solid var(--line); }
 .toc a:hover { color: var(--ink); } .toc a.on { color: var(--ink); border-left-color: var(--sig); font-weight: 500; }
 .col { max-width: var(--col); }
-header.hero { padding-block: 72px 36px; }
+header.hero { padding-block: 54px 30px; }
 .kicker { font: 500 13.5px var(--mono); color: var(--sig); }
-h1 { font: 700 60px/1.02 var(--sans); letter-spacing: -.04em; margin: 18px 0 0; text-wrap: balance; }
-.dek { font-size: 21px; line-height: 1.5; color: var(--t2); margin: 20px 0 0; text-wrap: pretty; }
+h1 { font: 700 56px/1.08 var(--sans); letter-spacing: -.04em; margin: 18px 0 0; text-wrap: balance; }
+.dek { font-size: 20px; line-height: 1.6; color: var(--t2); margin: 20px 0 0; text-wrap: pretty; }
 .byline { display: flex; align-items: center; gap: 14px; margin-top: 26px; font-size: 14.5px; color: var(--t2); flex-wrap: wrap; }
 .byline .avs { display: flex; } .byline .avs span { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 600 12px var(--sans); color: #fff; background: var(--ink); border: 2px solid var(--bg); margin-left: -8px; }
 .byline .avs span:first-child { margin-left: 0; background: var(--sig); }
@@ -45,9 +51,9 @@ h1 { font: 700 60px/1.02 var(--sans); letter-spacing: -.04em; margin: 18px 0 0; 
 .tags { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
 .btns { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
 .btns .pill { padding: 11px 20px; }
-h2 { font: 700 38px/1.08 var(--sans); letter-spacing: -.03em; margin: 0; text-wrap: balance; }
+h2 { font: 700 34px/1.14 var(--sans); letter-spacing: -.03em; margin: 0; text-wrap: balance; }
 h3 { font: 600 22px/1.25 var(--sans); letter-spacing: -.015em; margin: 36px 0 0; }
-section.s { padding-top: 84px; scroll-margin-top: 70px; }
+section.s { padding-top: 64px; scroll-margin-top: 70px; }
 .s .eyebrow { margin-bottom: 12px; display: block; }
 p, li { font-size: 18px; line-height: 1.7; color: var(--ink2); }
 article p { margin: 18px 0 0; text-wrap: pretty; }
@@ -62,7 +68,7 @@ figcaption { font-size: 14px; color: var(--t3); margin-top: 12px; line-height: 1
 figcaption b { color: var(--t2); font-weight: 600; }
 .shot { border-radius: 16px; border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; background: var(--paper); }
 .shot img, .shot video { display: block; width: 100%; height: auto; }
-.tldr { margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.tldr { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .tile { padding: 20px 22px; } .tile b { display: block; font: 700 40px/1 var(--sans); letter-spacing: -.035em; } .tile span { display: block; font-size: 14px; color: var(--t2); margin-top: 8px; line-height: 1.45; }
 .summary { margin-top: 18px; padding: 20px 24px; } .summary li { font-size: 16px; line-height: 1.6; margin-top: 4px; }
 /* demo figures */
@@ -172,7 +178,7 @@ figcaption b { color: var(--t2); font-weight: 600; }
 .term .g { color: #8f8d87; } .term .r { color: #ff8a65; } .term .ok { color: #7ee2a8; }
 .copy { position: relative; } .copy button { position: absolute; top: 10px; right: 10px; border: 1px solid #3a3936; background: #222120; color: #e7e6e2; border-radius: 8px; font-size: 12px; padding: 4px 10px; }
 footer.end { max-width: var(--wide); margin: 100px auto 0; border-top: 1px solid var(--line); padding-block: 28px 60px; display: flex; gap: 16px; justify-content: space-between; color: var(--t3); font-size: 14px; flex-wrap: wrap; }
-@media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr); } .rail { display: none; } }
+@media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr); max-width: 860px; } .rail { display: none; } }
 @media (min-width: 1101px) { .heroviz { display: none; } }
 @media (max-width: 600px) {
   .demo .dh { flex-wrap: nowrap; padding: 12px 14px; } .demo .dh .tag-live { display: none; } .demo .dh b { white-space: nowrap; }
@@ -210,7 +216,7 @@ footer.end { max-width: var(--wide); margin: 100px auto 0; border-top: 1px solid
 .depth { display: inline-flex; margin-top: 22px; padding: 4px; border-radius: 999px; background: var(--sunk); border: 1px solid var(--line); }
 .depth button { border: 0; background: none; padding: 7px 14px; border-radius: 999px; font: 500 13.5px var(--sans); color: var(--t2); }
 .depth button.on { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-html.quick article .s > p, html.quick article .s > ul, html.quick article .s > ol, html.quick article .col > p:not(.rchint), html.quick article .col > ol,
+html.quick article .s > p:not(.benchmark-label):not(.demo-context), html.quick article .s > ul, html.quick article .s > ol, html.quick article .col > p:not(.rchint):not(.benchmark-label):not(.dek):not(.demo-context), html.quick article .col > ol,
 html.quick article blockquote, html.quick .deep, html.quick .lesson p, html.quick .lesson .term { display: none; }
 html.quick .lessons { gap: 8px; } html.quick .lesson { padding: 14px 20px; }
 /* receipts */
@@ -241,7 +247,7 @@ dfn { font-style: normal; text-decoration: underline dotted var(--t3); text-unde
   --ink: #F2F1EE; --ink2: #D9D8D3; --t2: #ABA9A3; --t3: #7F7D78; --t4: #5A5853; --sig: #F26A40; --sig-bg: rgba(242, 106, 64, .12); --ok: #3DBE74; --ok-bg: rgba(61, 190, 116, .12);
   --shadow: 0 12px 32px rgba(0, 0, 0, .35); --shadow2: 0 18px 40px rgba(0, 0, 0, .5); color-scheme: dark; }
 [data-theme=dark] .top { background: rgba(18, 18, 17, .88); }
-[data-theme=dark] .pill.dark { color: #111; }
+[data-theme=dark] .pill.dark, [data-theme=dark] .seg2 button.on { color: #111; }
 [data-theme=dark] .byline .avs span { color: #111; } [data-theme=dark] .byline .avs span:first-child { color: #fff; }
 [data-theme=dark] svg [fill="#fff"], [data-theme=dark] svg [fill="#FFF"], [data-theme=dark] svg [fill="#FFFFFF"], [data-theme=dark] svg [fill="#ffffff"] { fill: var(--paper); }
 [data-theme=dark] svg [fill="#111"], [data-theme=dark] svg [fill="#111111"] { fill: var(--ink); }
@@ -272,13 +278,45 @@ html[lang=ur] article p, html[lang=ur] article li, html[lang=ur] .beat span { li
 [dir=rtl] code, [dir=rtl] .ln { direction: ltr; unicode-bidi: isolate; }
 [dir=rtl] pre, [dir=rtl] .term, [dir=rtl] .heroviz, [dir=rtl] .railcard .gbody, [dir=rtl] .railcard .rcap, [dir=rtl] .railcard .clock, [dir=rtl] .mini, [dir=rtl] .dm svg, [dir=rtl] .tbl td, [dir=rtl] .steps5, [dir=rtl] .brow .tr, [dir=rtl] .formula { direction: ltr; }
 @media (max-width: 560px) { .top .gh { display: none; } .top .crumb { display: none; } }
+
+/* Editorial navigation and a clear distinction between the article and live runs. */
+.skip { position: fixed; top: 8px; left: 16px; z-index: 120; padding: 10px 16px; background: var(--ink); color: var(--bg); border-radius: 8px; transform: translateY(-180%); }
+.skip:focus { transform: translateY(0); }
+:focus-visible { outline: 2px solid var(--sig); outline-offset: 4px; }
+.jumpnav { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line2); }
+.jumpnav a { font-size: 13px; color: var(--t2); text-decoration: underline; text-underline-offset: 5px; text-decoration-color: transparent; }
+.jumpnav a:hover { color: var(--ink); text-decoration-color: var(--sig); }
+article p.benchmark-label { font: 500 12px/1.6 var(--mono); color: var(--t2); margin-top: 20px; }
+.portal-preview { background: #161615; }
+.portal-preview img { opacity: .42; filter: none; }
+.portal-preview .play > span { padding: 24px; }
+.portal-preview .play i { width: 54px; height: 54px; padding: 0; color: #111; font-size: 25px; }
+.portal-preview .play b { font-size: 23px; margin-bottom: 8px; }
+.portal-preview .play span { line-height: 1.5; }
+@media (max-width: 700px) {
+  header.hero { padding-block: 36px 22px; }
+  h1 { font-size: clamp(34px, 8.8vw, 44px); letter-spacing: -.035em; }
+  .kicker { font-size: 11px; line-height: 1.7; }
+  .byline { display: grid; grid-template-columns: auto minmax(0, 1fr); font-size: 13px; line-height: 1.6; gap: 10px; }
+  .tags { gap: 6px; } .tags .chip { font-size: 10.5px; }
+  .tldr { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .tile { padding: 16px 12px; } .tile b { font-size: 30px; } .tile span { font-size: 12px; line-height: 1.5; }
+  .summary { padding: 14px 18px; }
+  .btns { gap: 8px; } .btns .pill { padding: 11px 14px; font-size: 13px; }
+  .btns .pill.dark { flex: 1 1 100%; text-align: center; justify-content: center; }
+  .beat { display: block; } .beat .tl { display: block; margin-bottom: 6px; }
+  .part { margin-top: 64px; } .part h2 { font-size: 36px; }
+  .portal-preview .play b { font-size: 19px; } .portal-preview .play span { font-size: 12px; }
+  .portal-preview .play i { width: 42px; height: 42px; margin-bottom: 8px; }
+}
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to article</a>
 <div class="progress" id="progress"></div>
 <div class="top"><div class="in">
   <a class="brand" id="brand" href="https://github.com/Genziitian/Blastproof"><span class="logo"><i></i></span>Blast Radius</a>
-  <span data-i18n="k1" class="crumb">/ Blog · Teaching on-call agents to remember</span><span class="grow"></span>
+  <span data-i18n="k1" class="crumb">/ Engineering blog</span><span class="grow"></span>
   <div class="lang"><button class="pill sm" id="langbtn" aria-haspopup="true" aria-expanded="false" aria-label="Language"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5c2.6 2.8 3.9 6 3.9 9.5s-1.3 6.7-3.9 9.5c-2.6-2.8-3.9-6-3.9-9.5s1.3-6.7 3.9-9.5z"/></svg><span id="langname">English</span></button>
     <div class="langmenu" id="langmenu" hidden>
       <button data-lang="en"><span>English</span></button>
@@ -294,33 +332,31 @@ html[lang=ur] article p, html[lang=ur] article li, html[lang=ur] .beat span { li
   <a class="pill sm gh" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">GitHub</a>
 </div></div>
 
-<div class="page"><div class="layout">
+<main class="page" id="main"><div class="layout">
 <article>
   <div class="xbar" id="xbar" hidden><span id="xtext"></span><button id="xorig">English</button></div>
   <header class="hero col">
     <div data-i18n="k2" class="kicker">FalkorDB Graph Hacks · Agent Memory and Coordination</div>
-    <h1 data-i18n="k3">Teaching <span style="white-space:nowrap">on-call</span> agents to remember.</h1>
-    <p data-i18n="k4" class="dek">One night, one outage, one agent killed halfway through. This is the story of a team of incident agents that keep their memory on the service graph, check every memory against live evidence before trusting it, and carry on when one of them dies. Then, the morning after: what we measured and what FalkorDB taught us.</p>
+    <h1 data-i18n="k3">Agents that remember<br>and recover.</h1>
+    <p data-i18n="k4" class="dek">How we built Blast Radius: four on-call agents that share persistent graph memory, check past fixes against current evidence, and hand off work when a worker fails.</p>
+    <div class="btns"><a data-i18n="k8" class="pill dark" href="https://blast.genziitian.in/mission-control" target="_blank" rel="noopener">Open live mission control ↗</a><a data-i18n="k9" class="pill" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">Read the code</a><a data-i18n="k10" class="pill" href="https://youtu.be/ubFTOB0ZIh0" target="_blank" rel="noopener">Watch demo ↗</a></div>
     <div class="byline"><span class="avs"><span>SR</span><span>AA</span></span><span data-i18n="k5">By <b>sri ram</b> and <b>Aditi Akansha</b> · team Blastproof · Oct 18, 2026</span></div>
-    <div class="tags"><span class="chip">FalkorDB</span><span class="chip">Cypher</span><span class="chip">agent memory</span><span class="chip">multi-agent coordination</span><span class="chip">Claude Haiku 5.5</span></div>
+    <div class="tags"><span class="chip">FalkorDB</span><span class="chip">agent memory</span><span class="chip">multi-agent coordination</span></div>
     <div class="depth" role="radiogroup" aria-label="Reading depth"><button data-i18n="k6" role="radio" data-depth="quick">Quick read · <span id="min-quick">5</span> min</button><button data-i18n="k7" role="radio" data-depth="full">Full read · <span id="min-full">14</span> min</button></div>
-    <div class="btns"><a data-i18n="k8" class="pill dark" href="#demo">Watch the demo ▶</a><a data-i18n="k9" class="pill" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">Read the code</a><a data-i18n="k10" class="pill" href="#try">Run it locally</a></div>
+    <nav class="jumpnav" aria-label="Article shortcuts">
+      <a data-i18n="k193" href="#demo">Watch it run</a><a data-i18n="k206" href="#model">The graph</a><a data-i18n="k205" href="#results">Results</a><a data-i18n="k208" href="#limits">Limits</a><a data-i18n="k209" href="#try">Try it</a>
+    </nav>
   </header>
 
-  <figure class="wide card demo heroviz" aria-label="Replay of a recorded incident">
-    <div class="dh"><b data-i18n="k11">Service graph</b><span data-i18n="k12" class="m" id="hero-title">· s04 · Payments DB saturates</span><span class="grow"></span><span data-i18n="k13" class="tag-live">replay of a recorded run · same code as the app</span>
-      <button class="qbtn" id="hero-play" aria-label="Pause the replay">❚❚</button></div>
-    <div class="gbody" id="hero-graph"></div>
-    <div class="foot"><div class="capt" id="hero-cap"></div><div class="stages" id="hero-stages"></div></div>
-  </figure>
 
   <div class="col">
+    <p class="benchmark-label" data-i18n="k300">Recorded benchmark · Oct 16, 2026</p>
     <div class="tldr">
       <div class="card tile"><b><button class="rc" data-r="calls">71%</button></b><span data-i18n="k14">fewer model calls than agents with no memory, same accuracy</span></div>
       <div class="card tile"><b><button class="rc" data-r="recall">100%</button></b><span data-i18n="k15">right memory in the top 5, against 55% for text similarity</span></div>
       <div class="card tile"><b><button class="rc" data-r="dup">0</button></b><span data-i18n="k16">duplicate pages, with an agent killed or leases expiring at random</span></div>
     </div>
-    <p data-i18n="k17" class="rchint">Every number on this page has a receipt: click it to see the result file it comes from and the command that reruns it.</p>
+    <p data-i18n="k17" class="rchint">These are recorded benchmark results, not live counters. Click a number for its source. For the latest completed run, open the Results tab in mission control.</p>
     <div class="card summary"><ul>
       <li data-i18n="k18"><strong>Memory lives on the graph.</strong> A confirmed fix becomes a <dfn data-g="playbook">playbook</dfn> pinned to the service that failed.</li>
       <li data-i18n="k19"><strong>Recall is a walk.</strong> Agents find playbooks by walking the dependency graph from the alerting services.</li>
@@ -329,15 +365,22 @@ html[lang=ur] article p, html[lang=ur] article li, html[lang=ur] .beat span { li
     </ul></div>
   </div>
 
+  <figure class="wide card demo heroviz" aria-label="Replay of a recorded incident">
+    <div class="dh"><b data-i18n="k11">Service graph</b><span data-i18n="k12" class="m" id="hero-title">· s04 · Payments DB saturates</span><span class="grow"></span><span data-i18n="k13" class="tag-live">replay of a recorded run · same code as the app</span>
+      <button class="qbtn" id="hero-play" aria-label="Pause the replay">❚❚</button></div>
+    <div class="gbody" id="hero-graph"></div>
+    <div class="foot"><div class="capt" id="hero-cap"></div><div class="stages" id="hero-stages"></div></div>
+  </figure>
+
   <section class="s col" id="demo">
     <span data-i18n="k22" class="eyebrow">Watch it run</span>
-    <h2 data-i18n="k23">The whole night in three minutes.</h2>
-    <div class="beat"><span data-i18n="k24" class="tl">In short</span><span data-i18n="k25">The video runs the loop live: a first incident with nothing in memory, a database restart, a related outage where we kill the investigator, and an outage that only looks the same.</span></div>
-    <p data-i18n="k26">Everything in it is the running system on a synthetic company of nine services and six datastores. Below, we slow the same run down to human speed.</p>
+    <h2 data-i18n="k23">See memory and handoffs in action.</h2>
+    <div class="beat"><span data-i18n="k24" class="tl">In short</span><span data-i18n="k25">The public portal runs a real agent loop: learn a fix, kill a worker, resume its task, and reject a memory that does not apply.</span></div>
+    <p data-i18n="k26" class="demo-context">The agents and FalkorDB are running on our VPS. Incident inputs come from a synthetic company; this is a working system, not production monitoring. The recorded clips below also show the local persistence test.</p>
   </section>
   <figure class="wide">
-    <a class="vid" id="vid" href="#demo" aria-label="Demo video (link added after upload)"><img data-i18n-alt="a211" src="media/landing.jpg" alt="The Blast Radius landing page">
-      <span class="play"><span><i>▶</i><b data-i18n="k27">Demo video</b><span data-i18n="k28" id="vidnote">Uploading soon · meanwhile, the clips below are recorded from the running system</span></span></span></a>
+    <a class="vid portal-preview" id="vid" href="https://youtu.be/ubFTOB0ZIh0" target="_blank" rel="noopener" aria-label="Watch the Blast Radius demo on YouTube"><img data-i18n-alt="a211" src="media/landing.jpg" alt="The Blast Radius landing page">
+      <span class="play"><span><i aria-hidden="true">▶</i><b data-i18n="k27">Watch the demo</b><span data-i18n="k28" id="vidnote">Watch on YouTube</span></span></span></a>
   </figure>
 
   <div class="part col" id="night"><span data-i18n="k29">Part 1</span><h2 data-i18n="k30">The night</h2><p data-i18n="k31">What follows is the recorded demo run (scenario s04), told second by second. The clock times are ours; the order of events, the checks, the kill and the numbers are exactly what the agents did. On a wide screen, the graph on the right follows you down the page.</p></div>
@@ -512,6 +555,7 @@ html[lang=ur] article p, html[lang=ur] article li, html[lang=ur] .beat span { li
   <section class="s col" id="results" data-at="final">
     <span data-i18n="k133" class="eyebrow">Results</span>
     <h2 data-i18n="k134">Same answers, a third of the work.</h2>
+    <p class="benchmark-label" data-i18n="k300">Recorded benchmark · Oct 16, 2026</p>
     <div class="beat"><span data-i18n="k135" class="tl">In short</span><span data-i18n="k136">Same model, same tools, only the memory changes: graph memory needs 71% fewer model calls and finds the right memory every time.</span></div>
     <p data-i18n="k137">We replayed 30 synthetic incidents in time order through three setups, each in its own graph, with the same model (Claude Haiku 5.5), the same tools, the same step budget and the same learning. Only how memories are retrieved differs: <strong>no memory</strong>, <strong>text memory</strong> (embedding similarity, FalkorDB's <code>vec.cosineDistance</code>) and <strong>graph memory</strong>.</p>
   </section>
@@ -609,7 +653,7 @@ make ui                 <span class="g"># http://localhost:8000</span></div><but
     <a data-i18n="k193" href="#demo">Watch it run</a><span data-i18n="k194" class="tg">The night</span><a data-i18n="k195" href="#problem">The page</a><a data-i18n="k196" href="#built">Four agents wake up</a><a data-i18n="k197" href="#graph">Which memory?</a><a data-i18n="k198" href="#recall">Recall, then check</a><a data-i18n="k199" href="#kill">An agent dies</a><a data-i18n="k200" href="#facts">One ticket</a><a data-i18n="k201" href="#trust">Priya confirms</a><a data-i18n="k202" href="#ruled">Same symptoms</a><a data-i18n="k203" href="#restart">Restart</a>
     <span data-i18n="k204" class="tg">The morning after</span><a data-i18n="k205" href="#results">Results</a><a data-i18n="k206" href="#model">The graph</a><a data-i18n="k207" href="#learned">What we learned</a><a data-i18n="k208" href="#limits">Limits</a><a data-i18n="k209" href="#try">Try it</a></nav>
 </aside>
-</div></div>
+</div></main>
 <footer class="end page"><span data-i18n="k210">Blast Radius · FalkorDB Graph Hacks · team Blastproof</span><span><a class="ln" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">GitHub</a></span></footer>
 
 <script src="assets/core.js"></script>
@@ -617,7 +661,7 @@ make ui                 <span class="g"># http://localhost:8000</span></div><but
 "use strict";
 // The blog is static: the hero replays a recorded run (assets/example.json) with
 // the app's own code (assets/core.js); the other figures are self-contained.
-const YOUTUBE_URL = "";   // paste the demo video link here once it is uploaded
+const YOUTUBE_URL = "https://youtu.be/ubFTOB0ZIh0";
 const qs = (s) => document.querySelector(s);
 /* translation hooks (see the language switcher at the end): tr/tf look a string up in the
    loaded language, T only marks a string for extraction by scripts/blog_i18n.py */
@@ -638,7 +682,7 @@ addEventListener("scroll", () => {
 }, {passive: true});
 
 /* video link */
-if (YOUTUBE_URL) { qs("#vid").href = YOUTUBE_URL; qs("#vid").target = "_blank"; qs("#vidnote").textContent = tr("Watch on YouTube · 3 minutes"); }
+if (YOUTUBE_URL) { qs("#vid").href = YOUTUBE_URL; qs("#vid").target = "_blank"; qs("#vidnote").textContent = tr("Watch on YouTube"); }
 
 /* the recorded night: a looping replay in the hero (narrow screens) and, on wide
    screens, a rail that moves to the moment of the section being read */
@@ -907,7 +951,7 @@ function restore() {
 }
 function done(lang) {
   setDoc(lang); langUI(); redraw.forEach((f) => f());
-  if (YOUTUBE_URL) qs("#vidnote").textContent = tr("Watch on YouTube · 3 minutes");
+  if (YOUTUBE_URL) qs("#vidnote").textContent = tr("Watch on YouTube");
   const u = new URL(location.href); if (lang === "en") u.searchParams.delete("lang"); else u.searchParams.set("lang", lang);
   history.replaceState(null, "", u);
 }

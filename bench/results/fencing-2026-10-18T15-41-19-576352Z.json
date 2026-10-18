@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "at": "2026-10-18T15:41:19.576352+00:00",
+    "kind": "fencing"
+  },
+  "result": {
+    "ok": true,
+    "stale_writes_rejected": 5,
+    "stale_writes_attempted": 5,
+    "attempts": {
+      "heartbeat": "lease_lost",
+      "checkpoint": "lease_lost",
+      "handoff": "lease_lost",
+      "complete": "lease_lost",
+      "action": "lease_lost"
+    },
+    "checkpoint_preserved": true,
+    "replacement_resumed": true,
+    "old_epoch": 1,
+    "new_epoch": 2
+  }
+}

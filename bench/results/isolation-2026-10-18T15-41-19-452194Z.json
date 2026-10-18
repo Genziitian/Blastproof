@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "at": "2026-10-18T15:41:19.452194+00:00",
+    "kind": "isolation"
+  },
+  "result": {
+    "ok": true,
+    "leaks": {
+      "a": {
+        "other_company_markers_found": [],
+        "own_canary_present": true
+      },
+      "b": {
+        "other_company_markers_found": [],
+        "own_canary_present": true
+      }
+    },
+    "preferences": {
+      "a_channel": "ticket",
+      "b_channel": "page",
+      "a_cites_priya": true,
+      "b_cites_anything": false
+    },
+    "memories_only_in_a": [
+      "fact:s01-iso:priya:2:0",
+      "fact:s01-iso:priya:2:1",
+      "fact:s01-iso:priya:4:0",
+      "fact:s01-iso:priya:4:1"
+    ],
+    "unknown_company_refused": true,
+    "tool_arguments": [
+      "alerting",
+      "hours",
+      "n",
+      "node",
+      "service",
+      "window_min"
+    ],
+    "tool_graph_arguments": []
+  }
+}

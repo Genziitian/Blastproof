@@ -6,3 +6,8 @@
 **/__pycache__
 **/*.pyc
 .acceptance.json
+
+.env.*
+compose.vps.yml
+existing-site.sha256
+deployed-settings.json

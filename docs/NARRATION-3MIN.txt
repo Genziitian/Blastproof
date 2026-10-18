@@ -1,0 +1,13 @@
+When production breaks at three a.m., the on-call engineer starts from zero. Last month’s fix is buried in a postmortem. Agents face two more problems: old memory may not fit, and a crash can lose the investigation or repeat a notification. We built Blast Radius to solve that.
+
+Four agent roles share one FalkorDB graph per company. It stores incidents, conversations, playbooks, and leased tasks. Confirmed fixes become reusable memory; relationships determine what gets recalled. This demonstration uses synthetic incidents, real workers, and real graph reads and writes.
+
+First, the orders database saturates. With no applicable playbook, the investigator checks fresh evidence and saves each step. Priya confirms the diagnosis and requests tickets with raw logs for future database incidents. The agent reads that back before approval. The learner saves a sourced playbook and a versioned preference.
+
+Now we restart FalkorDB without reseeding. The saved playbook, conversation, and progress remain. Memory survives beyond the process that created it. This is a recorded local persistence test.
+
+Next, payments fails with different alert wording. The graph recalls the orders playbook through the datastore relationship and checks it against current evidence. We kill the investigator after checkpoint three: a real SIGKILL. Its lease expires; another worker resumes at step four under a new epoch. Stale writes are rejected. One ticket is recorded with Priya’s requested logs, and successful reuse raises trust.
+
+Now checkout fails for a different reason. The database playbook is recalled, but a recent deploy fails its first check. The memory is marked not applicable, its trust stays unchanged, and investigation identifies the bad deploy. The agent learns a different lesson.
+
+Our latest deterministic benchmark covers thirty synthetic incidents. All three setups diagnose thirty out of thirty correctly. Graph memory averages about five tool calls per incident, versus six without memory. The measured load runs have zero duplicate notifications; tenant checks find zero leaks; all five stale writes are rejected. A deliberately wrong playbook retires after two misleading uses. The code, queries, and live deployment are public. Blast Radius: remember, verify, resume.

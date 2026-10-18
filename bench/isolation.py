@@ -28,6 +28,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
+from bench.artifacts import save
 from common import config
 from common.db import raw_graph
 from eval import truth
@@ -114,7 +115,9 @@ def live_graph(name: str) -> Any:
 def main() -> int:
     argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
     result = check(live_graph)
+    path = save("isolation", result)
     print(json.dumps(result, indent=2))
+    print(f"written to {path}")
     print("PASS" if result["ok"] else "FAIL")
     return 0 if result["ok"] else 1
 

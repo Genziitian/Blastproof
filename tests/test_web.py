@@ -384,7 +384,7 @@ class WebCases:
         for path in ("/mission-control", "/war-room", "/dark", "/static/core.js", "/static/v2.css", "/static/example.json"):
             self.assertEqual(api.get(path).status_code, 200, path)
         self.assertEqual(api.get("/static/app.py").status_code, 404)
-        self.assertIn("Teaching on-call agents", api.get("/blog/").text)
+        self.assertIn("<title>Blast Radius:", api.get("/blog/").text)
         for path in ("/blog/assets/core.js", "/blog/media/takeover.mp4", "/blog/assets/fonts/inter-400.woff2", "/blog/assets/i18n/he.json"):
             self.assertEqual(api.get(path).status_code, 200, path)
         for bad in ("/blog/../web/app.py", "/blog/assets/..%2F..%2F..%2F.env", "/blog/index.md"):
@@ -454,32 +454,69 @@ class ReadyTests(unittest.TestCase):
 
 
 class ResultsTests(unittest.TestCase):
-    def test_reads_newest_model_run(self):
+    def setUp(self):
         import json
         from pathlib import Path
-        root = Path(tempfile.mkdtemp())
-        for name, arms in (("2026-01-01-rule-based", ["A", "B", "C"]), ("2026-01-02-m", ["A", "C"]),
-                           ("2026-01-03-m", ["C"])):
-            d = root / "eval" / "results" / name
-            d.mkdir(parents=True)
-            (d / "summary.json").write_text(json.dumps({"meta": {"arms": arms}, "summary": {}}))
-        self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
-        bad = root / "eval" / "results" / "2026-01-04-m"  # newer, but the model never answered
-        bad.mkdir()
-        (bad / "summary.json").write_text(json.dumps(
-            {"meta": {"arms": ["A", "B", "C"], "invalid": "no model"}, "summary": {}}))
-        self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
-        self.assertIsNone(latest_results(root)["load"])
-        # Newer deterministic runs (named or labelled rule-based) and capped-budget
-        # experiments never replace the model run on the Results tab.
-        for name, meta in (("2026-01-05-rule-based-ranked", {"model": "rule-based"}),
-                           ("2026-01-06-x", {"model": "rule-based"}),
-                           ("2026-01-07-m", {"model": "m", "max_steps": 8})):
-            d = root / "eval" / "results" / name
-            d.mkdir()
-            (d / "summary.json").write_text(json.dumps(
-                {"meta": {"arms": ["A", "B", "C"], **meta}, "summary": {}}))
-        self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
+        self.json = json
+        self.root = Path(tempfile.mkdtemp())
+
+    def put(self, relative, data):
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(self.json.dumps(data), encoding="utf-8")
+        return path
+
+    def evaluation(self, at, model="model", steps=12, n=30):
+        return {"meta": {"at": at, "arms": ["A", "B", "C"], "model": model,
+                         "max_steps": steps},
+                "summary": {a: {"all": {"n": n, "accuracy": 1, "mean_llm_requests": 0,
+                            "mean_steps": 5, "duplicate_notifications": 0}} for a in "ABC"}}
+
+    def test_latest_complete_run_uses_recorded_time_including_rules_and_budgets(self):
+        self.put("eval/results/z-older/summary.json", self.evaluation("2026-01-01T01-00-00Z"))
+        latest = self.evaluation("2026-01-02T01:00:00Z", model="rule-based", steps=8)
+        self.put("eval/results/a-newer/summary.json", latest)
+        found = latest_results(self.root)["eval"]
+        self.assertEqual(found["name"], "a-newer")
+        self.assertEqual(found["meta"]["max_steps"], 8)
+        self.assertEqual(found["meta"]["model"], "rule-based")
+        self.assertEqual(found["source"]["time_basis"], "recorded run")
+
+    def test_invalid_partial_and_in_progress_runs_do_not_replace_complete_result(self):
+        self.put("eval/results/complete/summary.json", self.evaluation("2026-01-01T01:00:00Z"))
+        invalid = self.evaluation("2026-01-02T01:00:00Z")
+        invalid["meta"]["invalid"] = "model unavailable"
+        self.put("eval/results/invalid/summary.json", invalid)
+        self.put("eval/results/subset/summary.json", self.evaluation("2026-01-03T01:00:00Z", n=2))
+        path = self.put("eval/results/running/summary.json", self.evaluation("2026-01-04T01:00:00Z"))
+        (path.parent / "rows.partial.jsonl").write_text("running")
+        self.put("eval/results/broken/summary.json", {"meta": {"arms": ["A", "C"]}, "summary": {"A": []}})
+        self.assertEqual(latest_results(self.root)["eval"]["name"], "complete")
+
+    def test_newer_failed_benchmarks_stay_visible_with_their_own_sources(self):
+        row = {"completed": 20, "incidents": 20, "duplicate_notifications": 0,
+               "worker_pairs_per_company": 4, "memory_reads": {}, "memory_writes": {}}
+        self.put("bench/results/load.json", [row])
+        failed = dict(row, completed=18, stuck_for_a_human=2)
+        self.put("bench/results/load-new.json", {"meta": {"at": "2099-01-01T00:00:00Z"}, "result": [failed]})
+        self.put("bench/results/isolation-old.json", {"meta": {"at": "2026-01-01T00:00:00Z"},
+                                                      "result": {"ok": True, "leaks": {}}})
+        self.put("bench/results/isolation-new.json", {"meta": {"at": "2026-01-02T00:00:00Z"},
+                                                      "result": {"ok": False, "leaks": {"a": {"other_company_markers_found": ["canary"]}}}})
+        self.put("bench/results/fencing-new.json", {"meta": {"at": "2026-01-02T00:00:00Z"},
+                         "result": {"ok": True, "stale_writes_rejected": 5, "stale_writes_attempted": 5}})
+        result = latest_results(self.root)
+        self.assertEqual(result["load"][0]["completed"], 18)
+        self.assertEqual(result["load_source"]["file"], "load-new.json")
+        self.assertFalse(result["isolation"]["ok"])
+        self.assertEqual(result["fencing"]["stale_writes_rejected"], 5)
+
+    def test_missing_proof_is_not_reported_as_zero_leaks_or_a_pass(self):
+        result = latest_results(self.root)
+        self.assertIsNone(result["eval"])
+        self.assertIsNone(result["load"])
+        self.assertIsNone(result["isolation"])
+        self.assertIsNone(result["fencing"])
 
 
 if __name__ == "__main__":

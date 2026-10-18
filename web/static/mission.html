@@ -432,22 +432,8 @@ function renderMemory() {
   bindQ(v);
 }
 async function renderResults() {
-  const r = await api("/api/results"), ev = r.eval, v = qs("#view-results");
-  if (!ev) { v.innerHTML = `<h2>No results yet</h2><p class="lead">Run make eval and make bench.</p>`; return; }
-  const A = ev.summary.A.all, B = ev.summary.B.all, C = ev.summary.C.all, req = (x) => Math.round(x.mean_llm_requests * x.n), ok = (x) => Math.round(x.accuracy * x.n);
-  const cut = Math.round((1 - req(C) / req(A)) * 100), COL = ["#DDDBD5", "#8E8C86", "#111111"], m2 = ev.summary.m2, m5 = ev.m5, load = r.load || [];
-  const metric = (t, sub, vals, max) => `<div class="metric"><h5>${t}<span>${sub}</span></h5>${vals.map((x, i) => `<div class="hrow"><span class="tr"><i style="width:${Math.max(.6, x / max * 100)}%;background:${COL[i]}"></i></span><b class="${i === 2 ? "me" : ""}">${x}</b></div>`).join("")}</div>`;
-  const dup = [A, B, C].reduce((n, x) => n + x.duplicate_notifications, 0) + load.reduce((n, l) => n + l.duplicate_notifications, 0);
-  v.innerHTML = `<div class="eyebrow">${C.n} incidents · 3 memory arms · same model (${esc(ev.meta.model)})</div>
-    <div class="rgrid"><div><div class="big">${cut}%</div><div class="big2">fewer model calls.</div>
-      <p class="lead">Graph memory solved the same ${C.n} incidents with ${req(C)} model requests. With no memory it took ${req(A)}. Correct diagnoses held at ${ok(C)} of ${C.n}.</p></div>
-    <div><div class="legend"><span><i style="background:${COL[0]}"></i>No memory</span><span><i style="background:${COL[1]}"></i>Text memory</span><span><i style="background:${COL[2]}"></i>Graph memory</span></div>
-      ${metric("Model requests", `across ${C.n} incidents`, [req(A), req(B), req(C)], req(A))}${metric("Solved with no model call", `of ${C.n}`, [A.memory_helped, B.memory_helped, C.memory_helped], C.n)}${metric("Correct diagnoses", `of ${C.n}`, [ok(A), ok(B), ok(C)], C.n)}
-      <div class="stats3">${m2 ? `<div><b>${Math.round(m2.graph_recall_at_5 * 100)}%</b><span>right memory in the top 5, vs ${Math.round(m2.text_recall_at_5 * 100)}% for text</span></div>` : ""}<div><b>${dup}</b><span>duplicate notifications, with leases expired at random</span></div>
-        ${m5 ? `<div><b>${m5.misleading_uses_before_retirement} uses</b><span>before a deliberately wrong playbook was retired</span></div>` : ""}</div></div></div>
-    ${load.length ? `<div class="card load"><table><tr><th>worker pairs</th><th>stalled workers</th><th>done</th><th>per min</th><th>read p50 / p95 ms</th><th>write p50 / p95 ms</th><th>duplicates</th><th>takeovers</th></tr>
-      ${load.map((l) => `<tr><td>${l.worker_pairs_per_company}</td><td>${l.chaos_ms ? "lease expired every " + l.chaos_ms + " ms" : "none"}</td><td>${l.completed}/${l.incidents}</td><td>${Math.round(l.incidents_per_minute).toLocaleString()}</td><td>${l.memory_reads.p50_ms} / ${l.memory_reads.p95_ms}</td><td>${l.memory_writes.p50_ms} / ${l.memory_writes.p95_ms}</td><td style="color:var(--ok)">${l.duplicate_notifications}</td><td>${l.takeovers}</td></tr>`).join("")}</table></div>` : ""}
-    <p class="foot">Run ${esc(ev.name)}. Synthetic 15-node company, three failure families. Rerun with make eval · make bench · make isolation.</p>`;
+  const html = evaluationHtml(await api("/api/results")), box = qs("#view-results");
+  if (box.dataset.results !== html) { box.dataset.results = html; box.innerHTML = html; }
 }
 
 /* ------------------------------------------------------------ director */
@@ -507,10 +493,10 @@ window.setDbDown = (down) => {
   if (down) { S.dbSince = Date.now(); dbOverlay(); }
   else { qs("#dbdown").innerHTML = ""; qs("#dbdot").className = "dot ok"; qs("#dbtext").textContent = "· connected";
     Promise.all([api("/api/memory"), api("/api/state")]).then(([m, st]) => { S.memory = m; S.state = st;
-      toast(`<span class="dot ok"></span><span><b>Memory survived the restart:</b> ${plural(m.playbooks.filter((p) => p.status === "active").length, "playbook")}, ${plural(st.incidents.filter((i) => i.status !== "planted").length, "incident")}, ${plural(m.facts.filter((f) => !f.valid_to).length, "preference")}</span>`, 6000); }).catch(() => {}); }
+      toast(`<span class="dot ok"></span><span><b>FalkorDB reconnected. Stored now:</b> ${plural(m.playbooks.filter((p) => p.status === "active").length, "playbook")}, ${plural(st.incidents.filter((i) => i.status !== "planted").length, "incident")}, ${plural(m.facts.filter((f) => !f.valid_to).length, "preference")}</span>`, 6000); }).catch(() => {}); }
 };
 function dbOverlay() { qs("#dbdot").className = "dot"; qs("#dbtext").textContent = "· reconnecting";
-  qs("#dbdown").innerHTML = `<div class="dbdown"><div><b>FalkorDB restarting…</b><span>The agents are waiting. Nothing is lost · ${Math.round((Date.now() - S.dbSince) / 1000)} s</span></div></div>`; }
+  qs("#dbdown").innerHTML = `<div class="dbdown"><div><b>FalkorDB restarting…</b><span>The agents will resume from stored checkpoints · ${Math.round((Date.now() - S.dbSince) / 1000)} s</span></div></div>`; }
 
 /* ------------------------------------------------------------ polling */
 async function breakIt(body) { const r = await api("/api/break", body); Object.assign(S, {selected: r.key, follow: true, inc: null, replay: null}); await pollState(); await pollIncident(); }
@@ -562,6 +548,7 @@ async function boot() {
   await untilUp(async () => { await pollState(); await pollIncident(); });
   S.booted = true;
   const loop = async (fn, ms) => { try { await fn(); } catch (e) { /* shown */ } setTimeout(() => loop(fn, ms), S.dbDown ? 1000 : ms); };
+  setTimeout(() => loop(() => S.tab === "results" ? renderResults() : null, 5000), 5000);
   setTimeout(() => loop(pollState, 1000), 1000);
   setTimeout(() => loop(() => S.replay ? null : pollIncident(), 600), 600);
   setTimeout(() => loop(async () => { S.memory = await api("/api/memory"); S.map = await api("/api/map"); render(); }, 3000), 3000);

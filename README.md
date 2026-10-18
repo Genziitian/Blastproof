@@ -4,9 +4,9 @@
 
 On-call agents that turn every confirmed fix into a playbook pinned to the failing service in a FalkorDB dependency graph. On the next outage they find it by walking the graph, check it against live evidence before trusting it, and coordinate through leased tasks in the same graph, so a crashed worker is just a handover. Built by team **Blastproof** (sri ram, Aditi Akansha) for Graph Hacks 2026 on FalkorDB.
 
-**▶ Demo video:** on YouTube (link added when uploaded) · **[Write-up with an interactive replay](https://genziitian.github.io/Blastproof/blog/)** (no install) · **[Run it](#run-it)** in five commands, no API key needed · **Tracks:** Agent Memory and Coordination (primary), Agents That Act on Connected Data
+**[▶ Watch the demo](https://youtu.be/ubFTOB0ZIh0)** · **[Live mission control](https://blast.genziitian.in/mission-control)** · **[Write-up](https://blast.genziitian.in/blog/)** · **[Run it locally](#run-it)**, no API key needed · **Tracks:** Agent Memory and Coordination (primary), Agents That Act on Connected Data
 
-### Results in three numbers
+### Recorded model benchmark · October 16, 2026
 
 - **71% fewer model calls.** Graph memory needed 55 LLM requests across the 30-incident benchmark; no memory needed 192. Both got all 30 diagnoses right ([frozen run](eval/results/2026-10-16T14-24-13Z-claude-haiku-5-5/summary.md)).
 - **The right lesson, found by topology.** Graph recall had it in the top 5 for all 20 incidents where one existed; text similarity over the same memories, for 11 of 20.
@@ -59,7 +59,7 @@ python -m scripts.setup_schema && python -m scripts.seed
 TIMING_PROFILE=demo python -m web.app --company a      # http://localhost:8000
 ```
 
-**Read the write-up:** [Teaching on-call agents to remember](https://genziitian.github.io/Blastproof/blog/) (also served at `/blog/` by `make ui`; source in [`docs/blog/`](docs/blog/)), in English, Français, עברית, हिन्दी, Español or اردو.
+**Read the write-up:** [Agents that remember and recover](https://blast.genziitian.in/blog/) (also served at `/blog/` by `make ui`; source in [`docs/blog/`](docs/blog/)), in English, Français, עברית, हिन्दी, Español or اردو.
 
 ## Contents
 
@@ -387,6 +387,7 @@ AI coding assistants were used and are disclosed here, as the rules require:
 - **Claude (Anthropic)**: pair-programming on most of the code, tests and this README, live verification against FalkorDB, and review of the plan.
 - **ChatGPT and Gemini**: independent reviews of the implementation plan (three rounds; their findings and our decisions are listed in `docs/Implementation-Plan.md`).
 - **Claude Code** (Claude Opus 5.5): on Oct 18, an audit of the repository (running it on Windows, the tests, a step-budget experiment, a review of the evaluation) and the fixes that followed: cross-platform fixes, the war-room read-back fix, the evaluation disclosures, the graph-algorithm tools, and UI and web hardening. They came in as one pull request for the team to review.
+- **ChatGPT / Codex (OpenAI)**: the later Oct 18 portal and Track 02 verification, dynamic latest-run result selection and proof counters, benchmark/test updates, isolated VPS deployment, blog cleanup, and the English/Hinglish demo script and rules audit. Its verification outputs are evidence for the team to review; participants remain responsible for explaining the implementation.
 - **Claude Haiku 5.5** is also part of the product: it plans investigations and reads engineers' messages at runtime.
 
 The design (graph model, memory algorithms, coordination protocol, benchmark) and every decision in the plan were made and verified by the team.

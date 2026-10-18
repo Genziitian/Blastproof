@@ -1,38 +1,38 @@
 {
  "lang": "fr",
  "meta": {
-  "title": "Apprendre aux agents d'astreinte à se souvenir · Blast Radius",
-  "description": "Comment nous avons construit des agents d'astreinte qui se souviennent de chaque incident, confrontent cette mémoire aux preuves en direct et survivent à leur mort en pleine investigation. FalkorDB Graph Hacks, Agent Memory and Coordination."
+  "title": "Blast Radius: Des agents qui se souviennent et se relèvent",
+  "description": "Comment nous avons construit Blast Radius : quatre agents d’astreinte qui partagent une mémoire persistante dans un graphe, vérifient les anciennes solutions avec les observations actuelles et se passent le relais lorsqu’un processus échoue."
  },
  "html": {
-  "k1": "/ Blog · Apprendre aux agents d'astreinte à se souvenir",
+  "k1": "/ Blog technique",
   "k2": "FalkorDB Graph Hacks · Agent Memory and Coordination",
-  "k3": "Apprendre aux agents <span style=\"white-space:nowrap\">d'astreinte</span> à se souvenir.",
-  "k4": "Une nuit, une panne, un agent tué à mi-parcours. Voici l'histoire d'une équipe d'agents d'incident qui gardent leur mémoire sur le graphe des services, confrontent chaque souvenir aux preuves en direct avant de s'y fier, et poursuivent le travail quand l'un d'eux meurt. Puis, au petit matin : ce que nous avons mesuré et ce que FalkorDB nous a appris.",
+  "k3": "Des agents qui se souviennent<br>et se relèvent.",
+  "k4": "Comment nous avons construit Blast Radius : quatre agents d’astreinte qui partagent une mémoire persistante dans un graphe, vérifient les anciennes solutions avec les observations actuelles et se passent le relais lorsqu’un processus échoue.",
   "k5": "Par <b>sri ram</b> et <b>Aditi Akansha</b> · équipe Blastproof · 18 oct. 2026",
   "k6": "Lecture rapide · <span id=\"min-quick\">5</span> min",
   "k7": "Lecture complète · <span id=\"min-full\">14</span> min",
-  "k8": "Voir la démo ▶",
+  "k8": "Ouvrir le centre de contrôle ↗",
   "k9": "Lire le code",
-  "k10": "Lancer en local",
+  "k10": "Voir la démo ↗",
   "k11": "Graphe des services",
   "k12": "· s04 · Saturation de la base Payments",
   "k13": "rejeu d'une exécution enregistrée · même code que l'application",
   "k14": "d'appels au modèle en moins que des agents sans mémoire, à précision égale",
   "k15": "du bon souvenir dans le top 5, contre 55 % pour la similarité textuelle",
   "k16": "alerte en double, avec un agent tué ou des baux expirant au hasard",
-  "k17": "Chaque chiffre de cette page a son justificatif : cliquez dessus pour voir le fichier de résultats dont il provient et la commande qui le régénère.",
+  "k17": "Ce sont des résultats de benchmark enregistrés, pas des compteurs en direct. Cliquez sur un nombre pour consulter sa source. Pour la dernière exécution terminée, ouvrez l’onglet Results du centre de contrôle.",
   "k18": "<strong>La mémoire vit sur le graphe.</strong> Un correctif confirmé devient un <dfn data-g=\"playbook\">playbook</dfn> rattaché au service en panne.",
   "k19": "<strong>Le rappel est un parcours.</strong> Les agents trouvent les playbooks en parcourant le graphe de dépendances depuis les services en alerte.",
   "k20": "<strong>Rien n'est cru sans vérification.</strong> Les contrôles de chaque playbook passent d'abord sur les preuves en direct ; la confiance n'évolue que sur verdict.",
   "k21": "<strong>Un crash est une passation.</strong> <dfn data-g=\"lease\">Baux</dfn>, <dfn data-g=\"epoch\">époques de fencing</dfn> et <dfn data-g=\"checkpoint\">checkpoints</dfn> dans le graphe permettent à un second agent de reprendre à l'étape suivante.",
   "k22": "En action",
-  "k23": "Toute la nuit en trois minutes.",
+  "k23": "La mémoire et les relais en action.",
   "k24": "En bref",
-  "k25": "La vidéo déroule la boucle en direct : un premier incident sans rien en mémoire, un redémarrage de la base, une panne apparentée où l'on tue l'investigateur, et une panne qui ne fait que ressembler à la précédente.",
-  "k26": "Tout ce qu'on y voit est le système réel, tournant sur une entreprise fictive de neuf services et six datastores. Plus bas, nous ralentissons ce même déroulé à vitesse humaine.",
-  "k27": "Vidéo de démo",
-  "k28": "Bientôt en ligne · en attendant, les extraits ci-dessous sont enregistrés sur le système en fonctionnement",
+  "k25": "Le portail public exécute une vraie boucle d’agents : apprendre une solution, arrêter un processus, reprendre sa tâche et rejeter un souvenir qui ne s’applique pas.",
+  "k26": "Les agents et FalkorDB tournent sur notre VPS. Les incidents proviennent d’une entreprise synthétique : le système fonctionne réellement, sans surveiller de production. Les clips ci-dessous montrent aussi le test local de persistance.",
+  "k27": "Voir la démo",
+  "k28": "Voir sur YouTube",
   "k29": "1re partie",
   "k30": "La nuit",
   "k31": "Ce qui suit est le déroulé enregistré de la démo (scénario s04), raconté seconde par seconde. Les heures sont de notre fait ; l'ordre des événements, les contrôles, le kill et les chiffres sont exactement ce qu'ont fait les agents. Sur grand écran, le graphe à droite vous suit le long de la page.",
@@ -214,7 +214,8 @@
   "k207": "Ce que nous avons appris",
   "k208": "Limites",
   "k209": "À vous",
-  "k210": "Blast Radius · FalkorDB Graph Hacks · équipe Blastproof"
+  "k210": "Blast Radius · FalkorDB Graph Hacks · équipe Blastproof",
+  "k300": "Benchmark enregistré · 16 octobre 2026"
  },
  "alt": {
   "a211": "La page d'accueil de Blast Radius",
@@ -228,7 +229,6 @@
   "a219": "Le ticket suivant cite sa demande"
  },
  "dyn": {
-  "Watch on YouTube · 3 minutes": "Voir sur YouTube · 3 minutes",
   "Open this page through a web server (GitHub Pages or make ui) to see the replay.": "Ouvrez cette page via un serveur web (GitHub Pages ou make ui) pour voir le rejeu.",
   "The morning after": "Au petit matin",
   "reached by the walk": "atteint par le parcours",
@@ -320,6 +320,7 @@
   "Result file": "Fichier de résultats",
   "Measured with": "Mesuré avec",
   "Rerun it": "Le relancer",
-  "No API key? make eval-rules runs the same benchmark with the rule-based planner.": "Pas de clé d'API ? make eval-rules lance le même benchmark avec le planificateur à base de règles."
+  "No API key? make eval-rules runs the same benchmark with the rule-based planner.": "Pas de clé d'API ? make eval-rules lance le même benchmark avec le planificateur à base de règles.",
+  "Watch on YouTube": "Voir sur YouTube"
  }
 }

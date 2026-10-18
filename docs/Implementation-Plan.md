@@ -643,7 +643,7 @@ Every item below comes from the [official rules](https://www.wemakedevs.org/hack
 - [ ] Public source-code repository
 - [ ] README with setup instructions and the graph data model
 - [ ] The Cypher queries and graph algorithms the product depends on (link `memory/queries/` and `coord/`)
-- [ ] Demo video showing the working project
+- [x] Demo video showing the working project: https://youtu.be/ubFTOB0ZIh0
 - [ ] Live deployment, or complete local setup instructions
 - [ ] Every track you are entering, named on the form
 - [ ] AI coding assistant use disclosed (which tools, for what)

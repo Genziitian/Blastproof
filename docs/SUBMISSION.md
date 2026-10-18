@@ -1,7 +1,7 @@
 # Submission: answers to paste, in the form's order
 
 Form: https://www.wemakedevs.org/hackathons/falkordb/submit (editable until the deadline).
-Deadline: **Sun Oct 18, 11:59 PM IST**; target 8 PM. Team **Blastproof**: sri ram (@sriramdevs, leader), Aditi Akansha (@astral0911). The team can't change after submitting, so invite anyone else who worked on it first.
+Deadline: **Sun Oct 18, 11:59 PM IST**. Team **Blastproof**: sri ram (@sriramdevs, leader), Aditi Akansha (@astral0911). Confirm the final team roster in the submission form.
 
 ## Part 1: Project details
 
@@ -15,9 +15,9 @@ Blast Radius is a team of on-call AI agents that remember previous incidents and
 
 The problem: every incident gets investigated from scratch. What the team learned last time sits in postmortems no agent reads, and text search misses a related outage when the alerts are worded differently. Old memory can also be wrong for the new incident. And when an agent crashes mid-investigation, the work is lost or the engineer gets paged twice.
 
-Blast Radius turns each confirmed investigation into a playbook pinned to the failing service. On the next incident, agents recall playbooks near the alerting services by walking the dependency graph, check each one against live evidence before trusting it, and lower trust in any that mislead. What engineers say in the war room becomes sourced preferences ("tickets with raw logs for database incidents"). A worker killed mid-investigation is taken over from its last checkpoint, and exactly one page goes out. Everything survives a full database restart.
+Blast Radius turns each confirmed investigation into a playbook pinned to the failing service. On the next incident, agents recall playbooks near the alerting services by walking the dependency graph, check each one against live evidence before trusting it, and lower trust in any that mislead. What engineers say in the war room becomes sourced preferences ("tickets with raw logs for database incidents"). A worker killed mid-investigation is taken over from its last checkpoint, and one logical notification action is recorded. A graceful local database restart without reseeding preserves the saved memory and history.
 
-On a 30-incident synthetic benchmark with Claude Haiku 5.5, graph memory needed 71% fewer model requests than no memory (55 vs 192), solved 20 incidents with no model call, and found the right memory every time, against 55% for text similarity. All data is synthetic; AI assistance is disclosed in the README.
+In the recorded October 16, 2026, 30-incident synthetic benchmark with Claude Haiku 5.5, graph memory needed 71% fewer model requests than no memory (55 vs 192), solved 20 incidents with no model call, and found the right memory every time, against 55% for text similarity. All data is synthetic; AI assistance is disclosed in the README.
 
 ### Tracks (select all that apply)
 
@@ -32,18 +32,24 @@ https://github.com/Genziitian/Blastproof
 
 ### Demo video
 
-*(YouTube link, public or unlisted. Script: `docs/DEMO-SCRIPT.md`.)*
+https://youtu.be/ubFTOB0ZIh0
+
+English narration, Hinglish explanation and screen actions: `docs/DEMO-SCRIPT.md`. Verify the video is public or unlisted and playable without signing in.
 
 ### Live demo or deployment
 
-If the read-only public copy is deployed (docs/DEPLOY.md: one container plus FalkorDB, playing s01 → s04 with a real kill → s05 by itself), paste its URL. Otherwise paste the write-up with its interactive replay, https://genziitian.github.io/Blastproof/blog/ (Pages must be on), plus https://github.com/Genziitian/Blastproof#run-it for the full local setup (`make db schema seed ui`).
+https://blast.genziitian.in/mission-control
+
+Landing page: https://blast.genziitian.in/
+
+The public deployment executes s01 → s04 (real SIGKILL and takeover) → s05 automatically with a deterministic planner and scripted engineer. It is read-only for visitors; synthetic inputs and logical notification actions are disclosed. Full local controls and setup: https://github.com/Genziitian/Blastproof#run-it. Use a separate recorded local no-reseed test for persistence proof. The public loop resets between rounds and on app startup.
 
 ### How did you use FalkorDB? (technical problems solved)
 
-FalkorDB is the only store: the company, incidents, the agents' memory, the tasks they coordinate through and the war-room history are all in one graph per company. Take it out and nothing runs: the UI refuses to start, and running agents pause until FalkorDB is back.
+FalkorDB is the shared persistent store for agent state: the company, incidents, the agents' memory, the tasks they coordinate through and the war-room history are all in one graph per company. Take it out and nothing runs: the UI refuses to start, and running agents pause until FalkorDB is back.
 
 1. **Recall that follows the system, not the wording.** A variable-length `DEPENDS_ON` walk finds playbooks pinned 0–2 hops downstream of the alerting services, or on a datastore of the same kind. It found the right memory in its top 5 for 100% of incidents; text similarity (arm B, `vecf32` + `vec.cosineDistance` in the same database) found it for 55%.
-2. **Crash-safe coordination without a queue.** Tasks are nodes. A claim is one Cypher query that sets a lease from FalkorDB's `timestamp()` (one clock for all workers) and increments a fencing epoch; every checkpoint and action checks the epoch, so a killed worker can never write after a takeover. Actions are keyed by intent under unique constraints, so a notification can't be sent twice. Under randomly expired leases: 0 duplicates, write p95 under 3.2 ms with 4 worker pairs.
+2. **Crash-safe coordination without a queue.** Tasks are nodes. A claim is one Cypher query that sets a lease from FalkorDB's `timestamp()` (one clock for all workers) and increments a fencing epoch; every checkpoint and action checks the epoch, so writes carrying the old claim are rejected after a takeover. Actions are keyed by intent under unique constraints, so retries do not create another logical notification action in the tested runs. Under randomly expired leases: 0 duplicates, write p95 under 3.2 ms with 4 worker pairs.
 3. **Memory that changes over time.** Facts have validity intervals and are superseded, never edited. Trust is updated in Cypher from each verdict; a playbook that misleads twice retires.
 4. **Who to page right now.** A time-valid two-hop query (service → owning team → on-call person), and deploy history as `(:Person)-[:AUTHORED]->(:Change)-[:MODIFIED]->(:Service)`.
 5. **Tenant isolation.** One graph per company, chosen from trusted config; no tool takes a graph name.
@@ -54,9 +60,9 @@ All 76 queries are `.cypher` files indexed in `docs/QUERIES.md`, and the UI show
 
 ### Blog link
 
-https://genziitian.github.io/Blastproof/blog/
+https://blast.genziitian.in/blog/
 
-*(Before submitting: GitHub → Settings → Pages → Deploy from a branch → `main` / `/docs`, wait a minute, then open the link in a private window. The page is `docs/blog/index.html`; `make ui` also serves it at http://localhost:8000/blog/. When the demo video is on YouTube, set `YOUTUBE_URL` near the top of the page's script.)*
+The write-up is already hosted on the VPS. Verify it opens anonymously. The supplied demo video is linked in README, the landing page and blog. Verify anonymous video playback and the final submission links before submitting.
 
 ## Part 2: Feedback
 
@@ -80,14 +86,17 @@ Reproductions: https://github.com/Genziitian/Blastproof/blob/main/docs/FALKORDB-
 
 ## Checklist (rule 10 and the form)
 
-- [ ] Repository is **public**
+- [x] Repository is **public** (anonymous GitHub API verified Oct 18)
+- [x] Latest intended code, result artifacts, tests and documentation included in this publication
 - [x] README with setup instructions and the graph data model
 - [x] The Cypher queries the product depends on (`docs/QUERIES.md`, all `*/queries/*.cypher`)
-- [ ] Demo video on YouTube, public or unlisted (`docs/DEMO-SCRIPT.md`)
-- [x] Complete local setup instructions (no live deployment)
+- [x] Demo video URL supplied and linked: https://youtu.be/ubFTOB0ZIh0
+- [ ] Anonymous video playback verified by team
+- [x] Live deployment: https://blast.genziitian.in/mission-control, plus complete local setup instructions
 - [ ] Both tracks ticked on the form
 - [ ] AI-assistant disclosure confirmed by the team (README, "AI assistance"; the form has no field for it)
 - [x] Only synthetic data in the graph
-- [x] Main coding during the event (Oct 15–18)
+- [x] Main coding during the event (Oct 15–18), confirmed by team in this chat
 - [ ] Both members have walked through `docs/TEAM-BRIEFING.md` (rule 12)
-- [x] Frozen numbers from the final code in the README and this page (Oct 16 run)
+- [x] Historical benchmark numbers explicitly dated Oct 16; current deterministic Results use a separate dated run
+- [ ] Final form submitted before Oct 18, 11:59 PM IST, with receipt/status verified

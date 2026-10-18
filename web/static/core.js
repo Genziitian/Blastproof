@@ -512,3 +512,52 @@ function checkCardFO(c, xy, g, x, tag) {
   return `<foreignObject x="${best.x0}" y="${best.y0}" width="${cw}" height="${ch + 40}"><div xmlns="http://www.w3.org/1999/xhtml" class="ccard ${once(`${tag}:card:${x.head.key}:${c.key}`) ? "in" : ""}">
     <div class="ch"><b>${esc(sigShort(c.signature))}</b><span class="cm">on ${esc(c.target)}</span>${head}</div>${checkRowsHtml(c, tag, x.head.key)}</div></foreignObject>`;
 }
+
+/* Completed evals and independently dated benchmark evidence, shared by both pages. */
+function resultSource(source, name) {
+  if (!source) return "No saved run";
+  const at = new Date(source.at);
+  const date = Number.isNaN(at.getTime()) ? source.at : at.toLocaleString(undefined, {timeZoneName: "short"});
+  return `${esc(name || source.file)} · ${esc(date)}${source.time_basis === "file modified" ? " · legacy file date" : ""}`;
+}
+function evaluationHtml(r) {
+  const ev = r.eval, load = r.load || [];
+  let comparison = `<h2>No completed comparison yet.</h2><p>Run make eval or make eval-rules for the full benchmark.</p>`;
+  if (ev) {
+    const arms = ["A", "B", "C"].filter((a) => ev.summary[a]?.all);
+    const stats = arms.map((a) => ev.summary[a].all), A = ev.summary.A.all, C = ev.summary.C.all;
+    const requests = (s) => Math.round(s.mean_llm_requests * s.n), correct = (s) => Math.round(s.accuracy * s.n);
+    const hasModel = requests(A) > 0, cut = hasModel ? Math.round((1 - requests(C) / requests(A)) * 100) : null;
+    const headline = hasModel ? `${Math.abs(cut)}%` : `${Math.round(C.accuracy * 100)}%`;
+    const caption = hasModel ? (cut < 0 ? "more model calls." : cut > 0 ? "fewer model calls." : "change in model calls.") : "graph diagnosis accuracy.";
+    const names = {A: "No memory", B: "Text memory", C: "Graph memory"}, colors = {A: "#DDDBD5", B: "#8E8C86", C: "#111111"};
+    const metric = (title, values, sub) => {
+      const max = Math.max(1, ...values);
+      return `<div class="metric"><h5>${title}<span>${sub}</span></h5>${values.map((v, i) => `<div class="hrow"><span class="tr"><i style="width:${Math.max(0, v / max * 100)}%;background:${colors[arms[i]]}"></i></span><b class="${arms[i] === "C" ? "me" : ""}">${Number.isInteger(v) ? v : fmt(v, 2)}</b></div>`).join("")}</div>`;
+    };
+    const m2 = ev.summary.m2, m5 = ev.m5;
+    comparison = `<div class="result-layout"><div><div class="eyebrow">Latest complete comparison · ${C.n} incidents · ${arms.length} memory arms</div>
+      <div class="big">${headline}</div><div class="big2">${caption}</div>
+      <p class="result-copy">${hasModel ? `Graph memory used ${requests(C)} model requests; no memory used ${requests(A)}.` : "No model calls in this run. Compare tool calls and accuracy below."}
+      Correct diagnoses: graph ${correct(C)}/${C.n}; no memory ${correct(A)}/${A.n}.</p>
+      <p class="result-source">${resultSource(ev.source, ev.name)}<br>Model: ${esc(ev.meta.model || "unspecified")} · ${esc(ev.meta.max_steps ?? 12)}-step budget · ${ev.meta.cached ? "cached (timings excluded)" : "uncached"}</p></div>
+      <div><div class="legend">${arms.map((a) => `<span><i style="background:${colors[a]}"></i>${names[a]}</span>`).join("")}</div>
+      ${metric(hasModel ? "Model requests" : "Tool calls", stats.map((s) => hasModel ? requests(s) : s.mean_steps), hasModel ? `across ${C.n} incidents` : "mean per incident")}
+      ${metric("Incidents helped by memory", stats.map((s) => s.memory_helped ?? 0), `of ${C.n}`)}
+      ${metric("Correct diagnoses", stats.map(correct), `of ${C.n}`)}
+      <div class="stats3">${m2 ? `<div><b>${Math.round(m2.graph_recall_at_5 * 100)}%</b><span>graph recall@5; text ${Math.round(m2.text_recall_at_5 * 100)}% · ${m2.n} eligible incidents</span></div>` : ""}
+      <div><b>${stats.reduce((n, s) => n + s.duplicate_notifications, 0)}</b><span>duplicate logical notifications in this evaluation</span></div>
+      ${m5 ? `<div><b>${m5.misleading_uses_before_retirement} uses</b><span>before the seeded wrong playbook retired</span></div>` : ""}</div></div></div>
+      <p class="result-note">Synthetic 15-node company, three failure families. Text baseline: ${esc(ev.meta.embedder || "not recorded")}. Checking memories also costs tool calls; read the accuracy beside the savings.</p>`;
+  }
+  const iso = r.isolation, fencing = r.fencing;
+  const markers = iso ? Object.values(iso.leaks).reduce((n, row) => n + (row.other_company_markers_found || []).length, 0) : null;
+  const proof = `<div class="result-proof"><div class="card result-check"><h3>Tenant isolation</h3><b class="${!iso ? "" : iso.ok ? "result-pass" : "result-fail"}">${!iso ? "Not run yet" : `${iso.ok ? "Passed" : "Failed"} · ${markers} leaked markers`}</b>
+      <p>Canary scan across company graphs, preference separation and trusted tenant selection.</p><p class="result-source">${resultSource(r.isolation_source)}</p></div>
+    <div class="card result-check"><h3>Stale writes rejected</h3><b class="${!fencing ? "" : fencing.ok ? "result-pass" : "result-fail"}">${!fencing ? "Not run yet" : `${fencing.stale_writes_rejected}/${fencing.stale_writes_attempted} · ${fencing.ok ? "passed" : "failed"}`}</b>
+      <p>Direct attempts to heartbeat, checkpoint, hand off, complete and notify using the old lease after takeover.</p><p class="result-source">${resultSource(r.fencing_source)}</p></div></div>`;
+  const table = load.length ? `<div class="card result-load"><h3>Latest load run</h3><p class="result-source">${resultSource(r.load_source)}</p><table><thead><tr><th>Pairs / tenant</th><th>Lease expiry</th><th>Completed</th><th>Per min</th><th>Read p50 / p95 ms</th><th>Write p50 / p95 ms</th><th>Duplicates</th><th>Re-sends absorbed</th><th>Takeovers</th><th>Lease losses</th><th>Needs human</th></tr></thead><tbody>
+    ${load.map((l) => `<tr><td>${l.worker_pairs_per_company}</td><td>${l.chaos_ms ? `${l.chaos_ms} ms` : "none"}</td><td class="${l.completed === l.incidents ? "" : "result-fail"}">${l.completed}/${l.incidents}</td><td>${l.incidents_per_minute ?? "—"}</td><td>${l.memory_reads.p50_ms ?? "—"} / ${l.memory_reads.p95_ms ?? "—"}</td><td>${l.memory_writes.p50_ms ?? "—"} / ${l.memory_writes.p95_ms ?? "—"}</td><td>${l.duplicate_notifications}</td><td>${l.duplicate_sends_absorbed ?? "—"}</td><td>${l.takeovers ?? "—"}</td><td>${l.lost_leases ?? "—"}</td><td>${l.stuck_for_a_human ?? "—"}</td></tr>`).join("")}</tbody></table>
+    ${load.some((l) => l.errors?.length) ? `<p class="result-fail">This run reported worker errors. Review the saved load artifact.</p>` : ""}</div>` : `<p class="result-note">No load run saved yet.</p>`;
+  return `${comparison}${proof}${table}<p class="result-source">Updates automatically after a completed run. Rerun: make eval · make eval-rules · make bench · make isolation · make fencing.</p>`;
+}

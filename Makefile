@@ -1,6 +1,6 @@
 PY ?= python3
 
-.PHONY: install db schema seed test test-live ui eval eval-rules scenarios bench isolation lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
+.PHONY: install db schema seed test test-live ui eval eval-rules scenarios bench isolation fencing lint typecheck check incident story acceptance-1 acceptance-2 persist-write persist-verify
 
 install:
 	$(PY) -m pip install -r requirements.txt
@@ -69,3 +69,7 @@ bench:
 # Tenant isolation (M9): identical ids in two companies; any trace of the other is a failure.
 isolation:
 	LLM_MODEL= $(PY) -m bench.isolation
+
+# M7: direct stale-write rejection probe; timestamped evidence for the Results tab.
+fencing:
+	LLM_MODEL= $(PY) -m bench.fencing
