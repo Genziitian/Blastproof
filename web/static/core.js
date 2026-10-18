@@ -175,7 +175,8 @@ function storyOf(x) {
     kv: h.alert_texts.map((t) => { const i = t.indexOf(": "); return [t.slice(0, i), t.slice(i + 2)]; })});
   // 2 recall
   if (!claims.length) st("current", "Recalling playbooks from memory", {id: "recall"});
-  else if (cands.length) st("done", `Recalled ${plural(cands.length, "playbook match", "playbook matches")} from memory`, {time: tOf((e) => e.kind === "claim" && e.task === "investigate"), id: "recall",
+  // One playbook can match twice (pinned here, and same kind elsewhere): say both numbers.
+  else if (cands.length) st("done", `Recalled ${plural(cands.length, "match", "matches")} of ${plural(new Set(cands.map((c) => c.memory || c.signature)).size, "playbook")} from memory`, {time: tOf((e) => e.kind === "claim" && e.task === "investigate"), id: "recall",
     kv: cands.map((c) => [`${c.signature}`, `${c.target} · ${plural(c.hops, "hop")} · ${c.viaKind ? "same kind of datastore" : "pinned here"} · trust ${fmt(c.trust)}`])});
   else st("done", "Nothing in memory near these alerts", {time: tOf((e) => e.kind === "claim" && e.task === "investigate"), id: "recall",
     kv: [["what happens", "first time here: investigate step by step; if confirmed, it becomes a playbook"]]});
@@ -270,7 +271,7 @@ function layout(nodes) {
   });
   const xy = {};
   layers.forEach((l, y) => l.forEach((n, i) => {
-    xy[n] = {x: 60 + (GW - 120) * (i + .5) / l.length, y: ROWY[Math.min(y, ROWY.length - 1)] + (y >= ROWY.length ? 0 : 0), db: !!nodes.find((q) => q.name === n).kind};
+    xy[n] = {x: 60 + (GW - 120) * (i + .5) / l.length, y: ROWY[Math.min(y, ROWY.length - 1)] + (y >= ROWY.length ? 0 : 0), db: !!nodes.find((q) => q.name === n).kind, i};
   }));
   return xy;
 }
@@ -456,12 +457,15 @@ function drawGraph(el, {x, s, card = true, tag = "g", k = 1, quiet = false}) {
     const shape = p.db ? `<rect class="gn" x="${p.x - 4.5 * k}" y="${p.y - 4.5 * k}" width="${9 * k}" height="${9 * k}" rx="1.5"/>` : `<circle class="gn" cx="${p.x}" cy="${p.y}" r="${5 * k}"/>`;
     const lw = (n.name.length * 7.2 + 14) * k;
     const tagged = ["alert", "root", "suspect", "probe"].includes(st);
+    // Enlarged graphs (the landing hero): stagger every other datastore label so
+    // neighbours like postgres-payments and postgres-orders don't overlap.
+    const dy = k > 1.2 && p.db && p.i % 2 ? 19 * k : 0;
     out += `<g class="gnode s-${st}${faded}${sel}" data-node="${esc(n.name)}">
       ${st === "alert" ? `<circle class="halo ${pulse ? "pulse" : ""}" style="--d:${.15 + (ai++) * .08}s" cx="${p.x}" cy="${p.y}" r="${11 * k}"/>` : ""}
       ${shape}
-      ${tagged ? `<rect class="gtag" x="${p.x - lw / 2}" y="${p.y + 10 * k}" width="${lw}" height="${19 * k}" rx="5"/>` : ""}
-      <text class="glab" x="${p.x}" y="${p.y + 23.5 * k}" text-anchor="middle">${esc(n.name)}</text>
-      ${cap ? `<text class="gcap" x="${p.x}" y="${p.y + 45 * k}" text-anchor="middle">${esc(cap)}</text>` : ""}
+      ${tagged ? `<rect class="gtag" x="${p.x - lw / 2}" y="${p.y + 10 * k + dy}" width="${lw}" height="${19 * k}" rx="5"/>` : ""}
+      <text class="glab" x="${p.x}" y="${p.y + 23.5 * k + dy}" text-anchor="middle">${esc(n.name)}</text>
+      ${cap ? `<text class="gcap" x="${p.x}" y="${p.y + 45 * k + dy}" text-anchor="middle">${esc(cap)}</text>` : ""}
       <rect class="ghit" x="${p.x - lw / 2}" y="${p.y - 12 * k}" width="${lw}" height="${44 * k}"/></g>`;
   });
   const byNode = {};

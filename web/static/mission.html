@@ -535,16 +535,23 @@ document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
   if (S.tab === "live") qs("#graph").dataset.sig = "";
   render();
 });
+// If FalkorDB (or the server) is down when the page opens, keep trying: the
+// overlay counts the seconds, and the page comes up by itself when it's back.
+async function untilUp(fn) {
+  for (let wait = 1000; ; wait = Math.min(wait * 1.5, 4000)) {
+    try { return await fn(); } catch (e) { if (S.dbDown) dbOverlay(); await new Promise((r) => setTimeout(r, wait)); }
+  }
+}
 async function boot() {
   bindQ(document);
-  S.settings = await api("/api/settings");
+  S.settings = await untilUp(() => api("/api/settings"));
   qs("#co").textContent = S.settings.graph;
   const bad = (S.settings.model_status || "").startsWith("unavailable");
   qs("#model").textContent = bad ? `${S.settings.model} unavailable · rule-based` : S.settings.model; qs("#model").className = "model" + (bad ? " bad" : "");
   qs("#timing").textContent = S.settings.timing_profile === "demo" ? "demo timing" : `lease ${S.settings.lease_ms / 1000} s`;
   qs("#timing").title = `lease ${S.settings.lease_ms / 1000} s, heartbeat ${S.settings.heartbeat_ms / 1000} s${S.settings.timing_profile === "demo" ? " (production 30 s / 10 s)" : ""}`;
-  await Promise.all([api("/api/map").then((m) => S.map = m), api("/api/memory").then((m) => S.memory = m), api("/api/db").then((d) => { S.db = d; qs("#dbver").textContent = `FalkorDB ${d.version || ""}`; }).catch(() => {})]);
-  await pollState(); await pollIncident();
+  await untilUp(() => Promise.all([api("/api/map").then((m) => S.map = m), api("/api/memory").then((m) => S.memory = m), api("/api/db").then((d) => { S.db = d; qs("#dbver").textContent = `FalkorDB ${d.version || ""}`; }).catch(() => {})]));
+  await untilUp(async () => { await pollState(); await pollIncident(); });
   S.booted = true;
   const loop = async (fn, ms) => { try { await fn(); } catch (e) { /* shown */ } setTimeout(() => loop(fn, ms), S.dbDown ? 1000 : ms); };
   setTimeout(() => loop(pollState, 1000), 1000);
