@@ -49,6 +49,11 @@ class RuleParserTests(unittest.TestCase):
             [Preference("preferred_channel", "ticket", None),
              Preference("wants_detail", "raw_logs", None)])
 
+    def test_raw_lines_win_when_asked_for_with_a_summary(self):
+        self.assertEqual(parse_rules("Page me with raw logs and a summary."),
+                         [Preference("preferred_channel", "page", None),
+                          Preference("wants_detail", "raw_logs", None)])
+
     def test_curly_apostrophes_still_negate(self):
         self.assertEqual(parse_rules("For DB saturation, don\u2019t open a ticket, page me."),
                          [Preference("preferred_channel", "page", "db_saturation")])

@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any
 
+from common import config
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -61,7 +63,10 @@ class Supervisor:
             cmd = [sys.executable, "-u", "-m", "scripts.run_worker", "--company", self.company,
                    "--world", str(self.world_dir), "--forever", "--instance", name,
                    "--pace", str(self.pace_s), "--exit-with-parent"]
-            p.popen = subprocess.Popen(cmd, cwd=ROOT, env=os.environ.copy(), text=True,
+            env = os.environ.copy()
+            if config.PUBLIC_MODE and not env.get("PUBLIC_LLM"):
+                env["LLM_MODEL"] = ""  # a public demo never calls a model (beats .env)
+            p.popen = subprocess.Popen(cmd, cwd=ROOT, env=env, text=True,
                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             p.started_at, p.ended_at, p.exit_code, p.killed = time.time(), None, None, False
             p.log.append(f"started pid {p.popen.pid}")

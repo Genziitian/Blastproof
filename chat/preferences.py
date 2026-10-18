@@ -78,13 +78,13 @@ def parse_rules(text: str) -> list[Preference]:
     if channel:
         prefs.append(Preference("preferred_channel", channel, family))
 
-    # "Do not paste raw logs, just a summary" asks for a summary: a negated
-    # request is never saved as the thing it negates.
-    if _mentioned(t, "summary") and not _negated(t, r"(?:\w+ )?summary"):
-        prefs.append(Preference("wants_detail", "summary", family))
-    elif ("raw" in t and re.search(r"\b(log|lines|quer)", t)
-          and not _negated(t, r"(?:\w+ )?raw")):
+    # Raw lines win when asked for ("raw logs and a summary"), but a negated request
+    # is never saved as the thing it negates ("do not paste raw logs, just a summary").
+    if ("raw" in t and re.search(r"\b(log|lines|quer)", t)
+            and not _negated(t, r"(?:\w+ )?raw")):
         prefs.append(Preference("wants_detail", "raw_logs", family))
+    elif _mentioned(t, "summary") and not _negated(t, r"(?:\w+ )?summary"):
+        prefs.append(Preference("wants_detail", "summary", family))
     return prefs
 
 

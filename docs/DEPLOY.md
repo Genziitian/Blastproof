@@ -7,7 +7,7 @@ The UI and its agents can run as a public, **read-only** demo. With `PUBLIC_MODE
   - **s01:** nothing in memory, one page to Priya, her preference read back;
   - **s04:** the playbook recalled by kind; the investigator SIGKILLed after step 3 and taken over at step 4; one ticket;
   - **s05:** the DB playbook ruled out on evidence.
-- every round starts with any killed investigator started again, and the graph is reset every `PUBLIC_RESET_EVERY` rounds (default 5) and on every start;
+- every round starts with any killed investigator started again, and from the graph as seeded: it is reset after every round (`PUBLIC_RESET_EVERY`, default 1) and on every start, so s01 always begins with nothing in memory;
 - the model is off unless `PUBLIC_LLM=1`, so visitors can't run up a bill;
 - error responses carry no internals.
 

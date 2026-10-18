@@ -248,6 +248,9 @@ class MemoryLifecycleCases:
         vs = sorted(feedback.verdicts(usage, confirmed=True), key=lambda v: v["verdict"] != "helped")
         run(self.g, "memory/queries/feedback.cypher", {"decision_id": "dec-s04-twice", "verdicts": vs})
         self.assertEqual(playbook(self.g, DB_PLAYBOOK)[0][:2], [1, 0])
+        lens = run(self.g, "web/queries/lens.cypher", {"incident_key": "incident:s04-twice"})
+        self.assertEqual({round(r["trust_after"], 3) for r in lens}, {0.667},
+                         "both uses show the trust after the whole decision")
 
     def test_a_second_confirmed_run_adds_a_source_not_a_duplicate(self):
         key = run_incident(self.g, truth.load("s04"), "s04-p", use_memory=False)

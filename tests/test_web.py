@@ -203,6 +203,7 @@ class WebCases:
 
     def test_wrong_playbook_misleads_twice_then_retires(self):
         pid = self.demo.plant_wrong_memory()
+        self.assertEqual(self.demo.plant_wrong_memory(), pid, "one wrong playbook at a time")
         results = []
         for _ in range(3):
             x = self.finish(self.demo.break_node("redis-cache"), self.investigator("inv-1"))
@@ -343,6 +344,30 @@ class WebCases:
                 self.assertEqual(public.post(path, json=body).status_code, 403, path)
             self.assertEqual(public.get("/api/state").status_code, 200)
             self.assertTrue(public.get("/api/settings").json()["public_mode"])
+
+    def test_public_investigators_never_call_a_model(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from common import config
+        from web import supervisor as sup
+        seen: list[dict[str, str]] = []
+
+        class FakePopen:
+            pid, returncode, stdout = 1, None, iter(())
+
+            def __init__(self, cmd, **kw):
+                seen.append(kw["env"])
+
+            def poll(self):
+                return None
+
+        with (mock.patch.object(config, "PUBLIC_MODE", True),
+              mock.patch.dict("os.environ", {"LLM_MODEL": "some-model"}),
+              mock.patch.object(sup.subprocess, "Popen", FakePopen)):
+            sup.Supervisor("a", Path(tempfile.mkdtemp())).start("inv-1")
+        self.assertEqual(seen[0]["LLM_MODEL"], "")
 
     def test_a_reply_only_answers_the_question_that_was_asked(self):
         from web.engineer import Pending

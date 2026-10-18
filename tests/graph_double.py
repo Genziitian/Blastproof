@@ -748,19 +748,26 @@ def _add_provenance(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
 @implements("memory/queries/feedback.cypher")
 def _feedback(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     d = g.one("Decision", id=p["decision_id"])
-    out = []
+    # Like the Cypher: set each edge's verdict, then sum per memory and update its
+    # counters, trust and status once, then stamp the final trust on all its edges.
+    used: dict[int, tuple[Node, list[Edge]]] = {}
     for v in (p["verdicts"] if d else []):
         for e, m in _usage(g, d):  # type: ignore[arg-type]
             if (e.props.get("target"), m.get("id")) != (v["target"], v["id"]) \
                     or "verdict" in e.props:
                 continue
             g.set(e, {"verdict": v["verdict"]})
-            g.set(m, {"helped": m.get("helped") + (v["verdict"] == "helped"),
-                      "misled": m.get("misled") + (v["verdict"] == "misled")})
-            g.set(m, {"trust": (m.get("helped") + m.get("prior_a")) * 1.0
-                      / (m.get("helped") + m.get("misled") + m.get("prior_a") + m.get("prior_b"))})
-            if m.get("misled") >= 2 and m.get("trust") < 0.5:
-                g.set(m, {"status": "retired"})
+            used.setdefault(m.id, (m, []))[1].append(e)
+    out = []
+    for m, edges in used.values():
+        verdicts = [e.props["verdict"] for e in edges]
+        g.set(m, {"helped": m.get("helped") + verdicts.count("helped"),
+                  "misled": m.get("misled") + verdicts.count("misled")})
+        g.set(m, {"trust": (m.get("helped") + m.get("prior_a")) * 1.0
+                  / (m.get("helped") + m.get("misled") + m.get("prior_a") + m.get("prior_b"))})
+        if m.get("misled") >= 2 and m.get("trust") < 0.5:
+            g.set(m, {"status": "retired"})
+        for e in edges:
             g.set(e, {"trust_after": m.get("trust")})
             out.append({"id": m.get("id"), "target": e.props.get("target"),
                         "verdict": e.props.get("verdict"), "trust": m.get("trust"),

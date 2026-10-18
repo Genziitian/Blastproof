@@ -56,9 +56,10 @@ MAX_ATTEMPTS = 3
 
 # A public, read-only deployment of the UI (docs/DEPLOY.md): every POST is refused,
 # the scripted engineer answers, and the server plays s01 -> s04 (with a real kill)
-# -> s05 on its own, resetting the graph every PUBLIC_RESET_EVERY rounds.
+# -> s05 on its own, resetting the graph after every PUBLIC_RESET_EVERY rounds (default: each
+# round, so s01 always starts with nothing in memory, as the story needs).
 PUBLIC_MODE = os.getenv("PUBLIC_MODE", "").lower() in ("1", "true", "yes")
-PUBLIC_RESET_EVERY = int(os.getenv("PUBLIC_RESET_EVERY", "5"))
+PUBLIC_RESET_EVERY = int(os.getenv("PUBLIC_RESET_EVERY", "1"))  # 1: each round starts empty
 # Host names the UI answers to (DNS-rebinding guard); "*" turns the check off.
 ALLOWED_HOSTS = [h.strip() for h in
                  os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")

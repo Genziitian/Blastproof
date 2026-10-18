@@ -229,6 +229,10 @@ class Demo:
         from eval import scenarios
         # Its own signature, so the learner never files a real lesson under it.
         wrong = replace(scenarios.M5_PLAYBOOK, signature="db_saturation:postgres:planted")
+        active = run(self.graph, "memory/queries/playbook_by_signature.cypher",
+                     {"signature": wrong.signature})
+        if active:  # one wrong playbook at a time: it must mislead and retire first
+            return str(active[0]["id"])
         at = self.now()
         planted = f"planted-{uuid.uuid4().hex[:4]}"
         pid = f"pb-wrong-{planted}"
@@ -251,14 +255,16 @@ class Demo:
             if self.supervisor:
                 self.supervisor.stop_all()
             self.stop_agents()
-            self.store.clear()
-            self.reset_graph()
-            self.start_agents()
-            if self.supervisor:
-                self.supervisor.start_all()
+            try:
+                self.store.clear()
+                self.reset_graph()
+            finally:  # a failed reseed must not leave the agents stopped for good
+                self.start_agents()
+                if self.supervisor:
+                    self.supervisor.start_all()
 
     def public_loop(self, stop: threading.Event, pause_s: float = 8.0,
-                    reset_every: int = 5) -> None:
+                    reset_every: int = 1) -> None:
         """The public demo plays the story by itself: s01 (nothing in memory), s04
         (recalled by kind, investigator killed after step 3, taken over), s05 (memory
         ruled out on evidence). The scripted engineer answers. Resets now and then."""
