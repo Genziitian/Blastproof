@@ -1,22 +1,42 @@
 # Blast Radius
 
-**On-call agents that remember previous incidents, check whether that memory still applies, and show how it changed the next investigation, even after a restart.**
+**Vector memory remembers what was said. Blast Radius remembers where it broke.**
 
-Built for Graph Hacks 2026 on FalkorDB by team **Blastproof** (sri ram, Aditi Akansha). Tracks: **Agent Memory and Coordination** (primary) and **Agents That Act on Connected Data**: the agents act through multi-hop graph queries, also served over MCP. FalkorDB holds the agents' memory, the shared task state they coordinate through, the conversation history and the evidence trail. Take it out and nothing works: the UI refuses to start without it, and the agents pause until it is back.
+On-call agents that turn every confirmed fix into a playbook pinned to the failing service in a FalkorDB dependency graph. On the next outage they find it by walking the graph, check it against live evidence before trusting it, and coordinate through leased tasks in the same graph, so a crashed worker is just a handover. Built by team **Blastproof** (sri ram, Aditi Akansha) for Graph Hacks 2026 on FalkorDB.
 
-![The war room during demo moment 4: inv-2 was killed after step 3, inv-1 took over at step 4 under epoch 2, and the playbook learned from an earlier incident was recalled one hop from the alerts and is being checked against live evidence, two of three checks passed so far](docs/img/ui-takeover.png)
+**▶ Demo video:** on YouTube (link added when uploaded) · **[Write-up with an interactive replay](https://genziitian.github.io/Blastproof/blog/)** (no install) · **[Run it](#run-it)** in five commands, no API key needed · **Tracks:** Agent Memory and Coordination (primary), Agents That Act on Connected Data
 
-*The war room during demo moment 4, live (deterministic planner, demo timing). inv-2 was SIGKILLed after step 3; inv-1 took over at step 4 under epoch 2, not from scratch. The playbook learned on `postgres-orders` was recalled for `postgres-payments` (one hop, same kind of datastore, the dashed line) and is being checked against live evidence; the left column is the Memory Lens. Every element is read from FalkorDB.*
+### Results in three numbers
 
-**Read the write-up:** [Teaching on-call agents to remember](https://genziitian.github.io/Blastproof/blog/), what we built, how it works and what we learned (also served locally at `/blog/` by `make ui`; source in [`docs/blog/`](docs/blog/)). Read it in English, Français, עברית, हिन्दी, Español or اردو, or any other language Chrome can translate on your device: [`?lang=hi`](https://genziitian.github.io/Blastproof/blog/?lang=hi).
+- **71% fewer model calls.** Graph memory needed 55 LLM requests across the 30-incident benchmark; no memory needed 192. Both got all 30 diagnoses right ([frozen run](eval/results/2026-10-16T14-24-13Z-claude-haiku-5-5/summary.md)).
+- **The right lesson, found by topology.** Graph recall had it in the top 5 for all 20 incidents where one existed; text similarity over the same memories, for 11 of 20.
+- **Nothing done twice.** A worker SIGKILLed mid-investigation is taken over at the next step, not from scratch, and exactly one page goes out. A deliberately wrong playbook retired itself after misleading twice.
 
-## Contents
+These come from a synthetic company (15 nodes, three failure families) in which the model already solves every incident from scratch, so here memory buys **cost, not accuracy**. The caveats are spelled out in [Results](#results) and [Limits](#limits-and-what-didnt-work).
 
-[The idea](#the-idea) · [Track 02](#track-02-what-it-asks-and-where-we-do-it) · [Results](#results) · [How memory works](#how-memory-works) · [Crash safety](#crash-safety-and-coordination) · [Graph data model](#graph-data-model) · [Queries](#queries) · [FalkorDB findings](#falkordb-findings) · [Run it](#run-it) · [Limits](#limits-and-what-didnt-work) · [AI assistance](#ai-assistance)
+![Mission control during the takeover: inv-2 was killed after step 3, inv-1 took over at step 4 under epoch 2, and the playbook learned from an earlier incident was recalled one hop from the alerts and is being checked against live evidence](docs/img/ui-takeover.png)
 
-## The idea
+*Mission control, live (deterministic planner, demo timing): inv-2 was killed after step 3 and inv-1 took over at step 4. The playbook learned on `postgres-orders` was recalled for `postgres-payments` (one hop, same kind of datastore) and is being checked against live evidence. Every element is read from FalkorDB.*
 
-When an incident is confirmed, its investigation becomes a **playbook** pinned to the failing node in the company's dependency graph: what to rule out first, what to expect, and where it came from. The next time alerts fire, agents recall the playbooks pinned **near the alerting services in the graph**, check each against live evidence before trusting it, and investigate from scratch only if none holds. Memory that misleads loses trust and retires. What engineers say in the war room ("for DB saturation, open a ticket with the raw lines") becomes a sourced, conditional preference that changes the next notification. All of it survives restarts, and a worker can die mid-investigation without anything being done twice.
+### The problem
+
+- Every incident is investigated from scratch. What the team learned last time sits in postmortems no agent reads.
+- Old memory can be wrong for the new incident, and an agent that trusts it blindly makes things worse.
+- When an agent crashes mid-investigation, the work is lost or the engineer is paged twice.
+
+### Why a graph
+
+"Which past lesson applies to these alerts?" is a question about what depends on what, not about wording. In the demo, the first outage alerts with *"p95 latency above SLO"* and the second with *"slow responses breaching SLO"*: different words, and a different database. Text similarity has little to go on. The graph does: `payments-gw` is one hop from `postgres-payments`, a datastore of the same kind as `postgres-orders`, where the playbook was learned. Recall is a walk downstream from the alerting services ([`recall.cypher`](memory/queries/recall.cypher), plus same-kind datastores in [`recall_kind.cypher`](memory/queries/recall_kind.cypher)):
+
+```cypher
+MATCH (a:Service) WHERE a.name IN $alerting
+MATCH p = (a)-[:DEPENDS_ON*1..2]->(n)
+MATCH (n)<-[:ABOUT]-(m:Memory)
+WHERE m.status = 'active' AND m.recorded_at <= $scenario_now
+RETURN m.id, n.name AS target, length(p) AS hops, [x IN nodes(p) | x.name] AS path
+```
+
+### How it works
 
 ```mermaid
 flowchart LR
@@ -29,15 +49,35 @@ flowchart LR
   F ==>|"next incident, even after a restart"| B
 ```
 
+**Words used below:** a *playbook* is a learned memory: checks to run and the conclusion they support. A *verdict* says whether a memory helped, misled or didn't apply; trust moves with verdicts. A *lease* is a time-limited claim on a task; the *epoch* is a counter bumped on every claim, so a dead worker's late writes are rejected (*fencing*). A *checkpoint* is one saved tool call.
+
+**FalkorDB is the only store:** the company graph, incidents, the agents' memory, the tasks they coordinate through, the war-room history and the evidence trail. Take it out and nothing works: the UI refuses to start without it, and the agents pause until it is back.
+
+```bash
+docker compose up -d falkordb && pip install -r requirements.txt && cp .env.example .env
+python -m scripts.setup_schema && python -m scripts.seed
+TIMING_PROFILE=demo python -m web.app --company a      # http://localhost:8000
+```
+
+**Read the write-up:** [Teaching on-call agents to remember](https://genziitian.github.io/Blastproof/blog/) (also served at `/blog/` by `make ui`; source in [`docs/blog/`](docs/blog/)), in English, Français, עברית, हिन्दी, Español or اردو.
+
+## Contents
+
+[The idea](#the-idea) · [Track 02](#track-02-what-it-asks-and-where-we-do-it) · [Results](#results) · [How memory works](#how-memory-works) · [Crash safety](#crash-safety-and-coordination) · [Graph data model](#graph-data-model) · [Queries](#queries) · [FalkorDB findings](#falkordb-findings) · [Run it](#run-it) · [Limits](#limits-and-what-didnt-work) · [AI assistance](#ai-assistance)
+
+## The idea
+
+When an incident is confirmed, its investigation becomes a **playbook** pinned to the failing node in the company's dependency graph: what to rule out first, what to expect, and where it came from. The next time alerts fire, agents recall the playbooks pinned **near the alerting services in the graph**, check each against live evidence before trusting it, and investigate from scratch only if none holds. Memory that misleads loses trust and retires. What engineers say in the war room ("for DB saturation, open a ticket with the raw lines") becomes a sourced, conditional preference that changes the next notification. All of it survives restarts, and a worker can die mid-investigation without anything being done twice.
+
 ## Track 02: what it asks and where we do it
 
 > *"Build agents that remember across sessions and share state with each other. Memory should persist, update over time, and be available to every agent that needs it."*
 
 | Focus point | Feature | Proof |
 |---|---|---|
-| Episodic, semantic, procedural memory | Incidents, checkpoints and immutable decisions; time-valid preference facts; playbooks with machine-checked preconditions | Eval M1–M5; Memory Lens |
-| Persistent conversation history | War room: verbatim messages per engineer and incident, read-back before saving, preferences cited later, earlier sessions shown | Acceptance check 6 after a full restart; `tests/test_g2_live.py` |
-| Shared state and handoffs | Fenced tasks in the graph: investigator → responder → learner, derived-id handoffs, intent-keyed actions | Acceptance checks 4–7 with a real SIGKILL; agent timeline |
+| Episodic, semantic, procedural memory | Incidents, checkpoints and immutable decisions; time-valid preference facts; playbooks with machine-checked preconditions | Benchmark ([Results](#results)), including the planted wrong playbook (M5); Memory Lens |
+| Persistent conversation history | War room: verbatim messages per engineer and incident, read-back before saving, preferences cited later, earlier sessions shown | Acceptance test, check 6 (preference applied after a full restart); `tests/test_g2_live.py` |
+| Shared state and handoffs | Fenced tasks in the graph: investigator → responder → learner, derived-id handoffs, intent-keyed actions | Acceptance test, checks 4–7, with a real SIGKILL; agent timeline |
 | High-concurrency reads and writes | Two companies, every agent in its own claim loop, leases expired at random | `make bench`: 0 duplicate notifications |
 | Separate memory per user or tenant | One graph per company; per-engineer preferences; no tool takes a graph argument | `make isolation`; the UI API test; canary search: 0 found |
 | Persist, update over time | RDB snapshots + restart test; trust moves on verdicts; facts superseded, never edited; a wrong playbook retires | Acceptance part 1 → restart → part 2; M5 |
