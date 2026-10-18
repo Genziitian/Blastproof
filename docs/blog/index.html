@@ -7,23 +7,31 @@
 <meta name="description" content="How we built on-call agents that remember every incident, check that memory against live evidence, and survive being killed mid-investigation. FalkorDB Graph Hacks, Agent Memory and Coordination.">
 <meta property="og:title" content="Teaching on-call agents to remember">
 <meta property="og:description" content="A graph for memory, a lease for coordination, and a lot of checking. Built on FalkorDB for Graph Hacks.">
-<meta property="og:image" content="media/landing.jpg">
+<meta property="og:image" content="https://genziitian.github.io/Blastproof/blog/media/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:type" content="article"><meta property="og:url" content="https://genziitian.github.io/Blastproof/blog/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Teaching on-call agents to remember">
+<meta name="twitter:image" content="https://genziitian.github.io/Blastproof/blog/media/og.png">
+<script>/* theme before first paint: the reader's choice, else the system's */ try { document.documentElement.dataset.theme = localStorage.getItem("blog-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); if (localStorage.getItem("blog-depth") === "quick") document.documentElement.classList.add("quick"); } catch (e) { /* storage blocked */ }</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23111' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23E2552B'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/v2.css">
 <style>
 /* Blog layout: a reading column of ~68 characters, with figures that break out
    wider than the text, and a sticky contents rail on wide screens. */
-:root { --col: 700px; --wide: 1120px; }
+:root { --col: 700px; --wide: 1260px; }
 body { background: var(--bg); }
 .progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--sig); width: 0; z-index: 90; transition: width .1s linear; }
 .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40; background: rgba(250, 250, 248, .9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
 .top .in { max-width: var(--wide); margin: 0 auto; height: 60px; display: flex; align-items: center; gap: 18px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
 .top .crumb { font-size: 14px; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .page { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
-.layout { max-width: var(--wide); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 56px; }
+.layout { max-width: var(--wide); margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 48px; }
 article { min-width: 0; }
-.toc { position: sticky; top: 92px; align-self: start; padding-top: 140px; font-size: 13.5px; }
-.toc b { display: block; font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--t3); margin-bottom: 10px; }
-.toc a { display: block; color: var(--t2); padding: 5px 0 5px 12px; border-left: 2px solid var(--line); }
+.toc { font-size: 13px; margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
+.toc .tg { grid-column: 1 / -1; font: 600 10.5px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--t4); margin: 8px 0 2px; }
+.toc b { grid-column: 1 / -1; display: block; font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--t3); margin-bottom: 10px; }
+.toc a { display: block; color: var(--t2); padding: 3px 0 3px 10px; border-left: 2px solid var(--line); }
 .toc a:hover { color: var(--ink); } .toc a.on { color: var(--ink); border-left-color: var(--sig); font-weight: 500; }
 .col { max-width: var(--col); }
 header.hero { padding-block: 72px 36px; }
@@ -49,7 +57,7 @@ strong { font-weight: 600; color: var(--ink); }
 a.ln { color: var(--ink); text-decoration: underline; text-decoration-color: var(--t4); text-underline-offset: 3px; } a.ln:hover { text-decoration-color: var(--sig); }
 blockquote { margin: 30px 0 0; padding: 4px 0 4px 22px; border-left: 3px solid var(--sig); font: 500 24px/1.4 var(--sans); letter-spacing: -.015em; color: var(--ink); }
 figure { margin: 34px 0 0; }
-figure.wide { width: min(var(--wide) - 276px, 100%); }
+figure.wide { width: 100%; }
 figcaption { font-size: 14px; color: var(--t3); margin-top: 12px; line-height: 1.55; }
 figcaption b { color: var(--t2); font-weight: 600; }
 .shot { border-radius: 16px; border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; background: var(--paper); }
@@ -162,12 +170,75 @@ figcaption b { color: var(--t2); font-weight: 600; }
 .term .g { color: #8f8d87; } .term .r { color: #ff8a65; } .term .ok { color: #7ee2a8; }
 .copy { position: relative; } .copy button { position: absolute; top: 10px; right: 10px; border: 1px solid #3a3936; background: #222120; color: #e7e6e2; border-radius: 8px; font-size: 12px; padding: 4px 10px; }
 footer.end { max-width: var(--wide); margin: 100px auto 0; border-top: 1px solid var(--line); padding-block: 28px 60px; display: flex; gap: 16px; justify-content: space-between; color: var(--t3); font-size: 14px; flex-wrap: wrap; }
-@media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr); } .toc { display: none; } figure.wide { width: 100%; } }
+@media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr); } .rail { display: none; } }
+@media (min-width: 1101px) { .heroviz { display: none; } }
 @media (max-width: 700px) {
   h1 { font-size: 40px; } h2 { font-size: 30px; } .dek { font-size: 18px; } p, li { font-size: 17px; }
   .tldr, .vs, .lease .workers { grid-template-columns: minmax(0, 1fr); } .meter { grid-template-columns: minmax(0, 1fr); justify-items: start; }
   blockquote { font-size: 20px; }
 }
+/* the rail: the recorded night, following the reader */
+.rail { position: sticky; top: 76px; align-self: start; padding-top: 28px; max-height: calc(100vh - 80px); }
+.railcard { overflow: hidden; }
+.railcard .rh { display: flex; align-items: baseline; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.railcard .clock { font: 600 22px var(--mono); letter-spacing: -.02em; color: var(--ink); min-width: 6.2ch; transition: color .3s; }
+.railcard .clock.tick { color: var(--sig); }
+.railcard .rt { font-size: 12.5px; color: var(--t3); line-height: 1.35; }
+.railcard .gbody { height: 300px; }
+.railcard .rcap { padding: 10px 16px 14px; font-size: 13.5px; line-height: 1.45; color: var(--t2); min-height: 52px; border-top: 1px solid var(--line); }
+.railcard .rcap b { color: var(--ink); font-family: var(--mono); font-weight: 600; margin-right: 6px; }
+/* the story */
+.part { margin-top: 96px; padding: 26px 0 0; border-top: 2px solid var(--ink); }
+.part > span { font: 600 12px var(--mono); color: var(--sig); text-transform: uppercase; letter-spacing: .08em; }
+.part h2 { font-size: 46px; margin-top: 6px; } .part p { color: var(--t2); }
+.s .eyebrow time { font: 600 1em var(--mono); color: var(--ink); background: var(--sunk); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; margin-right: 8px; letter-spacing: 0; }
+.beat { display: flex; gap: 12px; align-items: baseline; margin-top: 18px; padding: 12px 16px; border-left: 3px solid var(--sig); background: var(--paper); border-radius: 0 12px 12px 0; box-shadow: var(--shadow); }
+.beat .tl { flex: none; font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--sig); }
+.beat > span:last-child { font-size: 16.5px; line-height: 1.55; color: var(--ink); font-weight: 500; }
+.note { font-size: 14px !important; color: var(--t3) !important; margin-top: 12px !important; }
+/* reading depth */
+.depth { display: inline-flex; margin-top: 22px; padding: 4px; border-radius: 999px; background: var(--sunk); border: 1px solid var(--line); }
+.depth button { border: 0; background: none; padding: 7px 14px; border-radius: 999px; font: 500 13.5px var(--sans); color: var(--t2); }
+.depth button.on { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+html.quick article .s > p, html.quick article .s > ul, html.quick article .s > ol, html.quick article .col > p:not(.rchint), html.quick article .col > ol,
+html.quick article blockquote, html.quick .deep, html.quick .lesson p, html.quick .lesson .term { display: none; }
+html.quick .lessons { gap: 8px; } html.quick .lesson { padding: 14px 20px; }
+/* receipts */
+.rc { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline dotted var(--t4); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.rc:hover, .rc:focus-visible { text-decoration-color: var(--sig); }
+.rc.inl { text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+.rchint { font-size: 13.5px !important; color: var(--t3) !important; margin-top: 10px !important; }
+.pop { position: absolute; z-index: 96; width: min(380px, calc(100vw - 32px)); background: var(--paper); border: 1px solid var(--line2); border-radius: 14px; box-shadow: var(--shadow2); padding: 14px 16px; font-size: 13.5px; line-height: 1.5; color: var(--t2); }
+.pop[hidden] { display: none; }
+.pop .pt { font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .07em; color: var(--sig); }
+.pop h6 { margin: 4px 0 6px; font: 600 15.5px/1.35 var(--sans); color: var(--ink); }
+.pop dl { margin: 10px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; } .pop dt { color: var(--t3); } .pop dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pop dd a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--t4); font: 500 12.5px var(--mono); }
+.pop dd code { font-size: 12px; }
+.pop .px { margin-top: 8px; font-size: 12.5px; color: var(--t3); }
+dfn { font-style: normal; text-decoration: underline dotted var(--t3); text-underline-offset: 4px; cursor: help; }
+/* clip text versions */
+.tv { margin-top: 8px; font-size: 14px; color: var(--t2); } .tv summary { cursor: pointer; color: var(--t3); font-size: 13.5px; }
+.tv ol { margin: 8px 0 0; padding-left: 20px; } .tv li { font-size: 14.5px; line-height: 1.55; color: var(--t2); margin-top: 3px; }
+[dir=rtl] .tv ol { padding-left: 0; padding-right: 20px; }
+[dir=rtl] .beat { border-left: 0; border-right: 3px solid var(--sig); border-radius: 12px 0 0 12px; }
+[dir=rtl] .s .eyebrow time { margin-right: 0; margin-left: 8px; } [dir=rtl] .railcard .rcap { text-align: left; }
+/* reduced motion */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+/* dark */
+#themebtn { width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center; }
+[data-theme=dark] { --bg: #121211; --paper: #1B1B1A; --sunk: #232321; --sunk2: #262624; --line: #2D2C2A; --line2: #363532; --line3: #403F3B;
+  --ink: #F2F1EE; --ink2: #D9D8D3; --t2: #ABA9A3; --t3: #7F7D78; --t4: #5A5853; --sig: #F26A40; --sig-bg: rgba(242, 106, 64, .12); --ok: #3DBE74; --ok-bg: rgba(61, 190, 116, .12);
+  --shadow: 0 12px 32px rgba(0, 0, 0, .35); --shadow2: 0 18px 40px rgba(0, 0, 0, .5); color-scheme: dark; }
+[data-theme=dark] .top { background: rgba(18, 18, 17, .88); }
+[data-theme=dark] .pill.dark { color: #111; }
+[data-theme=dark] .byline .avs span { color: #111; } [data-theme=dark] .byline .avs span:first-child { color: #fff; }
+[data-theme=dark] svg [fill="#fff"], [data-theme=dark] svg [fill="#FFF"], [data-theme=dark] svg [fill="#FFFFFF"], [data-theme=dark] svg [fill="#ffffff"] { fill: var(--paper); }
+[data-theme=dark] svg [fill="#111"], [data-theme=dark] svg [fill="#111111"] { fill: var(--ink); }
+[data-theme=dark] svg [stroke="#111"], [data-theme=dark] svg [stroke="#111111"] { stroke: var(--ink); }
+[data-theme=dark] svg [fill="#F2F1EE"] { fill: var(--sunk); } [data-theme=dark] svg [stroke="#DDDBD5"], [data-theme=dark] svg [stroke="#C9C7C1"] { stroke: var(--line3); }
+[data-theme=dark] svg [style*="fill:#111"] { fill: var(--ink) !important; } [data-theme=dark] svg [style*="fill:#5F5E5A"] { fill: var(--t2) !important; }
+[data-theme=dark] .shot img, [data-theme=dark] .vid img { filter: brightness(.88); }
 /* languages */
 .lang { position: relative; } #langbtn { display: inline-flex; align-items: center; gap: 7px; }
 .langmenu { position: absolute; right: 0; top: calc(100% + 8px); width: 300px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow2); padding: 6px; z-index: 95; }
@@ -180,6 +251,7 @@ footer.end { max-width: var(--wide); margin: 100px auto 0; border-top: 1px solid
 .xbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 22px 0 -8px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); font-size: 13.5px; color: var(--t2); max-width: var(--col); }
 .xbar[hidden] { display: none; } .xbar button { flex: none; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 12px; font: 500 13px var(--sans); color: var(--ink); cursor: pointer; }
 html[lang=hi] article p, html[lang=hi] article li, html[lang=mr] article p { line-height: 1.8; }
+html[lang=ur] article p, html[lang=ur] article li, html[lang=ur] .beat span { line-height: 1.95; }
 /* right to left (Hebrew, Arabic): the prose flips, code, queries and diagrams stay left to right */
 [dir=rtl] .toc a { padding: 5px 12px 5px 0; border-left: 0; border-right: 2px solid var(--line); }
 [dir=rtl] article ul, [dir=rtl] article ol { padding-left: 0; padding-right: 22px; }
@@ -188,7 +260,7 @@ html[lang=hi] article p, html[lang=hi] article li, html[lang=mr] article p { lin
 [dir=rtl] .car .cap { margin-left: 0; margin-right: 6px; } [dir=rtl] .codecard .ch2 span { margin-left: 0; margin-right: auto; }
 [dir=rtl] .langmenu { right: auto; left: 0; }
 [dir=rtl] code, [dir=rtl] .ln { direction: ltr; unicode-bidi: isolate; }
-[dir=rtl] pre, [dir=rtl] .term, [dir=rtl] .heroviz, [dir=rtl] .mini, [dir=rtl] .dm svg, [dir=rtl] .tbl td, [dir=rtl] .steps5, [dir=rtl] .brow .tr, [dir=rtl] .formula { direction: ltr; }
+[dir=rtl] pre, [dir=rtl] .term, [dir=rtl] .heroviz, [dir=rtl] .railcard .gbody, [dir=rtl] .railcard .rcap, [dir=rtl] .railcard .clock, [dir=rtl] .mini, [dir=rtl] .dm svg, [dir=rtl] .tbl td, [dir=rtl] .steps5, [dir=rtl] .brow .tr, [dir=rtl] .formula { direction: ltr; }
 @media (max-width: 560px) { .top .gh { display: none; } .top .crumb { display: none; } }
 </style>
 </head>
@@ -200,13 +272,15 @@ html[lang=hi] article p, html[lang=hi] article li, html[lang=mr] article p { lin
   <div class="lang"><button class="pill sm" id="langbtn" aria-haspopup="true" aria-expanded="false" aria-label="Language"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5c2.6 2.8 3.9 6 3.9 9.5s-1.3 6.7-3.9 9.5c-2.6-2.8-3.9-6-3.9-9.5s1.3-6.7 3.9-9.5z"/></svg><span id="langname">English</span></button>
     <div class="langmenu" id="langmenu" hidden>
       <button data-lang="en"><span>English</span></button>
+      <button data-lang="fr"><span lang="fr">Français</span><small>French</small></button>
+      <button data-lang="he"><span lang="he" dir="rtl">עברית</span><small>Hebrew</small></button>
       <button data-lang="hi"><span lang="hi">हिन्दी</span><small>Hindi</small></button>
       <button data-lang="es"><span lang="es">Español</span><small>Spanish</small></button>
-      <button data-lang="fr"><span lang="fr">Français</span><small>French</small></button>
-      <button data-lang="he"><span lang="he" dir="rtl">עברית</span><small>Hebrew · FalkorDB is from Tel Aviv</small></button>
+      <button data-lang="ur"><span lang="ur" dir="rtl">اردو</span><small>Urdu</small></button>
       <div class="more"><span id="moretitle">More languages</span><small id="moresub">translated on your device by Chrome</small>
         <select id="langmore" aria-label="More languages"><option value="">…</option></select><div class="hint" id="langhint"></div></div>
     </div></div>
+  <button class="pill sm" id="themebtn" aria-label="Dark or light theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></button>
   <a class="pill sm gh" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">GitHub</a>
 </div></div>
 
@@ -216,14 +290,15 @@ html[lang=hi] article p, html[lang=hi] article li, html[lang=mr] article p { lin
   <header class="hero col">
     <div data-i18n="k2" class="kicker">FalkorDB Graph Hacks · Agent Memory and Coordination</div>
     <h1 data-i18n="k3">Teaching <span style="white-space:nowrap">on-call</span> agents to remember.</h1>
-    <p data-i18n="k4" class="dek">We built a team of incident agents that keep their memory on the service graph, check every memory against live evidence before trusting it, and carry on when one of them is killed mid-investigation. Here is how it works, what we measured, and what FalkorDB taught us along the way.</p>
-    <div class="byline"><span class="avs"><span>SR</span><span>AA</span></span><span data-i18n="k5">By <b>sri ram</b> and <b>Aditi Akansha</b> · team Blastproof · Oct 18, 2026 · 12 min read</span></div>
+    <p data-i18n="k4" class="dek">One night, one outage, one agent killed halfway through. This is the story of a team of incident agents that keep their memory on the service graph, check every memory against live evidence before trusting it, and carry on when one of them dies. Then, the morning after: what we measured and what FalkorDB taught us.</p>
+    <div class="byline"><span class="avs"><span>SR</span><span>AA</span></span><span data-i18n="k5">By <b>sri ram</b> and <b>Aditi Akansha</b> · team Blastproof · Oct 18, 2026</span></div>
     <div class="tags"><span class="chip">FalkorDB</span><span class="chip">Cypher</span><span class="chip">agent memory</span><span class="chip">multi-agent coordination</span><span class="chip">Claude Haiku 5.5</span></div>
-    <div class="btns"><a data-i18n="k6" class="pill dark" href="#demo">Watch the demo ▶</a><a data-i18n="k7" class="pill" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">Read the code</a><a data-i18n="k8" class="pill" href="#try">Run it locally</a></div>
+    <div class="depth" role="radiogroup" aria-label="Reading depth"><button data-i18n="k6" role="radio" data-depth="quick">Quick read · <span id="min-quick">5</span> min</button><button data-i18n="k7" role="radio" data-depth="full">Full read · <span id="min-full">14</span> min</button></div>
+    <div class="btns"><a data-i18n="k8" class="pill dark" href="#demo">Watch the demo ▶</a><a data-i18n="k9" class="pill" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">Read the code</a><a data-i18n="k10" class="pill" href="#try">Run it locally</a></div>
   </header>
 
   <figure class="wide card demo heroviz" aria-label="Replay of a recorded incident">
-    <div class="dh"><b data-i18n="k9">Service graph</b><span data-i18n="k10" class="m" id="hero-title">· s04 · Payments DB saturates</span><span class="grow"></span><span data-i18n="k11" class="tag-live">replay of a recorded run · same code as the app</span>
+    <div class="dh"><b data-i18n="k11">Service graph</b><span data-i18n="k12" class="m" id="hero-title">· s04 · Payments DB saturates</span><span class="grow"></span><span data-i18n="k13" class="tag-live">replay of a recorded run · same code as the app</span>
       <button class="qbtn" id="hero-play" aria-label="Pause the replay">❚❚</button></div>
     <div class="gbody" id="hero-graph"></div>
     <div class="foot"><div class="capt" id="hero-cap"></div><div class="stages" id="hero-stages"></div></div>
@@ -231,60 +306,50 @@ html[lang=hi] article p, html[lang=hi] article li, html[lang=mr] article p { lin
 
   <div class="col">
     <div class="tldr">
-      <div class="card tile"><b>71%</b><span data-i18n="k12">fewer model calls than agents with no memory, same accuracy</span></div>
-      <div class="card tile"><b>100%</b><span data-i18n="k13">right memory in the top 5, against 55% for text similarity</span></div>
-      <div class="card tile"><b>0</b><span data-i18n="k14">duplicate pages, with an agent killed or leases expiring at random</span></div>
+      <div class="card tile"><b><button class="rc" data-r="calls">71%</button></b><span data-i18n="k14">fewer model calls than agents with no memory, same accuracy</span></div>
+      <div class="card tile"><b><button class="rc" data-r="recall">100%</button></b><span data-i18n="k15">right memory in the top 5, against 55% for text similarity</span></div>
+      <div class="card tile"><b><button class="rc" data-r="dup">0</button></b><span data-i18n="k16">duplicate pages, with an agent killed or leases expiring at random</span></div>
     </div>
+    <p data-i18n="k17" class="rchint">Every number on this page has a receipt: click it to see the result file it comes from and the command that reruns it.</p>
     <div class="card summary"><ul>
-      <li data-i18n="k15"><strong>Memory lives on the graph.</strong> A confirmed fix becomes a playbook pinned to the service that failed.</li>
-      <li data-i18n="k16"><strong>Recall is a walk.</strong> Agents find playbooks by walking the dependency graph from the alerting services.</li>
-      <li data-i18n="k17"><strong>Nothing is trusted unchecked.</strong> Each playbook's checks run against live evidence first; trust moves only on verdicts.</li>
-      <li data-i18n="k18"><strong>A crash is a handover.</strong> Leases, fencing epochs and checkpoints in the graph let a second agent continue at the next step.</li>
+      <li data-i18n="k18"><strong>Memory lives on the graph.</strong> A confirmed fix becomes a <dfn data-g="playbook">playbook</dfn> pinned to the service that failed.</li>
+      <li data-i18n="k19"><strong>Recall is a walk.</strong> Agents find playbooks by walking the dependency graph from the alerting services.</li>
+      <li data-i18n="k20"><strong>Nothing is trusted unchecked.</strong> Each playbook's checks run against live evidence first; trust moves only on verdicts.</li>
+      <li data-i18n="k21"><strong>A crash is a handover.</strong> <dfn data-g="lease">Leases</dfn>, <dfn data-g="epoch">fencing epochs</dfn> and <dfn data-g="checkpoint">checkpoints</dfn> in the graph let a second agent continue at the next step.</li>
     </ul></div>
   </div>
 
-  <section class="s col" id="problem">
-    <span data-i18n="k19" class="eyebrow">01 · The problem</span>
-    <h2 data-i18n="k20">The 3 a.m. problem, now with agents.</h2>
-    <p data-i18n="k21">When production breaks at 3 a.m., the on-call engineer usually starts from zero. Somebody fixed something very similar last month, and it is written down in a postmortem that nobody will find in time. We wanted agents that help with incidents, and quickly found that they have the same problem, plus two of their own.</p>
-    <ul>
-      <li data-i18n="k22"><strong>They start from scratch.</strong> Every incident is a fresh investigation, every tool call paid for again.</li>
-      <li data-i18n="k23"><strong>They trust old memory blindly.</strong> Give an agent notes from past incidents and it will happily follow a note that does not apply.</li>
-      <li data-i18n="k24"><strong>They crash.</strong> An agent dies mid-investigation and either the work is lost, or a second agent redoes it and the engineer gets paged twice.</li>
-    </ul>
-    <blockquote data-i18n="k25">The fix from last month is in a postmortem nobody reads. We wanted it to be the first thing the next agent checks.</blockquote>
-  </section>
-
-  <section class="s col" id="graph">
-    <span data-i18n="k26" class="eyebrow">02 · Why a graph</span>
-    <h2 data-i18n="k27">The wording changes. The system doesn't.</h2>
-    <p data-i18n="k28">Our first instinct was a vector store of past incidents. The trouble is that two outages with the same cause are often described differently. When the orders database saturated last week the alerts said “p95 latency above SLO” on the cart service. When the payments database saturates today, they say “slow responses breaching SLO” on the payments gateway. Text similarity sees two unrelated incidents.</p>
-    <p data-i18n="k29">The dependency graph sees the same thing twice: an alerting service, one hop upstream of a <code>postgres</code> datastore that is out of connections. So we pin each playbook to the node where it was learned, and recall by walking the graph. Try it on the same alert:</p>
-  </section>
-  <figure class="wide card demo" id="vsdemo">
-    <div class="dh"><b data-i18n="k30">Same alert, two ways to recall</b><span class="grow"></span><span class="seg2" role="tablist"><button data-i18n="k31" class="on" data-mode="text" role="tab">Text similarity</button><button data-i18n="k32" data-mode="graph" role="tab">Graph walk</button></span></div>
-    <div class="db"><div class="vs">
-      <div><div class="alertbox">payments-gw: slow responses breaching SLO</div>
-        <div class="notes" id="vsnotes"></div></div>
-      <div class="mini" id="vsmini"></div>
-    </div><div class="verdict" id="vsverdict"></div></div>
-  </figure>
-  <div class="col"><p data-i18n="k33" style="font-size:14px;color:var(--t3);margin-top:12px">An illustration of the idea, with four notes. The measured numbers over 20 incidents are in <a class="ln" href="#results">Results</a>: text similarity found the right memory 55% of the time, the graph walk 100%.</p></div>
-
   <section class="s col" id="demo">
-    <span data-i18n="k34" class="eyebrow">03 · Watch it run</span>
-    <h2 data-i18n="k35">Three minutes, start to finish.</h2>
-    <p data-i18n="k36">The video walks through the whole loop on a synthetic company of nine services and six datastores: a first incident with nothing in memory, a full database restart, a related outage where we kill the investigator mid-task, and an outage with the same symptoms but a different cause.</p>
+    <span data-i18n="k22" class="eyebrow">Watch it run</span>
+    <h2 data-i18n="k23">The whole night in three minutes.</h2>
+    <div class="beat"><span data-i18n="k24" class="tl">In short</span><span data-i18n="k25">The video runs the loop live: a first incident with nothing in memory, a database restart, a related outage where we kill the investigator, and an outage that only looks the same.</span></div>
+    <p data-i18n="k26">Everything in it is the running system on a synthetic company of nine services and six datastores. Below, we slow the same run down to human speed.</p>
   </section>
   <figure class="wide">
-    <a class="vid" id="vid" href="#demo" aria-label="Demo video (link added after upload)"><img data-i18n-alt="a157" src="media/landing.jpg" alt="The Blast Radius landing page">
-      <span class="play"><span><i>▶</i><b data-i18n="k37">Demo video</b><span data-i18n="k38" id="vidnote">Uploading soon · meanwhile, the clips below are recorded from the running system</span></span></span></a>
+    <a class="vid" id="vid" href="#demo" aria-label="Demo video (link added after upload)"><img data-i18n-alt="a211" src="media/landing.jpg" alt="The Blast Radius landing page">
+      <span class="play"><span><i>▶</i><b data-i18n="k27">Demo video</b><span data-i18n="k28" id="vidnote">Uploading soon · meanwhile, the clips below are recorded from the running system</span></span></span></a>
   </figure>
 
-  <section class="s col" id="built">
-    <span data-i18n="k39" class="eyebrow">04 · What we built</span>
-    <h2 data-i18n="k40">Four agents, one graph, nothing else shared.</h2>
-    <p data-i18n="k41">Blast Radius is four kinds of agent that never talk to each other directly. Everything they know and everything they hand over is a node or an edge in one FalkorDB graph per company.</p>
+  <div class="part col" id="night"><span data-i18n="k29">Part 1</span><h2 data-i18n="k30">The night</h2><p data-i18n="k31">What follows is the recorded demo run (scenario s04), told second by second. The clock times are ours; the order of events, the checks, the kill and the numbers are exactly what the agents did. On a wide screen, the graph on the right follows you down the page.</p></div>
+
+  <section class="s col" id="problem" data-clock="03:07:00" data-at="queued">
+    <span data-i18n="k32" class="eyebrow"><time>03:07:00</time> The page</span>
+    <h2 data-i18n="k33">The payments database runs out of connections.</h2>
+    <div class="beat"><span data-i18n="k34" class="tl">In one line</span><span data-i18n="k35">Alerts fire on the payments gateway. Last week the team fixed the same failure on a different database, and wrote it down where nobody will look.</span></div>
+    <p data-i18n="k36">When production breaks at 3 a.m., the on-call engineer usually starts from zero. Somebody fixed something very similar last month, and it is written down in a postmortem that nobody will find in time. We wanted agents that help with incidents, and quickly found that they have the same problem, plus two of their own.</p>
+    <ul>
+      <li data-i18n="k37"><strong>They start from scratch.</strong> Every incident is a fresh investigation, every tool call paid for again.</li>
+      <li data-i18n="k38"><strong>They trust old memory blindly.</strong> Give an agent notes from past incidents and it will happily follow a note that does not apply.</li>
+      <li data-i18n="k39"><strong>They crash.</strong> An agent dies mid-investigation and either the work is lost, or a second agent redoes it and the engineer gets paged twice.</li>
+    </ul>
+    <blockquote data-i18n="k40">The fix from last month is in a postmortem nobody reads. We wanted it to be the first thing the next agent checks.</blockquote>
+  </section>
+
+  <section class="s col" id="built" data-clock="03:07:00" data-at="queued">
+    <span data-i18n="k41" class="eyebrow"><time>03:07:00</time> Four agents wake up</span>
+    <h2 data-i18n="k42">Four agents, one graph, nothing else shared.</h2>
+    <div class="beat"><span data-i18n="k43" class="tl">In one line</span><span data-i18n="k44">Triage turns the alerts into an incident and a task; nobody talks to anybody directly, everything goes through the graph.</span></div>
+    <p data-i18n="k45">Blast Radius is four kinds of agent that never talk to each other directly. Everything they know and everything they hand over is a node or an edge in one FalkorDB graph per company.</p>
   </section>
   <figure class="wide card demo"><div class="db"><svg viewBox="0 0 1000 380" role="img" aria-label="Architecture: triage, investigators, responder and learner around one FalkorDB graph" style="width:100%;height:auto;display:block">
     <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#111"/></marker></defs>
@@ -304,199 +369,238 @@ html[lang=hi] article p, html[lang=hi] article li, html[lang=mr] article p { lin
     <g style="font:400 11.5px 'JetBrains Mono',monospace;fill:#9A9893"><text x="262" y="112">investigate task</text><text x="200" y="250">claim · checkpoint</text><text x="676" y="110">respond task</text><text x="676" y="312">learn task</text></g>
   </svg></div></figure>
   <div class="col">
-    <p data-i18n="k42">The loop runs in this order, every time:</p>
+    <p data-i18n="k46">The loop runs in this order, every time:</p>
     <ol>
-      <li data-i18n="k43"><strong>Triage</strong> turns alerts into an <code>Incident</code> and an <code>investigate</code> task.</li>
-      <li data-i18n="k44">An <strong>investigator</strong> claims the task, recalls playbooks near the alerting services, and checks each one against live evidence without calling the model. If one holds, that is the diagnosis. If none does, it investigates step by step with Claude Haiku 5.5, behind a rule-based guard rail. Every tool call is checkpointed to the graph before the next one starts.</li>
-      <li data-i18n="k45">The <strong>responder</strong> finds who owns the failing node and who is on call at that moment, notifies them the way they asked, and asks them to confirm in the war room.</li>
-      <li data-i18n="k46">The <strong>learner</strong> records what each memory did (helped, misled, or not applicable), updates trust, and turns a new confirmed investigation into a playbook.</li>
+      <li data-i18n="k47"><strong>Triage</strong> turns alerts into an <code>Incident</code> and an <code>investigate</code> task.</li>
+      <li data-i18n="k48">An <strong>investigator</strong> claims the task, recalls playbooks near the alerting services, and checks each one against live evidence without calling the model. If one holds, that is the diagnosis. If none does, it investigates step by step with Claude Haiku 5.5, behind a rule-based guard rail. Every tool call is checkpointed to the graph before the next one starts.</li>
+      <li data-i18n="k49">The <strong>responder</strong> finds who owns the failing node and who is on call at that moment, notifies them the way they asked, and asks them to confirm in the war room.</li>
+      <li data-i18n="k50">The <strong>learner</strong> records what each memory did (helped, misled, or not applicable), updates trust, and turns a new confirmed investigation into a playbook.</li>
     </ol>
   </div>
 
-  <section class="s col" id="recall">
-    <span data-i18n="k47" class="eyebrow">05 · Recall and check</span>
-    <h2 data-i18n="k48">Recall by walking. Trust only what checks out.</h2>
-    <p data-i18n="k49">Recall is one Cypher query. It walks one or two hops <em>downstream</em> from each alerting service (a service fails because something it depends on failed) and returns the playbooks pinned there, with the path it took. A second query finds playbooks learned on another datastore of the same kind, at half weight. That is how a playbook learned on <code>postgres-orders</code> gets recalled for <code>postgres-payments</code>.</p>
+  <section class="s col" id="graph" data-clock="03:07:01" data-at="recall">
+    <span data-i18n="k51" class="eyebrow"><time>03:07:01</time> Which memory?</span>
+    <h2 data-i18n="k52">The wording is new. The shape of the failure isn't.</h2>
+    <div class="beat"><span data-i18n="k53" class="tl">In one line</span><span data-i18n="k54">Text search misses last week's fix because the alerts use different words; the dependency graph finds it one hop away.</span></div>
+    <p data-i18n="k55">Our first instinct was a vector store of past incidents. The trouble is that two outages with the same cause are often described differently. When the orders database saturated last week the alerts said “p95 latency above SLO” on the cart service. Tonight, on the payments gateway, they say “slow responses breaching SLO”. Text similarity sees two unrelated incidents.</p>
+    <p data-i18n="k56">The dependency graph sees the same thing twice: an alerting service, one hop upstream of a <code>postgres</code> datastore that is out of connections. So we pin each playbook to the node where it was learned, and recall by walking the graph. Try it on tonight's alert:</p>
   </section>
-  <figure class="wide codecard"><div class="ch2"><b>Recall playbooks</b><span>memory/queries/recall.cypher</span></div><pre id="code-recall"></pre></figure>
+  <figure class="wide card demo" id="vsdemo">
+    <div class="dh"><b data-i18n="k57">Same alert, two ways to recall</b><span class="grow"></span><span class="seg2" role="tablist"><button data-i18n="k58" class="on" data-mode="text" role="tab">Text similarity</button><button data-i18n="k59" data-mode="graph" role="tab">Graph walk</button></span></div>
+    <div class="db"><div class="vs">
+      <div><div class="alertbox">payments-gw: slow responses breaching SLO</div>
+        <div class="notes" id="vsnotes"></div></div>
+      <div class="mini" id="vsmini"></div>
+    </div><div class="verdict" id="vsverdict"></div></div>
+  </figure>
+  <div class="col"><p data-i18n="k60" class="note">An illustration of the idea, with four notes. The measured numbers over 20 incidents are in <a class="ln" href="#results">Results</a>: text similarity found the right memory 55% of the time, the graph walk 100%.</p></div>
+
+  <section class="s col" id="recall" data-clock="03:07:02" data-at="check">
+    <span data-i18n="k61" class="eyebrow"><time>03:07:02</time> Recall, then check</span>
+    <h2 data-i18n="k62">Recalled is not trusted.</h2>
+    <div class="beat"><span data-i18n="k63" class="tl">In one line</span><span data-i18n="k64">The investigator finds last week's playbook by walking the graph, then tests its three conditions against live evidence before believing it.</span></div>
+    <p data-i18n="k65">Recall is one Cypher query. It walks one or two hops <em>downstream</em> from each alerting service (a service fails because something it depends on failed) and returns the playbooks pinned there, with the path it took. A second query finds playbooks learned on another datastore of the same kind, at half weight. That is how a playbook learned on <code>postgres-orders</code> gets recalled for <code>postgres-payments</code>.</p>
+  </section>
+  <figure class="wide codecard deep"><div class="ch2"><b>Recall playbooks</b><span>memory/queries/recall.cypher</span></div><pre id="code-recall"></pre></figure>
   <div class="col">
-    <p data-i18n="k50">Recalled is not trusted. Each playbook carries checks: what must be ruled out first, and what we expect to observe. For the database playbook that means three questions, answered by real tool calls: was there a deploy on the alerting service in the last two hours, does the caller see the datastore as unhealthy, and is the datastore using at least 90% of its connections. The investigator stops at the first check that fails.</p>
+    <p data-i18n="k66">Each playbook carries checks: what must be ruled out first, and what we expect to observe. For the database playbook that means three questions, answered by real tool calls: was there a deploy on the alerting service in the last two hours, does the caller see the datastore as unhealthy, and is the datastore using at least 90% of its connections. The investigator stops at the first check that fails. Tonight, the first check holds.</p>
   </div>
   <figure class="wide car" data-car>
     <div class="track">
-      <div class="slide shot"><img data-i18n-alt="a158" src="media/s04_checking.jpg" alt="Checking the playbook: one of three checks passed" loading="lazy"></div>
-      <div class="slide shot"><img data-i18n-alt="a159" src="media/s04_killed.jpg" alt="The investigator was killed; its lease is draining" loading="lazy"></div>
-      <div class="slide shot"><img data-i18n-alt="a160" src="media/s04_takeover.jpg" alt="The other investigator took over at step 4" loading="lazy"></div>
-      <div class="slide shot"><img data-i18n-alt="a161" src="media/s04_done.jpg" alt="The playbook helped; trust 0.50 to 0.67" loading="lazy"></div>
+      <div class="slide shot"><img data-i18n-alt="a212" src="media/s04_checking.jpg" alt="Checking the playbook: one of three checks passed" loading="lazy"></div>
+      <div class="slide shot"><img data-i18n-alt="a213" src="media/s04_killed.jpg" alt="The investigator was killed; its lease is draining" loading="lazy"></div>
+      <div class="slide shot"><img data-i18n-alt="a214" src="media/s04_takeover.jpg" alt="The other investigator took over at step 4" loading="lazy"></div>
+      <div class="slide shot"><img data-i18n-alt="a215" src="media/s04_done.jpg" alt="The playbook helped; trust 0.50 to 0.67" loading="lazy"></div>
     </div>
     <div class="ctl"><button class="arrow" data-prev aria-label="Previous">←</button><button class="arrow" data-next aria-label="Next">→</button><span class="dots"></span><span class="cap"></span></div>
-    <template data-i18n="k51"><b>Recalled, checking.</b> The orders playbook is recalled for payments: one hop, same kind of datastore. The first check holds.
+    <template data-i18n="k67"><b>Recalled, checking.</b> The orders playbook is recalled for payments: one hop, same kind of datastore. The first check holds.
 |<b>Killed mid-task.</b> We sent a real SIGKILL to the investigator after step 3. Its lease drains; nobody else can claim the task yet.
 |<b>Taken over at step 4.</b> The other investigator claims the task under a new fencing epoch and continues from the last checkpoint.
 |<b>Helped.</b> All three checks held, one ticket went to Priya, and the playbook's trust went from 0.50 to 0.67.</template>
   </figure>
 
-  <section class="s col" id="ruled">
-    <span data-i18n="k52" class="eyebrow">06 · Memory that doesn't fit</span>
-    <h2 data-i18n="k53">Same symptoms, different cause.</h2>
-    <p data-i18n="k54">The interesting case is when memory is wrong. In the last scenario the checkout errors look just like the database outage, and the database playbook is recalled again. Its first check asks whether <code>checkout-api</code> was deployed recently. It was. The playbook is ruled out on that evidence, its trust is left alone because it never steered anything, and the agent finds the bad deploy instead.</p>
+  <section class="s col" id="kill" data-clock="03:07:04" data-at="dead">
+    <span data-i18n="k68" class="eyebrow"><time>03:07:04</time> An agent dies</span>
+    <h2 data-i18n="k69">A crash is just a handover.</h2>
+    <div class="beat"><span data-i18n="k70" class="tl">In one line</span><span data-i18n="k71">We SIGKILL the investigator after step 3; six seconds later its lease runs out and the other investigator carries on at step 4, not from scratch.</span></div>
+    <p data-i18n="k72">Agents coordinate only through tasks in the graph. Three rules make that safe:</p>
+    <ul>
+      <li data-i18n="k73"><strong>Fence every write.</strong> A claim starts a new <dfn data-g="epoch">epoch</dfn> and a <dfn data-g="lease">lease</dfn> measured on FalkorDB's clock, not the worker's. Every later write checks status, owner, epoch and <code>lease_until &gt;= timestamp()</code>. A worker that lost its lease is refused and stops.</li>
+      <li data-i18n="k74"><strong>Checkpoint synchronously.</strong> Each tool call is written before the next one starts, so a replacement continues at step n + 1.</li>
+      <li data-i18n="k75"><strong>Key every action by intent.</strong> <code>incident:&lt;id&gt;:initial-notification</code> can be sent once, whoever sends it.</li>
+    </ul>
+    <p data-i18n="k76">Kill the working agent and watch:</p>
   </section>
-  <figure class="wide"><div class="shot"><video poster="media/ruled-poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Recording: the recalled playbook is ruled out"><source src="media/ruled.mp4" type="video/mp4"><source src="media/ruled.webm" type="video/webm"></video></div>
-    <figcaption data-i18n="k55"><b>Recorded from the running system.</b> The checking card on the graph: <em>No deploy on checkout-api in the last 2 h</em> ✕ observed 1 deploy. Not applicable, trust unchanged.</figcaption></figure>
+  <figure class="wide card demo lease"><div class="dh"><b data-i18n="k77">Two investigators, one task</b><span data-i18n="k78" class="m">lease 6 s, sped up here</span><span class="grow"></span><span data-i18n="k79" class="tag-live">interactive</span></div>
+    <div class="db"><div class="workers" id="wks"></div><div class="steps5" id="st5"></div><div class="log" id="llog" aria-live="polite"></div>
+      <div class="mbtns"><button data-i18n="k80" class="pill sm danger" id="killbtn">Kill inv-1 (SIGKILL)</button><button data-i18n="k81" class="pill sm" id="leasereset">Restart</button></div></div></figure>
+  <figure class="wide"><div class="shot"><video poster="media/takeover-poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Recording: an investigator is killed and the other takes over"><source src="media/takeover.mp4" type="video/mp4"><source src="media/takeover.webm" type="video/webm"></video></div>
+    <figcaption data-i18n="k82"><b>The real thing, recorded.</b> The investigator is killed after step 3 with a real SIGKILL; its lease drains; the other claims the task at epoch e2 and resumes at step 4; one ticket goes out; trust counts up from 0.50 to 0.67.</figcaption>
+    <details class="tv"><summary data-i18n="k83">Text version of the clip</summary><ol><li data-i18n="k84">The payments playbook is recalled and its checks start ticking.</li><li data-i18n="k85">After step 3 the working investigator receives a real SIGKILL; its card shows the lease draining.</li><li data-i18n="k86">Six seconds later the lease expires and the other investigator claims the task under epoch e2.</li><li data-i18n="k87">It resumes at step 4 from the stored checkpoints, not from scratch.</li><li data-i18n="k88">One ticket goes to Priya, and the playbook's trust counts up from 0.50 to 0.67.</li></ol></details></figure>
+  <figure class="wide codecard deep"><div class="ch2"><b>Claim a task</b><span>coord/queries/claim.cypher</span></div><pre id="code-claim"></pre></figure>
 
-  <section class="s col" id="trust">
-    <span data-i18n="k56" class="eyebrow">07 · Trust that learns</span>
-    <h2 data-i18n="k57">Trust is earned per playbook, and lost the same way.</h2>
-    <p data-i18n="k58">Each time a playbook is used, the learner gives it one verdict. <strong>Helped</strong> means it was followed and the diagnosis was confirmed. <strong>Misled</strong> means it was followed and the engineer rejected the diagnosis. <strong>Not applicable</strong> means a check failed, so it never steered the investigation, and nothing changes. A playbook that misleads twice with trust under 0.5 retires and is never recalled again. Play with it:</p>
-  </section>
-  <figure class="wide card demo"><div class="dh"><b data-i18n="k59">One playbook's trust</b><span data-i18n="k60" class="m">agent-written, prior 1 / 1</span><span class="grow"></span><span data-i18n="k61" class="tag-live">interactive</span></div>
-    <div class="db"><div class="meter">
-      <div class="dial"><svg width="180" height="180"><circle class="tr" cx="90" cy="90" r="76"/><circle class="fg" id="dialfg" cx="90" cy="90" r="76"/></svg><div class="v"><div><b id="trustv">0.50</b><span id="trusthm">helped 0 · misled 0</span></div></div></div>
-      <div><span class="formula" id="formula">trust = (0 + 1) / (0 + 0 + 2) = 0.50</span>
-        <div class="mbtns"><button data-i18n="k62" class="pill sm" data-v="h">✓ Helped</button><button data-i18n="k63" class="pill sm" data-v="m">✕ Misled</button><button data-i18n="k64" class="pill sm" data-v="n">Not applicable</button><button data-i18n="k65" class="pill sm" data-v="r">Reset</button></div>
-        <div class="hist" id="hist"></div><div class="retired" id="retired">Active. Recalled when the graph walk reaches it.</div></div>
-    </div></div></figure>
-  <div class="col">
-    <p data-i18n="k66">This is also where FalkorDB taught us our most surprising lesson. Our first version of the update did all three steps in one query with back-to-back <code>SET</code> clauses. Trust always lagged one verdict behind, so a misleading playbook was never retired. The fix is a <code>WITH</code> between the clauses:</p>
-  </div>
-  <figure class="wide codecard"><div class="ch2"><b>Apply a verdict, update trust, maybe retire</b><span>memory/queries/feedback.cypher</span></div><pre id="code-feedback"></pre></figure>
-
-  <section class="s col" id="facts">
-    <span data-i18n="k67" class="eyebrow">08 · Facts that change</span>
-    <h2 data-i18n="k68">What the engineer says becomes memory, after a read-back.</h2>
-    <p data-i18n="k69">Priya, on call for the data platform, confirms the first diagnosis and adds: <em>“For DB saturation, don't ping me on Slack. Open a ticket and paste the raw slow-query lines.”</em> The agent turns that into two conditional facts, reads them back, and saves them only after she says yes. The approved version supersedes the agent's reading; both stay in the graph. Next time the database saturates, she gets a ticket with raw lines, and the ticket says why.</p>
+  <section class="s col" id="facts" data-clock="03:07:12" data-at="action">
+    <span data-i18n="k89" class="eyebrow"><time>03:07:12</time> One ticket, the way Priya asked</span>
+    <h2 data-i18n="k90">What the engineer said last week is memory tonight.</h2>
+    <div class="beat"><span data-i18n="k91" class="tl">In one line</span><span data-i18n="k92">Exactly one ticket goes to Priya, with the raw slow-query lines, because that is what she asked for after the last database incident.</span></div>
+    <p data-i18n="k93">Last week, Priya, on call for the data platform, confirmed the first diagnosis and added: <em>“For DB saturation, don't ping me on Slack. Open a ticket and paste the raw slow-query lines.”</em> The agent turned that into two conditional facts, read them back, and saved them only after she said yes. The approved version <dfn data-g="supersede">supersedes</dfn> the agent's reading; both stay in the graph. Tonight she gets a ticket with raw lines, and the ticket says why.</p>
   </section>
   <figure class="wide car" data-car>
     <div class="track">
-      <div class="slide shot"><img data-i18n-alt="a162" src="media/review.jpg" alt="The war room asks Priya to confirm" loading="lazy"></div>
-      <div class="slide shot"><img data-i18n-alt="a163" src="media/readback.jpg" alt="The agent reads back what it understood" loading="lazy"></div>
-      <div class="slide shot"><img data-i18n-alt="a164" src="media/memory.jpg" alt="Engineer preferences as versioned facts" loading="lazy"></div>
-      <div class="slide shot"><img data-i18n-alt="a165" src="media/s04_ticket.jpg" alt="The next ticket cites her request" loading="lazy"></div>
+      <div class="slide shot"><img data-i18n-alt="a216" src="media/review.jpg" alt="The war room asks Priya to confirm" loading="lazy"></div>
+      <div class="slide shot"><img data-i18n-alt="a217" src="media/readback.jpg" alt="The agent reads back what it understood" loading="lazy"></div>
+      <div class="slide shot"><img data-i18n-alt="a218" src="media/memory.jpg" alt="Engineer preferences as versioned facts" loading="lazy"></div>
+      <div class="slide shot"><img data-i18n-alt="a219" src="media/s04_ticket.jpg" alt="The next ticket cites her request" loading="lazy"></div>
     </div>
     <div class="ctl"><button class="arrow" data-prev aria-label="Previous">←</button><button class="arrow" data-next aria-label="Next">→</button><span class="dots"></span><span class="cap"></span></div>
-    <template data-i18n="k70"><b>Confirm diagnosis?</b> The responder asks before it names a database root cause. Priya confirms and says how she wants these handled.
+    <template data-i18n="k94"><b>Confirm diagnosis?</b> The responder asks before it names a database root cause. Priya confirms and says how she wants these handled.
 |<b>Read-back.</b> “Saved: for DB saturation, notify you by ticket; include raw log lines. Correct?” Nothing becomes a preference without a yes.
 |<b>Versioned facts.</b> The approved version supersedes the agent's reading. Facts are never edited, only superseded.
 |<b>Applied, with a citation.</b> The next database incident sends exactly one ticket, citing the message in incident s01.</template>
   </figure>
 
-  <section class="s col" id="kill">
-    <span data-i18n="k71" class="eyebrow">09 · Kill an agent</span>
-    <h2 data-i18n="k72">A crash is just a handover.</h2>
-    <p data-i18n="k73">Agents coordinate only through tasks in the graph. Three rules make that safe:</p>
-    <ul>
-      <li data-i18n="k74"><strong>Fence every write.</strong> A claim starts a new epoch and a lease measured on FalkorDB's clock, not the worker's. Every later write checks status, owner, epoch and <code>lease_until &gt;= timestamp()</code>. A worker that lost its lease is refused and stops.</li>
-      <li data-i18n="k75"><strong>Checkpoint synchronously.</strong> Each tool call is written before the next one starts, so a replacement continues at step n + 1.</li>
-      <li data-i18n="k76"><strong>Key every action by intent.</strong> <code>incident:&lt;id&gt;:initial-notification</code> can be sent once, whoever sends it.</li>
-    </ul>
-    <p data-i18n="k77">Kill the working agent and watch:</p>
+  <section class="s col" id="trust" data-clock="03:11:00" data-at="learned">
+    <span data-i18n="k95" class="eyebrow"><time>03:11:00</time> Priya confirms</span>
+    <h2 data-i18n="k96">Trust is earned per playbook, and lost the same way.</h2>
+    <div class="beat"><span data-i18n="k97" class="tl">In one line</span><span data-i18n="k98">Priya confirms the diagnosis, so the playbook helped: its trust goes from 0.50 to 0.67.</span></div>
+    <p data-i18n="k99">Each time a playbook is used, the learner gives it one verdict. <strong>Helped</strong> means it was followed and the diagnosis was confirmed. <strong>Misled</strong> means it was followed and the engineer rejected the diagnosis. <strong>Not applicable</strong> means a check failed, so it never steered the investigation, and nothing changes. A playbook that misleads twice with trust under 0.5 retires and is never recalled again. Play with it:</p>
   </section>
-  <figure class="wide card demo lease"><div class="dh"><b data-i18n="k78">Two investigators, one task</b><span data-i18n="k79" class="m">lease 6 s, sped up here</span><span class="grow"></span><span data-i18n="k80" class="tag-live">interactive</span></div>
-    <div class="db"><div class="workers" id="wks"></div><div class="steps5" id="st5"></div><div class="log" id="llog" aria-live="polite"></div>
-      <div class="mbtns"><button data-i18n="k81" class="pill sm danger" id="killbtn">Kill inv-1 (SIGKILL)</button><button data-i18n="k82" class="pill sm" id="leasereset">Restart</button></div></div></figure>
-  <figure class="wide"><div class="shot"><video poster="media/takeover-poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Recording: an investigator is killed and the other takes over"><source src="media/takeover.mp4" type="video/mp4"><source src="media/takeover.webm" type="video/webm"></video></div>
-    <figcaption data-i18n="k83"><b>The real thing, recorded.</b> The investigator is killed after step 3 with a real SIGKILL; its lease drains; the other claims the task at epoch e2 and resumes at step 4; one ticket goes out; trust counts up from 0.50 to 0.67.</figcaption></figure>
-  <figure class="wide codecard"><div class="ch2"><b>Claim a task</b><span>coord/queries/claim.cypher</span></div><pre id="code-claim"></pre></figure>
+  <figure class="wide card demo"><div class="dh"><b data-i18n="k100">One playbook's trust</b><span data-i18n="k101" class="m">agent-written, prior 1 / 1</span><span class="grow"></span><span data-i18n="k102" class="tag-live">interactive</span></div>
+    <div class="db"><div class="meter">
+      <div class="dial"><svg width="180" height="180"><circle class="tr" cx="90" cy="90" r="76"/><circle class="fg" id="dialfg" cx="90" cy="90" r="76"/></svg><div class="v"><div><b id="trustv">0.50</b><span id="trusthm">helped 0 · misled 0</span></div></div></div>
+      <div><span class="formula" id="formula">trust = (0 + 1) / (0 + 0 + 2) = 0.50</span>
+        <div class="mbtns"><button data-i18n="k103" class="pill sm" data-v="h">✓ Helped</button><button data-i18n="k104" class="pill sm" data-v="m">✕ Misled</button><button data-i18n="k105" class="pill sm" data-v="n">Not applicable</button><button data-i18n="k106" class="pill sm" data-v="r">Reset</button></div>
+        <div class="hist" id="hist"></div><div class="retired" id="retired">Active. Recalled when the graph walk reaches it.</div></div>
+    </div></div></figure>
+  <div class="col">
+    <p data-i18n="k107">This is also where FalkorDB taught us our most surprising lesson. Our first version of the update did all three steps in one query with back-to-back <code>SET</code> clauses. Trust always lagged one verdict behind, so a misleading playbook was never retired. The fix is a <code>WITH</code> between the clauses:</p>
+  </div>
+  <figure class="wide codecard deep"><div class="ch2"><b>Apply a verdict, update trust, maybe retire</b><span>memory/queries/feedback.cypher</span></div><pre id="code-feedback"></pre></figure>
 
-  <section class="s col" id="restart">
-    <span data-i18n="k84" class="eyebrow">10 · Persistence</span>
-    <h2 data-i18n="k85">Restart the database. Nothing is lost.</h2>
-    <p data-i18n="k86">The memory has to outlive the process that wrote it. We restart FalkorDB in the middle of the demo: the agents log one line and wait, the page dims, and when the database is back every playbook, incident and preference is read back from disk. Our acceptance test does the same with a full <code>docker compose down &amp;&amp; up</code>, then kills a worker mid-investigation for good measure.</p>
+  <section class="s col" id="ruled" data-clock="01:42:00" data-at="ruled">
+    <span data-i18n="k108" class="eyebrow"><time>Two nights later, 01:42</time> Same symptoms</span>
+    <h2 data-i18n="k109">Same symptoms, different cause.</h2>
+    <div class="beat"><span data-i18n="k110" class="tl">In one line</span><span data-i18n="k111">Checkout errors look like the database outage again, but the playbook's first check fails: there was a deploy. Ruled out, trust untouched, bad deploy found.</span></div>
+    <p data-i18n="k112">The interesting case is when memory is wrong. The checkout errors look just like the database outage, and the database playbook is recalled again. Its first check asks whether <code>checkout-api</code> was deployed recently. It was. The playbook is ruled out on that evidence, its trust is left alone because it never steered anything, and the agent finds the bad deploy instead.</p>
+  </section>
+  <figure class="wide"><div class="shot"><video poster="media/ruled-poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Recording: the recalled playbook is ruled out"><source src="media/ruled.mp4" type="video/mp4"><source src="media/ruled.webm" type="video/webm"></video></div>
+    <figcaption data-i18n="k113"><b>Recorded from the running system.</b> The checking card on the graph: <em>No deploy on checkout-api in the last 2 h</em> ✕ observed 1 deploy. Not applicable, trust unchanged.</figcaption>
+    <details class="tv"><summary data-i18n="k114">Text version of the clip</summary><ol><li data-i18n="k115">The checkout services raise alerts that look like last week's database outage.</li><li data-i18n="k116">The database playbook is recalled again and its checking card appears on the graph.</li><li data-i18n="k117">First check, <em>no deploy on checkout-api in the last 2 h</em>: it fails, one deploy was observed.</li><li data-i18n="k118">The playbook is marked not applicable; its trust stays where it was.</li><li data-i18n="k119">The investigation continues and finds the bad deploy on checkout-api.</li></ol></details></figure>
+
+  <section class="s col" id="restart" data-clock="04:00:00" data-at="final">
+    <span data-i18n="k120" class="eyebrow"><time>Sunday, 04:00</time> Maintenance window</span>
+    <h2 data-i18n="k121">Restart the database. Nothing is lost.</h2>
+    <div class="beat"><span data-i18n="k122" class="tl">In one line</span><span data-i18n="k123">FalkorDB goes down and comes back; every playbook, incident and preference is read back from disk.</span></div>
+    <p data-i18n="k124">The memory has to outlive the process that wrote it. We restart FalkorDB in the middle of the demo: the agents log one line and wait, the page dims, and when the database is back everything is still there. Our acceptance test does the same with a full <code>docker compose down &amp;&amp; up</code>, then kills a worker mid-investigation for good measure.</p>
   </section>
   <figure class="wide"><div class="shot"><video poster="media/restart-poster.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Recording: FalkorDB restarts and memory survives"><source src="media/restart.mp4" type="video/mp4"><source src="media/restart.webm" type="video/webm"></video></div>
-    <figcaption data-i18n="k87"><b>Recorded.</b> FalkorDB shuts down and comes back; the toast reports what survived, read from the graph.</figcaption></figure>
+    <figcaption data-i18n="k125"><b>Recorded.</b> FalkorDB shuts down and comes back; the toast reports what survived, read from the graph.</figcaption>
+    <details class="tv"><summary data-i18n="k126">Text version of the clip</summary><ol><li data-i18n="k127">FalkorDB is shut down; the page dims and says it is waiting for the database.</li><li data-i18n="k128">The database comes back and loads its snapshot from disk.</li><li data-i18n="k129">A notice lists what survived: playbooks, incidents and preferences, read from the graph.</li></ol></details></figure>
 
-  <section class="s col" id="results">
-    <span data-i18n="k88" class="eyebrow">11 · Results</span>
-    <h2 data-i18n="k89">Same answers, a third of the work.</h2>
-    <p data-i18n="k90">We replayed 30 synthetic incidents in time order through three setups, each in its own graph, with the same model (Claude Haiku 5.5), the same tools, the same step budget and the same learning. Only how memories are retrieved differs: <strong>no memory</strong>, <strong>text memory</strong> (embedding similarity, FalkorDB's <code>vec.cosineDistance</code>) and <strong>graph memory</strong>.</p>
+  <div class="part col" id="morning"><span data-i18n="k130">Part 2</span><h2 data-i18n="k131">The morning after</h2><p data-i18n="k132">One good night proves little. Here is what we measured over thirty incidents, how the graph is laid out, and what the build taught us.</p></div>
+
+  <section class="s col" id="results" data-at="final">
+    <span data-i18n="k133" class="eyebrow">Results</span>
+    <h2 data-i18n="k134">Same answers, a third of the work.</h2>
+    <div class="beat"><span data-i18n="k135" class="tl">In short</span><span data-i18n="k136">Same model, same tools, only the memory changes: graph memory needs 71% fewer model calls and finds the right memory every time.</span></div>
+    <p data-i18n="k137">We replayed 30 synthetic incidents in time order through three setups, each in its own graph, with the same model (Claude Haiku 5.5), the same tools, the same step budget and the same learning. Only how memories are retrieved differs: <strong>no memory</strong>, <strong>text memory</strong> (embedding similarity, FalkorDB's <code>vec.cosineDistance</code>) and <strong>graph memory</strong>.</p>
   </section>
   <figure class="wide card demo"><div class="db bars3" id="bars"></div></figure>
   <div class="col">
-    <p data-i18n="k91">The model already solves this benchmark from scratch, so memory could not raise accuracy here; what it changes is the work. Graph memory made 71% fewer model requests and needed no model call at all for 20 of 30 incidents. When a memory with the right answer existed, text similarity put it in the top five 55% of the time; the graph walk, every time.</p>
-    <p data-i18n="k92">Checking is not free. Every recalled memory costs tool calls to check, and text memory once ran out of its 12-step budget checking five wrong memories. On new kinds of incident, graph memory takes a couple more steps than no memory, though fewer model calls.</p>
-    <h3 data-i18n="k93">Many agents at once</h3>
-    <p data-i18n="k94">Two companies, every agent in its own claim loop, 20 incidents fired at once on a laptop:</p>
-    <div class="tbl"><table><tr><th data-i18n="k95">Worker pairs</th><th data-i18n="k96">Stalled workers</th><th data-i18n="k97">Incidents / min</th><th data-i18n="k98">Write p50 / p95</th><th data-i18n="k99">Duplicates</th><th data-i18n="k100">Takeovers</th></tr>
+    <p data-i18n="k138">The model already solves this benchmark from scratch, so memory could not raise accuracy here; what it changes is the work. Graph memory made 71% fewer model requests and needed no model call at all for 20 of 30 incidents. When a memory with the right answer existed, text similarity put it in the top five 55% of the time; the graph walk, every time.</p>
+    <p data-i18n="k139">Checking is not free. Every recalled memory costs tool calls to check, and text memory once ran out of its 12-step budget checking five wrong memories. On new kinds of incident, graph memory takes a couple more steps than no memory, though fewer model calls.</p>
+    <div class="deep">
+    <h3 data-i18n="k140">Many agents at once</h3>
+    <p data-i18n="k141">Two companies, every agent in its own claim loop, 20 incidents fired at once on a laptop:</p>
+  <div class="tbl"><table><tr><th data-i18n="k142">Worker pairs</th><th data-i18n="k143">Stalled workers</th><th data-i18n="k144">Incidents / min</th><th data-i18n="k145">Write p50 / p95</th><th data-i18n="k146">Duplicates</th><th data-i18n="k147">Takeovers</th></tr>
       <tr><td>1</td><td style="text-align:left;font-family:var(--sans)">none</td><td>6,633</td><td>0.33 / 1.01 ms</td><td class="win">0</td><td>0</td></tr>
       <tr><td>2</td><td style="text-align:left;font-family:var(--sans)">none</td><td>9,185</td><td>0.63 / 1.82 ms</td><td class="win">0</td><td>0</td></tr>
       <tr><td>4</td><td style="text-align:left;font-family:var(--sans)">none</td><td>9,062</td><td>1.22 / 3.20 ms</td><td class="win">0</td><td>0</td></tr>
       <tr><td>4</td><td style="text-align:left;font-family:var(--sans)">lease expired every 50 ms</td><td>8,712</td><td>0.91 / 2.58 ms</td><td class="win">0</td><td>1</td></tr></table></div>
-    <p data-i18n="k101">Throughput levels off beyond two pairs because FalkorDB runs one graph's writes one at a time and every agent step is a short write. The number we care about is the zero: nothing was ever sent twice.</p>
+    <p data-i18n="k148">Throughput levels off beyond two pairs because FalkorDB runs one graph's writes one at a time and every agent step is a short write. The number we care about is the <button class="rc inl" data-r="dup">zero</button>: nothing was ever sent twice.</p>
+    </div>
   </div>
 
-  <section class="s col" id="model">
-    <span data-i18n="k102" class="eyebrow">12 · The graph</span>
-    <h2 data-i18n="k103">Everything is a node you can query.</h2>
-    <p data-i18n="k104">One graph per company, identical in shape. The world (services, owners, on-call, deploys), incidents and immutable decisions, the coordination state, the conversations, and the memory all live side by side, so “what did the agent believe then, and why?” is a query, not a guess. Hover a node:</p>
+  <section class="s col deep" id="model" data-at="final">
+    <span data-i18n="k149" class="eyebrow">The graph</span>
+    <h2 data-i18n="k150">Everything is a node you can query.</h2>
+    <div class="beat"><span data-i18n="k151" class="tl">In short</span><span data-i18n="k152">World, incidents, coordination, conversations and memory live in one graph per company, so “what did the agent believe, and why?” is a query.</span></div>
+    <p data-i18n="k153">One graph per company, identical in shape. The world (services, owners, on-call, deploys), incidents and immutable decisions, the coordination state, the conversations, and the memory all live side by side, so “what did the agent believe then, and why?” is a query, not a guess. Hover a node:</p>
   </section>
-  <figure class="wide card demo dm"><div class="db"><svg id="dmsvg" viewBox="0 0 1000 470" role="img" aria-label="Graph data model"></svg><div class="dminfo" id="dminfo">Each <code>Decision</code> has a <code>USED</code> edge to every memory it considered, with the path, the trust at use, every check's result, and later the verdict.</div></div></figure>
-  <div class="col"><p data-i18n="k105">All 73 queries are <code>.cypher</code> files, indexed in <a class="ln" href="https://github.com/Genziitian/Blastproof/blob/main/docs/QUERIES.md" target="_blank" rel="noopener">docs/QUERIES.md</a>, and the app shows the Cypher behind every panel. A few rules kept it honest: the graph is chosen from trusted config and never by the model; leases use the database clock while evidence uses scenario time; memory is never edited, only superseded; and ground truth for the benchmark lives outside the graph, with a test that fails if agent code imports it.</p></div>
+  <figure class="wide card demo dm deep"><div class="db"><svg id="dmsvg" viewBox="0 0 1000 470" role="img" aria-label="Graph data model"></svg><div class="dminfo" id="dminfo">Each <code>Decision</code> has a <code>USED</code> edge to every memory it considered, with the path, the trust at use, every check's result, and later the verdict.</div></div></figure>
+  <div class="col deep"><p data-i18n="k154">All 73 queries are <code>.cypher</code> files, indexed in <a class="ln" href="https://github.com/Genziitian/Blastproof/blob/main/docs/QUERIES.md" target="_blank" rel="noopener">docs/QUERIES.md</a>, and the app shows the Cypher behind every panel. A few rules kept it honest: the graph is chosen from trusted config and never by the model; leases use the database clock while evidence uses scenario time; memory is never edited, only superseded; and ground truth for the benchmark lives outside the graph, with a test that fails if agent code imports it.</p></div>
 
-  <section class="s col" id="learned">
-    <span data-i18n="k106" class="eyebrow">13 · What we learned</span>
-    <h2 data-i18n="k107">What FalkorDB, and the build, taught us.</h2>
+  <section class="s col" id="learned" data-at="final">
+    <span data-i18n="k155" class="eyebrow">What we learned</span>
+    <h2 data-i18n="k156">What FalkorDB, and the build, taught us.</h2>
+    <div class="beat"><span data-i18n="k157" class="tl">In short</span><span data-i18n="k158">Test against the real database, choose persistence deliberately, wait for constraints and restarts, give memory a way to be wrong, and never animate a lie.</span></div>
   </section>
   <div class="col lessons">
-    <div class="card lesson"><div data-i18n="k108" class="n">Lesson 1</div><h4 data-i18n="k109">Test doubles lie politely.</h4>
-      <p data-i18n="k110">We wrote every integration test twice: against FalkorDB, and against an in-memory double that checks each call against the real <code>.cypher</code> file. The double was great for speed and caught dozens of contract bugs. It could not catch Cypher semantics. In FalkorDB 4.18, a later <code>SET</code> clause reads the values from before an earlier one:</p>
+    <div class="card lesson"><div data-i18n="k159" class="n">Lesson 1</div><h4 data-i18n="k160">Test doubles lie politely.</h4>
+      <p data-i18n="k161">We wrote every integration test twice: against FalkorDB, and against an in-memory double that checks each call against the real <code>.cypher</code> file. The double was great for speed and caught dozens of contract bugs. It could not catch Cypher semantics. In FalkorDB 4.18, a later <code>SET</code> clause reads the values from before an earlier one:</p>
       <div class="term">GRAPH.QUERY g "MATCH (m:M) SET m.h = m.h + 1 SET m.t = m.h RETURN m.h, m.t"
 <span class="r">-> m.h = 1, m.t = 0</span>
 GRAPH.QUERY g "MATCH (m:M) SET m.h = m.h + 1 WITH m SET m.t = m.h RETURN m.h, m.t"
 <span class="ok">-> m.h = 2, m.t = 2</span></div>
-      <p data-i18n="k111">Only the live run caught it. Now every suite runs on both backends.</p></div>
-    <div class="card lesson"><div data-i18n="k112" class="n">Lesson 2</div><h4 data-i18n="k113">Choose persistence like you choose a lock.</h4>
-      <p data-i18n="k114">After a long day of deleting and re-creating graphs, FalkorDB 4.22.1 refused to start: replaying the append-only file diverged and the server shut itself down on every start.</p>
+      <p data-i18n="k162">Only the live run caught it. Now every suite runs on both backends.</p></div>
+    <div class="card lesson"><div data-i18n="k163" class="n">Lesson 2</div><h4 data-i18n="k164">Choose persistence like you choose a lock.</h4>
+      <p data-i18n="k165">After a long day of deleting and re-creating graphs, FalkorDB 4.22.1 refused to start: replaying the append-only file diverged and the server shut itself down on every start.</p>
       <div class="term"><span class="g"># &lt;module&gt;</span> GRAPH.EFFECT references label/relationship-type 'Memory' (id 0)
            which doesn't match local schema state
 <span class="r"># Diverged applying GRAPH.EFFECT on graph 'company_a' while loading from disk ... shutting down.</span></div>
-      <p data-i18n="k115">We moved to RDB snapshots (every 30 s and on shutdown), wrote down the trade-off, and our restart test passes on 4.22.1. We also noticed each unique-constraint creation is written to the AOF three times. Both are written up with reproductions in the repo.</p></div>
-    <div class="card lesson"><div data-i18n="k116" class="n">Lesson 3</div><h4 data-i18n="k117">Constraints are asynchronous, and restarts take a moment.</h4>
-      <p data-i18n="k118">Unique constraints build in the background (<code>PENDING</code>, then <code>OPERATIONAL</code>), so our schema step polls <code>db.constraints()</code> before any worker starts. Right after a restart every command fails with <code>LOADING</code> until the data is in memory, so the agents and the UI wait for it instead of crashing.</p></div>
-    <div class="card lesson"><div data-i18n="k119" class="n">Lesson 4</div><h4 data-i18n="k120">Memory needs a way to be wrong.</h4>
-      <p data-i18n="k121">The feature we are proudest of is the one that says no. Checks before trust, verdicts per use, retirement after two misleading uses: we tested it by planting a deliberately wrong playbook. It misled twice, retired, and the next incident was diagnosed correctly.</p></div>
-    <div class="card lesson"><div data-i18n="k122" class="n">Lesson 5</div><h4 data-i18n="k123">Never animate a lie.</h4>
-      <p data-i18n="k124">For the demo it was tempting to script a smooth animation. Instead, every animation in the app fires when the event it shows first appears in the graph: a checkpoint, a claim, a sent ticket, a trust change. The replay buttons rebuild any incident from its stored steps. What you see is what the agents did.</p></div>
+      <p data-i18n="k166">We moved to RDB snapshots (every 30 s and on shutdown), wrote down the trade-off, and our restart test passes on 4.22.1. We also noticed each unique-constraint creation is written to the AOF three times. Both are written up with reproductions in the repo.</p></div>
+    <div class="card lesson"><div data-i18n="k167" class="n">Lesson 3</div><h4 data-i18n="k168">Constraints are asynchronous, and restarts take a moment.</h4>
+      <p data-i18n="k169">Unique constraints build in the background (<code>PENDING</code>, then <code>OPERATIONAL</code>), so our schema step polls <code>db.constraints()</code> before any worker starts. Right after a restart every command fails with <code>LOADING</code> until the data is in memory, so the agents and the UI wait for it instead of crashing.</p></div>
+    <div class="card lesson"><div data-i18n="k170" class="n">Lesson 4</div><h4 data-i18n="k171">Memory needs a way to be wrong.</h4>
+      <p data-i18n="k172">The feature we are proudest of is the one that says no. Checks before trust, verdicts per use, retirement after two misleading uses: we tested it by planting a deliberately wrong playbook. It <button class="rc inl" data-r="retired">misled twice, retired</button>, and the next incident was diagnosed correctly.</p></div>
+    <div class="card lesson"><div data-i18n="k173" class="n">Lesson 5</div><h4 data-i18n="k174">Never animate a lie.</h4>
+      <p data-i18n="k175">For the demo it was tempting to script a smooth animation. Instead, every animation in the app fires when the event it shows first appears in the graph: a checkpoint, a claim, a sent ticket, a trust change. The replay buttons rebuild any incident from its stored steps. What you see is what the agents did.</p></div>
   </div>
 
-  <section class="s col" id="limits">
-    <span data-i18n="k125" class="eyebrow">14 · Limits</span>
-    <h2 data-i18n="k126">What this does not show.</h2>
+  <section class="s col" id="limits" data-at="final">
+    <span data-i18n="k176" class="eyebrow">Limits</span>
+    <h2 data-i18n="k177">What this does not show.</h2>
     <ul>
-      <li data-i18n="k127"><strong>A synthetic world.</strong> One company of 15 nodes, three failure families, a seeded simulator. Real incidents are messier.</li>
-      <li data-i18n="k128"><strong>No accuracy gain to show.</strong> The model solves every benchmark incident from scratch; memory's measured benefit is less work. A harder benchmark or a smaller model would test accuracy.</li>
-      <li data-i18n="k129"><strong>A modest text baseline.</strong> Text memory uses a hashed bag of words by default; a neural embedder is supported and would be a stronger opponent.</li>
-      <li data-i18n="k130"><strong>Kind transfer is datastore-only</strong>, and workers are processes, not containers.</li>
+      <li data-i18n="k178"><strong>A synthetic world.</strong> One company of 15 nodes, three failure families, a seeded simulator. Real incidents are messier.</li>
+      <li data-i18n="k179"><strong>No accuracy gain to show.</strong> The model solves every benchmark incident from scratch; memory's measured benefit is less work. A harder benchmark or a smaller model would test accuracy.</li>
+      <li data-i18n="k180"><strong>A modest text baseline.</strong> Text memory uses a hashed bag of words by default; a neural embedder is supported and would be a stronger opponent.</li>
+      <li data-i18n="k181"><strong>Kind transfer is datastore-only</strong>, and workers are processes, not containers.</li>
     </ul>
   </section>
 
-  <section class="s col" id="try">
-    <span data-i18n="k131" class="eyebrow">15 · Try it</span>
-    <h2 data-i18n="k132">Run it on your laptop.</h2>
-    <p data-i18n="k133">You need Docker and Python 3.10+. The landing page opens at <code>localhost:8000</code>; click <strong>Enter mission control</strong>, open Director, and break something.</p>
-    <div class="copy"><div class="term" id="cmds">git clone https://github.com/Genziitian/Blastproof && cd Blastproof
+  <section class="s col" id="try" data-at="final">
+    <span data-i18n="k182" class="eyebrow">Try it</span>
+    <h2 data-i18n="k183">Run it on your laptop.</h2>
+    <p data-i18n="k184">You need Docker and Python 3.10+. The landing page opens at <code>localhost:8000</code>; click <strong>Enter mission control</strong>, open Director, and break something.</p>
+      <div class="copy"><div class="term" id="cmds">git clone https://github.com/Genziitian/Blastproof && cd Blastproof
 python3 -m venv .venv && source .venv/bin/activate
 make install && cp .env.example .env
 make db schema seed     <span class="g"># FalkorDB in Docker, indexes, the synthetic company</span>
 make ui                 <span class="g"># http://localhost:8000</span></div><button id="copybtn">Copy</button></div>
-    <p data-i18n="k134">Everything runs without a model (a rule-based planner). Add an Anthropic key, or any OpenAI-compatible endpoint, to <code>.env</code> to let Claude plan the investigations. <code>make acceptance-1</code>, a database restart, then <code>make acceptance-2</code> run the full restart-and-kill test; <code>make eval</code> reruns the benchmark.</p>
+    <p data-i18n="k185">Everything runs without a model (a rule-based planner). Add an Anthropic key, or any OpenAI-compatible endpoint, to <code>.env</code> to let Claude plan the investigations. <code>make acceptance-1</code>, a database restart, then <code>make acceptance-2</code> run the full restart-and-kill test; <code>make eval</code> reruns the benchmark.</p>
   </section>
 
   <section class="s col" id="credits">
-    <span data-i18n="k135" class="eyebrow">Credits</span>
-    <h2 data-i18n="k136">Thanks.</h2>
-    <p data-i18n="k137">Built in four days for <strong>Graph Hacks</strong> by WeMakeDevs and FalkorDB, track Agent Memory and Coordination, by team Blastproof: sri ram and Aditi Akansha. All data is synthetic.</p>
-    <p data-i18n="k138"><strong>AI assistance, disclosed:</strong> Claude helped with pair-programming, tests and verification; ChatGPT and Gemini reviewed the implementation plan; Claude Haiku 5.5 runs inside the product, planning investigations and reading the war-room messages. The design, the graph model and every decision were ours, and we can walk through any query.</p>
-    <p data-i18n="k139">Code, queries, findings and the full benchmark: <a class="ln" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">github.com/Genziitian/Blastproof</a>.</p>
+    <span data-i18n="k186" class="eyebrow">Credits</span>
+    <h2 data-i18n="k187">Thanks.</h2>
+    <p data-i18n="k188">Built in four days for <strong>Graph Hacks</strong> by WeMakeDevs and FalkorDB, track Agent Memory and Coordination, by team Blastproof: sri ram and Aditi Akansha. All data is synthetic.</p>
+    <p data-i18n="k189"><strong>AI assistance, disclosed:</strong> Claude helped with pair-programming, tests, verification and the translations of this page; ChatGPT and Gemini reviewed the implementation plan; Claude Haiku 5.5 runs inside the product, planning investigations and reading the war-room messages. The design, the graph model and every decision were ours, and we can walk through any query.</p>
+    <p data-i18n="k190">Code, queries, findings and the full benchmark: <a class="ln" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">github.com/Genziitian/Blastproof</a>.</p>
   </section>
 </article>
 
-<nav class="toc" aria-label="Contents"><b data-i18n="k140">Contents</b>
-  <a data-i18n="k141" href="#problem">The problem</a><a data-i18n="k142" href="#graph">Why a graph</a><a data-i18n="k143" href="#demo">Watch it run</a><a data-i18n="k144" href="#built">What we built</a><a data-i18n="k145" href="#recall">Recall and check</a>
-  <a data-i18n="k146" href="#ruled">Memory that doesn't fit</a><a data-i18n="k147" href="#trust">Trust that learns</a><a data-i18n="k148" href="#facts">Facts that change</a><a data-i18n="k149" href="#kill">Kill an agent</a><a data-i18n="k150" href="#restart">Persistence</a>
-  <a data-i18n="k151" href="#results">Results</a><a data-i18n="k152" href="#model">The graph</a><a data-i18n="k153" href="#learned">What we learned</a><a data-i18n="k154" href="#limits">Limits</a><a data-i18n="k155" href="#try">Try it</a></nav>
+<aside class="rail" aria-label="The night, replayed">
+  <div class="railcard card">
+    <div class="rh"><span class="clock" id="rclock">03:07:00</span><span data-i18n="k191" class="rt" id="rtitle">The night, replayed from the recorded run</span></div>
+    <div class="gbody" id="rail-graph"></div>
+    <div class="rcap" id="rcap"></div>
+  </div>
+  <nav class="toc" aria-label="Contents"><b data-i18n="k192">Contents</b>
+    <a data-i18n="k193" href="#demo">Watch it run</a><span data-i18n="k194" class="tg">The night</span><a data-i18n="k195" href="#problem">The page</a><a data-i18n="k196" href="#built">Four agents wake up</a><a data-i18n="k197" href="#graph">Which memory?</a><a data-i18n="k198" href="#recall">Recall, then check</a><a data-i18n="k199" href="#kill">An agent dies</a><a data-i18n="k200" href="#facts">One ticket</a><a data-i18n="k201" href="#trust">Priya confirms</a><a data-i18n="k202" href="#ruled">Same symptoms</a><a data-i18n="k203" href="#restart">Restart</a>
+    <span data-i18n="k204" class="tg">The morning after</span><a data-i18n="k205" href="#results">Results</a><a data-i18n="k206" href="#model">The graph</a><a data-i18n="k207" href="#learned">What we learned</a><a data-i18n="k208" href="#limits">Limits</a><a data-i18n="k209" href="#try">Try it</a></nav>
+</aside>
 </div></div>
-<footer class="end page"><span data-i18n="k156">Blast Radius · FalkorDB Graph Hacks · team Blastproof</span><span><a class="ln" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">GitHub</a></span></footer>
+<footer class="end page"><span data-i18n="k210">Blast Radius · FalkorDB Graph Hacks · team Blastproof</span><span><a class="ln" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">GitHub</a></span></footer>
 
 <script src="assets/core.js"></script>
 <script>
@@ -519,34 +623,91 @@ S.booted = true;
 const secs2 = [...document.querySelectorAll("section.s")];
 addEventListener("scroll", () => {
   const h = document.documentElement; qs("#progress").style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + "%";
-  let cur = secs2[0]?.id; secs2.forEach((s) => { if (s.getBoundingClientRect().top < 160) cur = s.id; });
+  let cur = secs2[0]?.id; secs2.forEach((s) => { if (s.offsetParent && s.getBoundingClientRect().top < 160) cur = s.id; });
   document.querySelectorAll(".toc a").forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + cur));
 }, {passive: true});
 
 /* video link */
 if (YOUTUBE_URL) { qs("#vid").href = YOUTUBE_URL; qs("#vid").target = "_blank"; qs("#vidnote").textContent = tr("Watch on YouTube · 3 minutes"); }
 
-/* hero: a recorded incident, replayed step by step */
+/* the recorded night: a looping replay in the hero (narrow screens) and, on wide
+   screens, a rail that moves to the moment of the section being read */
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const WIDE = matchMedia("(min-width: 1101px)");
+let EX = null;
+const MOMENTS = {};
+function frameTo(el, x, t, tag, k) { const {x: xi, s} = storyAt(x, t); drawGraph(el, {x: xi, s, tag, k, quiet: tag === "rail"}); return {xi, s}; }
 async function hero() {
   const [settings, map, ex] = await Promise.all(["assets/settings.json", "assets/map.json", "assets/example.json"].map((u) => fetch(u).then((r) => r.json())));
   S.settings = settings; S.map = map; S.memory = ex.memory; S.state = {workers: [], pending: [], incidents: []};
-  const x = ex.s04, stops = replayStops(x);
-  let i = 0, paused = false, timer = null;
-  const step = () => {
-    if (paused) return;
+  EX = ex;
+  const x = ex.s04, stops = replayStops(x), y = ex.s05 || x;
+  const first = (inc, pred) => { const st = replayStops(inc); for (const t of st) { const {x: xi, s} = storyAt(inc, t); if (pred(s, xi)) return t; } return st[st.length - 1]; };
+  const lastOf = (inc) => { const st = replayStops(inc); return st[st.length - 1]; };
+  Object.assign(MOMENTS, {queued: [x, 0], recall: [x, first(x, (s, xi) => xi.recalling.length > 0)], check: [x, first(x, (s) => s.invCps.length > 0 && !!s.checking)],
+    dead: [x, first(x, (s) => !!s.deadHolder)], action: [x, first(x, (s) => !!s.action)], learned: [x, lastOf(x)],
+    ruled: [y, first(y, (s) => !!s.allRuled)], final: [y, lastOf(y)]});
+  let i = RM ? stops.length - 1 : 0, paused = RM, timer = null;
+  const step = (once) => {
+    if (paused && !once) return;
     if (i === 0) [...S.seen].filter((k) => k.startsWith("hero:")).forEach((k) => S.seen.delete(k));
-    const t = stops[i], {x: xi, s} = storyAt(x, t);
-    drawGraph(qs("#hero-graph"), {x: xi, s, tag: "hero", k: 1.25});
+    const t = stops[i], {xi, s} = frameTo(qs("#hero-graph"), x, t, "hero", 1.25);
     qs("#hero-cap").innerHTML = `<b>${secs(t)}</b> ${esc(s.cap || headlineOf(xi, s))}`;
     const st = stagesOf(xi, s);
     qs("#hero-stages").innerHTML = st.items.map(([n, v], k) => `<div class="stage ${k < st.idx ? "done" : k === st.idx ? "on" : ""}"><div class="v">${esc(v)}</div><div class="n">${n}</div></div>`).join("");
     const last = i === stops.length - 1; i = last ? 0 : i + 1;
-    timer = setTimeout(step, last ? 4500 : 1700);
+    if (!paused) timer = setTimeout(step, last ? 4500 : 1700);
   };
-  step();
+  step(true);
+  if (RM) qs("#hero-play").textContent = "▶";
   qs("#hero-play").onclick = () => { paused = !paused; qs("#hero-play").textContent = paused ? "▶" : "❚❚"; if (!paused) step(); else clearTimeout(timer); };
+  railFollow();
 }
 hero().catch((e) => { qs("#hero-cap").textContent = tr("Open this page through a web server (GitHub Pages or make ui) to see the replay."); console.error(e); });
+
+let railAt, railTimer = null, railI = 0, clockNow = "";
+function setClock(c) {
+  const el = qs("#rclock"), v = c || tr("The morning after");
+  if (v === clockNow) return; clockNow = v; el.textContent = v; el.style.fontSize = c ? "" : "15px";
+  el.classList.add("tick"); setTimeout(() => el.classList.remove("tick"), 700);
+}
+function railShow(at, clock) {
+  if (!EX) return;
+  if (at === railAt) { if (at) setClock(clock); return; }
+  railAt = at; clearTimeout(railTimer);
+  if (!at) { railLoop(); return; }
+  const [inc, t] = MOMENTS[at] || MOMENTS.final;
+  const {xi, s} = frameTo(qs("#rail-graph"), inc, t, "rail", 1.75);
+  qs("#rcap").innerHTML = esc(s.cap || headlineOf(xi, s));
+  setClock(clock);
+}
+function railLoop() {   // before the night starts: the same replay as the hero
+  const x = EX.s04, stops = replayStops(x);
+  const step = () => {
+    if (railAt) return;
+    if (railI === 0) [...S.seen].filter((k) => k.startsWith("rail:")).forEach((k) => S.seen.delete(k));
+    const t = stops[railI], {xi, s} = frameTo(qs("#rail-graph"), x, t, "rail", 1.75);
+    qs("#rcap").innerHTML = `<b>${secs(t)}</b> ${esc(s.cap || headlineOf(xi, s))}`;
+    railI = (railI + 1) % stops.length;
+    if (!RM) railTimer = setTimeout(step, railI === 0 ? 4500 : 1700);
+  };
+  if (RM) railI = stops.length - 1;
+  step(); setClock("03:07:00");
+}
+const storySecs = [...document.querySelectorAll("article section.s")];
+function railFollow() {
+  if (!EX || !WIDE.matches) return;
+  let at = null, clock = "";
+  for (const sec of storySecs) {
+    if (!sec.offsetParent) continue;   // hidden in the quick read
+    if (sec.getBoundingClientRect().top > innerHeight * 0.45) break;
+    if (sec.dataset.at) { at = sec.dataset.at; clock = sec.dataset.clock || ""; }
+  }
+  railShow(at, clock);
+}
+addEventListener("scroll", railFollow, {passive: true});
+WIDE.addEventListener("change", () => { railAt = undefined; railFollow(); });
+redraw.push(() => { const a = railAt; railAt = undefined; clockNow = ""; if (a !== undefined) railFollow(); });
 
 /* text vs graph */
 const NOTES = [
@@ -693,8 +854,8 @@ let dmCur = "Decision";
 /* results bars */
 function bars() {
   const COL = ["#DDDBD5", "#8E8C86", "#111111"], names = [T("No memory"), T("Text memory"), T("Graph memory")];
-  const M = [[T("Model requests"), T("whole benchmark, lower is better"), [192, 107, 55], 192], [T("Solved with no model call"), T("of 30"), [0, 10, 20], 30], [T("Correct diagnoses"), T("of 30"), [30, 29, 30], 30], [T("Right memory in the top 5"), T("% of 20 incidents with one"), [null, 55, 100], 100]];
-  qs("#bars").innerHTML = M.map(([t, s, v, max]) => `<div><h5>${tr(t)}<span>${tr(s)}</span></h5>${v.map((x, i) => x === null ? "" : `<div class="brow ${i === 2 ? "me" : ""}"><span>${tr(names[i])}</span><span class="tr"><i style="width:${Math.max(.8, x / max * 100)}%;background:${COL[i]}"></i></span><b>${x}${max === 100 ? "%" : ""}</b></div>`).join("")}</div>`).join("")
+  const M = [[T("Model requests"), T("whole benchmark, lower is better"), [192, 107, 55], 192], [T("Solved with no model call"), T("of 30"), [0, 10, 20], 30], [T("Correct diagnoses"), T("of 30"), [30, 29, 30], 30], [T("Right memory in the top 5"), T("% of 20 incidents with one"), [null, 55, 100], 100]], RK = ["calls", "nocall", "correct", "recall"];
+  qs("#bars").innerHTML = M.map(([t, s, v, max], j) => `<div><h5><button class="rc inl" data-r="${RK[j]}">${tr(t)}</button><span>${tr(s)}</span></h5>${v.map((x, i) => x === null ? "" : `<div class="brow ${i === 2 ? "me" : ""}"><span>${tr(names[i])}</span><span class="tr"><i style="width:${Math.max(.8, x / max * 100)}%;background:${COL[i]}"></i></span><b>${x}${max === 100 ? "%" : ""}</b></div>`).join("")}</div>`).join("")
     + `<p style="font-size:13.5px;color:var(--t3);margin:0">${tr("Frozen run on Oct 16, uncached, 0 model failures (eval/results/2026-10-16T14-24-13Z-claude-haiku-5-5). A deliberately wrong playbook misled twice, retired, and the next incident was correct.")}</p>`;
 }
 bars(); redraw.push(bars);
@@ -703,14 +864,14 @@ bars(); redraw.push(bars);
 qs("#copybtn").onclick = async () => { const t = qs("#cmds").innerText.replace(/\s+#.*$/gm, ""); try { await navigator.clipboard.writeText(t); qs("#copybtn").textContent = tr("Copied"); } catch (e) { const r = document.createRange(); r.selectNodeContents(qs("#cmds")); getSelection().removeAllRanges(); getSelection().addRange(r); } setTimeout(() => qs("#copybtn").textContent = tr("Copy"), 1600); };
 redraw.push(() => { qs("#copybtn").textContent = tr("Copy"); });
 
-/* languages: Hindi, Spanish, French and Hebrew (FalkorDB is from Tel Aviv) are translated
-   in advance (assets/i18n/*.json, checked by scripts/blog_i18n.py); any other language is
-   translated on the reader's own device by Chrome's built-in Translator API, when present. */
-const OURS = {en: "English", hi: "हिन्दी", es: "Español", fr: "Français", he: "עברית"};
+/* languages: French, Hebrew, Hindi, Spanish and Urdu are translated in advance
+   (assets/i18n/*.json, checked by scripts/blog_i18n.py); any other language is translated
+   on the reader's own device by Chrome's built-in Translator API, when present. */
+const OURS = {en: "English", fr: "Français", he: "עברית", hi: "हिन्दी", es: "Español", ur: "اردو"};
 const MORE = {ja: "日本語 · Japanese", zh: "中文 · Chinese", ko: "한국어 · Korean", de: "Deutsch · German", pt: "Português · Portuguese", it: "Italiano · Italian",
   ru: "Русский · Russian", ar: "العربية · Arabic", tr: "Türkçe · Turkish", id: "Bahasa Indonesia", vi: "Tiếng Việt · Vietnamese", nl: "Nederlands · Dutch",
   pl: "Polski · Polish", uk: "Українська · Ukrainian", th: "ไทย · Thai", bn: "বাংলা · Bengali", ta: "தமிழ் · Tamil", te: "తెలుగు · Telugu", mr: "मराठी · Marathi", kn: "ಕನ್ನಡ · Kannada"};
-const RTL = new Set(["he", "ar"]);
+const RTL = new Set(["he", "ar", "ur"]);
 const keyed = [...document.querySelectorAll("[data-i18n]")], alts = [...document.querySelectorAll("[data-i18n-alt]")];
 const ORIG = new Map([...keyed.map((el) => [el, el.innerHTML]), ...alts.map((el) => [el, el.alt])]);
 const META = {title: document.title, desc: qs('meta[name="description"]').content};
@@ -810,6 +971,78 @@ qs("#xorig").onclick = () => setLang("en");
 langUI();
 { const want = new URLSearchParams(location.search).get("lang") || store.get("blog-lang");
   if (want && want !== "en" && (OURS[want] || (MORE[want] && "Translator" in self))) setLang(want); }
+
+/* reading depth: the quick read keeps each section's one-line beat, the figures and the results */
+function minutes() {
+  const words = (el) => (el.innerText.match(/\S+/g) || []).length, a = qs("article"), q = document.documentElement.classList.contains("quick");
+  document.documentElement.classList.remove("quick"); const full = words(a);
+  document.documentElement.classList.add("quick"); const quick = words(a);
+  document.documentElement.classList.toggle("quick", q);
+  qs("#min-full").textContent = Math.max(2, Math.round(full / 220 + 3)); qs("#min-quick").textContent = Math.max(2, Math.round(quick / 220 + 2));
+}
+function setDepth(d, remember = true) {
+  document.documentElement.classList.toggle("quick", d === "quick");
+  document.querySelectorAll("[data-depth]").forEach((b) => { b.classList.toggle("on", b.dataset.depth === d); b.setAttribute("aria-checked", String(b.dataset.depth === d)); });
+  if (remember) store.set("blog-depth", d);
+  railAt = undefined; railFollow();
+}
+document.querySelectorAll("[data-depth]").forEach((b) => b.onclick = () => setDepth(b.dataset.depth));
+setDepth(document.documentElement.classList.contains("quick") ? "quick" : "full", false);
+minutes(); redraw.push(minutes);
+
+/* receipts: every headline number links to the committed result file and the command that reruns it */
+const REPO = "https://github.com/Genziitian/Blastproof/blob/main/";
+const RUN = "eval/results/2026-10-16T14-24-13Z-claude-haiku-5-5/summary.md";
+const RC = {
+  calls: [T("192 → 55 model requests, 71% fewer"), T("The whole benchmark: 30 incidents with no memory against graph memory, same model, tools and step budget."), RUN, "eval/run.py", "make eval"],
+  nocall: [T("20 of 30 incidents with no model call"), T("A recalled playbook held on every check, so the diagnosis needed no model at all."), RUN, "eval/run.py", "make eval"],
+  correct: [T("30 / 29 / 30 correct diagnoses"), T("Each diagnosis is scored against truth files the agents never see; a test fails if agent code imports them."), RUN, "eval/oracle.py", "make eval"],
+  recall: [T("Right memory in the top 5: 100% against 55%"), T("The 20 incidents where a memory with the right answer existed: the graph walk against text similarity, in the same database."), RUN, "memory/queries/recall.cypher", "make eval"],
+  dup: [T("0 duplicate notifications"), T("Counted in every benchmark and load run, including the one with leases expiring at random every 50 ms. Intent keys sit under unique constraints."), "bench/results/load.json", "eval/queries/incident_actions.cypher", "make bench"],
+  retired: [T("A wrong playbook retired after misleading twice"), T("We planted a deliberately wrong playbook. It misled twice, retired, and the next incident was diagnosed correctly."), RUN, "memory/queries/feedback.cypher", "make eval"],
+};
+const GLOSS = {
+  playbook: T("Procedural memory: what to rule out first, what to expect to observe, and what to do, pinned to the node where it was learned."),
+  lease: T("A time-limited claim on a task, measured on the database clock. If the holder stops renewing it, another agent may claim the task."),
+  epoch: T("A counter that goes up with every claim. Every write carries it, so a worker that has lost the task is refused."),
+  checkpoint: T("One tool call, written to the graph before the next one starts, so a replacement can resume at the next step."),
+  supersede: T("Facts are never edited. A new version supersedes the old one, and both stay in the graph with their validity times."),
+};
+const pop = document.createElement("div"); pop.className = "pop"; pop.hidden = true; pop.setAttribute("role", "dialog"); document.body.appendChild(pop);
+let popFor = null;
+function place(el) {
+  const r = el.getBoundingClientRect(); pop.hidden = false;
+  const w = pop.offsetWidth, x = Math.min(Math.max(12, r.left + r.width / 2 - w / 2), innerWidth - w - 12);
+  pop.style.left = x + scrollX + "px"; pop.style.top = r.bottom + scrollY + 10 + "px";
+}
+function openReceipt(el) {
+  const [t, d, src, how, run] = RC[el.dataset.r];
+  pop.innerHTML = `<div class="pt">${esc(tr("Where this number comes from"))}</div><h6>${esc(tr(t))}</h6><div>${esc(tr(d))}</div>
+    <dl><dt>${esc(tr("Result file"))}</dt><dd><a href="${REPO + src}" target="_blank" rel="noopener">${esc(src)}</a></dd>
+    <dt>${esc(tr("Measured with"))}</dt><dd><a href="${REPO + how}" target="_blank" rel="noopener">${esc(how)}</a></dd>
+    <dt>${esc(tr("Rerun it"))}</dt><dd><code>${esc(run)}</code></dd></dl>${run === "make eval" ? `<div class="px">${esc(tr("No API key? make eval-rules runs the same benchmark with the rule-based planner."))}</div>` : ""}`;
+  popFor = el; place(el);
+}
+function openGloss(el) { pop.innerHTML = `<div class="pt">${esc(el.textContent)}</div><div>${esc(tr(GLOSS[el.dataset.g]))}</div>`; popFor = el; place(el); }
+function closePop() { pop.hidden = true; popFor = null; }
+document.addEventListener("click", (e) => {
+  const rc = e.target.closest(".rc"), g = e.target.closest("dfn[data-g]");
+  if (rc) { e.preventDefault(); if (popFor === rc) closePop(); else openReceipt(rc); return; }
+  if (g) { if (popFor === g) closePop(); else openGloss(g); return; }
+  if (!e.target.closest(".pop")) closePop();
+});
+document.querySelectorAll("dfn[data-g]").forEach((d) => { d.tabIndex = 0; });
+document.addEventListener("mouseover", (e) => { const g = e.target.closest("dfn[data-g]"); if (g && popFor !== g && matchMedia("(hover: hover)").matches) openGloss(g); });
+document.addEventListener("mouseout", (e) => { const g = e.target.closest("dfn[data-g]"); if (g && popFor === g && !e.relatedTarget?.closest?.(".pop")) closePop(); });
+document.addEventListener("focusin", (e) => { const g = e.target.closest("dfn[data-g]"); if (g) openGloss(g); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePop(); });
+addEventListener("resize", closePop);
+
+/* theme */
+qs("#themebtn").onclick = () => { const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; store.set("blog-theme", t); };
+
+/* reduced motion: clips wait for a click instead of playing on their own */
+if (RM) document.querySelectorAll("video[autoplay]").forEach((v) => { v.removeAttribute("autoplay"); v.pause(); v.controls = true; });
 </script>
 </body>
 </html>

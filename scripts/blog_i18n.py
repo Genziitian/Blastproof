@@ -20,10 +20,10 @@ from pathlib import Path
 BLOG = Path(__file__).resolve().parent.parent / "docs" / "blog"
 PAGE = BLOG / "index.html"
 I18N = BLOG / "assets" / "i18n"
-LANGS = ("hi", "es", "fr", "he")
+LANGS = ("fr", "he", "hi", "es", "ur")
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
 SKIP_INSIDE = {"script", "style", "svg", "pre", "code"}
-BLOCK = {"h1", "h2", "h3", "h4", "h5", "p", "li", "blockquote", "figcaption", "th", "template"}
+BLOCK = {"h1", "h2", "h3", "h4", "h5", "p", "li", "blockquote", "figcaption", "th", "template", "summary"}
 
 
 class Node:
@@ -90,7 +90,10 @@ def wanted(n: Node) -> bool:
             or (n.tag == "a" and bool(pc & {"btns", "toc"}))
             or (n.tag == "b" and (bool(pc & {"dh", "toc"}) or (n.attrs.get("id") is None and p is not None and p.tag == "span" and "play" in (p.parent.cls if p.parent else set()))))
             or (n.tag == "span" and "m" in n.cls and "dh" in pc)
-            or (n.tag == "button" and bool(pc & {"seg2", "mbtns"}))
+            or (n.tag == "button" and bool(pc & {"seg2", "mbtns", "depth"}))
+            or (n.tag == "span" and bool(pc & {"beat", "part"}))
+            or (n.tag == "span" and "tg" in n.cls and "toc" in pc)
+            or n.attrs.get("id") == "rtitle"
             or n.attrs.get("id") == "vidnote"
             or (n.tag == "span" and p is not None and "byline" in pc and "avs" not in n.cls)
             or (n.tag == "span" and p is not None and p.tag == "footer" and "<a" not in TEXT[n.inner:n.end]))
