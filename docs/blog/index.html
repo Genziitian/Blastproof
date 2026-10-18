@@ -118,7 +118,9 @@ figcaption b { color: var(--t2); font-weight: 600; }
 .dial { position: relative; width: 180px; height: 180px; }
 .dial svg { transform: rotate(-90deg); } .dial circle { fill: none; stroke-width: 12; } .dial .tr { stroke: var(--line); } .dial .fg { stroke: var(--ink); stroke-linecap: round; transition: stroke-dashoffset .6s var(--ease), stroke .3s; }
 .dial .v { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
-.dial .v b { font: 700 40px var(--sans); letter-spacing: -.03em; display: block; } .dial .v span { font: 400 12.5px var(--mono); color: var(--t3); }
+.dial .v > div { max-width: 124px; } .dial .v b { font: 700 40px var(--sans); letter-spacing: -.03em; display: block; line-height: 1.05; }
+.dial .v span { display: block; margin-top: 4px; font: 500 12.5px/1.35 var(--sans); color: var(--t3); overflow-wrap: anywhere; }
+.meter > div { min-width: 0; } .formula { max-width: 100%; white-space: normal; } .formula span { white-space: nowrap; }
 .formula { font: 500 15px var(--mono); color: var(--ink2); background: var(--sunk); border-radius: 10px; padding: 10px 14px; display: inline-block; }
 .hist { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; min-height: 26px; }
 .hist span { font: 500 11.5px var(--mono); border-radius: 999px; padding: 3px 9px; border: 1px solid var(--line2); background: var(--paper); animation: brFade .3s both; }
@@ -774,7 +776,7 @@ function drawTrust() {
   const t = (tm.h + 1) / (tm.h + tm.m + 2), ret = tm.m >= 2 && t < .5;
   qs("#dialfg").setAttribute("stroke-dashoffset", (CIRC * (1 - t)).toFixed(1)); qs("#dialfg").style.stroke = ret ? "var(--t4)" : t >= .6 ? "var(--ok)" : "var(--ink)";
   qs("#trustv").textContent = t.toFixed(2); qs("#trusthm").textContent = tf("helped {h} · misled {m}", {h: tm.h, m: tm.m});
-  qs("#formula").textContent = `trust = (${tm.h} + 1) / (${tm.h} + ${tm.m} + 2) = ${t.toFixed(2)}`;
+  qs("#formula").innerHTML = `<span>trust =</span> <span>(${tm.h} + 1) / (${tm.h} + ${tm.m} + 2)</span> <span>= ${t.toFixed(2)}</span>`;
   qs("#hist").innerHTML = tm.hist.map((v) => `<span class="${v}">${v === "h" ? tr("helped") : v === "m" ? tr("misled") : tr("not applicable")}</span>`).join("");
   qs("#retired").innerHTML = ret ? tr("<strong>Retired.</strong> Misled twice with trust under 0.5: never recalled again.") : tr("Active. Recalled when the graph walk reaches it.");
   document.querySelectorAll("[data-v=h],[data-v=m],[data-v=n]").forEach((b) => b.disabled = ret);
