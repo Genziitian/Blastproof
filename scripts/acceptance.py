@@ -74,7 +74,7 @@ def part1(company: str, reset: bool) -> int:
                      "RETURN p.id, p.signature", {"k": key})
     prefs = q(g, "MATCH (f:Memory:Fact)-[:LEARNED_FROM]->(:Message)-[:IN]->(:Session)"
                  "-[:CONCERNS]->(:Incident {key: $k}) RETURN f.predicate, f.object", {"k": key})
-    STATE.write_text(json.dumps({"company": company, "s01": incident_id}))
+    STATE.write_text(json.dumps({"company": company, "s01": incident_id}), encoding="utf-8")
     print(f"\nincident {incident_id}: playbooks {playbooks}, preferences {prefs}")
     if not playbooks or not prefs:
         print("FAIL: part1 did not produce a playbook and preferences")
@@ -89,7 +89,7 @@ def part2() -> int:
     if not db.wait_ready():
         print("FAIL: FalkorDB did not become ready after the restart")
         return 1
-    state = json.loads(STATE.read_text())
+    state = json.loads(STATE.read_text(encoding="utf-8"))
     company, s01_id = state["company"], state["s01"]
     g = graph(company)
     t = truth.load("s04")

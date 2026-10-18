@@ -215,7 +215,7 @@ Shared memory fields: `id`, `lineage_id`, `version`, `source` (agent or human), 
 
 ## Queries
 
-All 73 queries are `.cypher` files, indexed with what each does in **[`docs/QUERIES.md`](docs/QUERIES.md)** (generated from the files; a test keeps it current). In the UI, the **‹›** button on each part opens the queries behind it. The ones the product depends on most:
+All 73 queries are `.cypher` files, indexed with what each does in **[`docs/QUERIES.md`](docs/QUERIES.md)** (generated from the files; a test keeps it current). In the UI, the **{ } query** button on each part opens the queries behind it. The ones the product depends on most:
 
 | Query | Does |
 |---|---|
@@ -242,7 +242,7 @@ Details and reproductions in [`docs/FALKORDB-FINDINGS.md`](docs/FALKORDB-FINDING
 
 ## Run it
 
-Requires Docker and Python 3.10+. Run everything from this folder.
+Requires Docker and Python 3.10+. Run everything from this folder. Tested on macOS and on Windows 11; on Linux the same commands apply.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -258,6 +258,8 @@ make ui          # http://localhost:8000 (landing page), /mission-control (the l
 ![The landing page: the idea, told with a replay of a real incident read from the graph](docs/img/landing.png)
 
 If something else already listens on port 6379 (a local Redis), set `FALKORDB_PORT=6380` in `.env`; Docker Compose and the Python client both read it.
+
+**On Windows** the `make` targets need Git Bash (or WSL). From PowerShell, the same steps are: `python -m venv .venv`, `.venv\Scripts\activate`, `pip install -r requirements.txt`, `copy .env.example .env`, `docker compose up -d falkordb`, `python -m scripts.setup_schema`, `python -m scripts.seed`, then `$env:TIMING_PROFILE='demo'; python -m web.app --company a`.
 
 **The UI** has two pages. The **landing page** (`/`) explains the idea with live data: its hero replays a real incident from the graph, and every number, check and playbook on it is read from the API (a labelled recorded run stands in until this machine has run its own). **Mission control** (`/mission-control`) is the live demo: it runs two investigators as separate processes (Kill sends a real SIGKILL), plus the responder and learner, and reads everything back from FalkorDB. You play the on-call engineer in the war room, or switch on "scripted engineer" in Director. Each incident is told as the learning loop, step by step, every animation driven by a real event in the graph, and **← ▶ →** replays any incident from its stored steps. `/dark` and `/classic` keep the earlier views. Demo timing (6 s lease, 2 s heartbeat; production 30 s / 10 s) is labelled on screen. Panels and the demo walkthrough: [`web/README.md`](web/README.md).
 
@@ -325,10 +327,11 @@ The integration suites are written once and run on two backends: FalkorDB when i
 
 ## AI assistance
 
-AI coding assistants were used and are disclosed here, as the rules require. Draft, to be confirmed by the team before submission:
+AI coding assistants were used and are disclosed here, as the rules require:
 
 - **Claude (Anthropic)**: pair-programming on most of the code, tests and this README, live verification against FalkorDB, and review of the plan.
 - **ChatGPT and Gemini**: independent reviews of the implementation plan (three rounds; their findings and our decisions are listed in `docs/Implementation-Plan.md`).
+- **Claude Code** (Claude Opus 5.5): on Oct 18, an audit of the repository (running it on Windows, the tests, a step-budget experiment, a review of the evaluation) and the fixes that followed: cross-platform fixes, the war-room read-back fix, the evaluation disclosures, the graph-algorithm tools, and UI and web hardening. They came in as one pull request for the team to review.
 - **Claude Haiku 5.5** is also part of the product: it plans investigations and reads engineers' messages at runtime.
 
 The design (graph model, memory algorithms, coordination protocol, benchmark) and every decision in the plan were made and verified by the team.

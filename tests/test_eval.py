@@ -20,7 +20,7 @@ class ScenarioDefinitionTests(unittest.TestCase):
     def test_committed_truth_files_match_the_definition(self):
         for row in scenarios.timeline() + scenarios.m5():
             with self.subTest(id=row["id"]):
-                on_disk = json.loads((scenarios.TRUTH_DIR / f"{row['id']}.json").read_text())
+                on_disk = json.loads((scenarios.TRUTH_DIR / f"{row['id']}.json").read_text(encoding="utf-8"))
                 self.assertEqual(on_disk, row, "run: python -m eval.scenarios --write")
 
     def test_category_sizes_follow_the_plan(self):

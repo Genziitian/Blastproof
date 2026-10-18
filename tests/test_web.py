@@ -425,8 +425,8 @@ class BlogTranslationTests(unittest.TestCase):
         import re
 
         from scripts import blog_i18n
-        page = blog_i18n.PAGE.read_text()
-        en = json.loads((blog_i18n.I18N / "en.json").read_text())
+        page = blog_i18n.PAGE.read_text(encoding="utf-8")
+        en = json.loads((blog_i18n.I18N / "en.json").read_text(encoding="utf-8"))
         self.assertEqual(set(re.findall(r'data-i18n="(k\d+)"', page)), set(en["html"]), "run: python -m scripts.blog_i18n mark")
         self.assertEqual(set(blog_i18n.dyn_strings(page)), set(en["dyn"]), "run: python -m scripts.blog_i18n mark")
         with contextlib.redirect_stdout(io.StringIO()):

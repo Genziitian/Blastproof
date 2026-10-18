@@ -13,8 +13,8 @@ services:
     ports:
       # Host port comes from FALKORDB_PORT in .env (default 6379). Use another port,
       # e.g. 6380, if a local Redis already listens on 6379.
-      - "${FALKORDB_PORT:-6379}:6379"   # database (Redis protocol)
-      - "3000:3000"   # FalkorDB Browser
+      - "127.0.0.1:${FALKORDB_PORT:-6379}:6379"   # database (Redis protocol), this machine only
+      - "127.0.0.1:3000:3000"   # FalkorDB Browser, this machine only
     environment:
       # RDB snapshots: every 30 s if anything changed, and always on shutdown
       # (`docker compose down` stops the container gracefully, so nothing is lost).
@@ -28,18 +28,6 @@ services:
     volumes:
       - falkordb_data:/var/lib/falkordb/data
     restart: unless-stopped
-
-  # Added on Friday (G2): one container per worker so a kill is a real process exit.
-  # investigator:
-  #   build: .
-  #   command: python -m agents.investigator
-  #   env_file: .env
-  #   depends_on: [falkordb]
-  # responder:
-  #   build: .
-  #   command: python -m agents.responder
-  #   env_file: .env
-  #   depends_on: [falkordb]
 
 volumes:
   falkordb_data:

@@ -6,7 +6,6 @@ scenario store. They share nothing with each other or with the UI except FalkorD
 from __future__ import annotations
 
 import os
-import signal
 import subprocess
 import sys
 import threading
@@ -71,11 +70,14 @@ class Supervisor:
             return p.view()
 
     def kill(self, name: str) -> dict[str, Any]:
-        """SIGKILL: no cleanup, no lease release. The lease simply runs out."""
+        """SIGKILL: no cleanup, no lease release. The lease simply runs out.
+
+        Popen.kill() is SIGKILL on POSIX and TerminateProcess on Windows: a hard
+        kill on both, with no chance for the worker to clean up."""
         with self._lock:
             p = self.procs[name]
             if p.alive() and p.popen is not None:
-                os.kill(p.popen.pid, signal.SIGKILL)
+                p.popen.kill()
                 p.popen.wait(timeout=5)
                 p.killed, p.ended_at, p.exit_code = True, time.time(), p.popen.returncode
                 p.log.append(f"SIGKILL pid {p.popen.pid} (exit {p.popen.returncode})")

@@ -195,7 +195,7 @@ class GraphDouble:
         if cls._by_text is None:
             cls._by_text = {}
             for path in ROOT.glob("*/queries/*.cypher"):
-                rel = str(path.relative_to(ROOT))
+                rel = path.relative_to(ROOT).as_posix()  # same key on every OS
                 cls._by_text[_norm(load_query(rel))] = rel
             missing = set(cls._by_text.values()) - IMPLS.keys()
             if missing:

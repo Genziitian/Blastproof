@@ -25,7 +25,7 @@ class EnvFileTests(unittest.TestCase):
 
     def test_example_file_parses(self):
         from pathlib import Path
-        values = parse_env((Path(__file__).resolve().parent.parent / ".env.example").read_text())
+        values = parse_env((Path(__file__).resolve().parent.parent / ".env.example").read_text(encoding="utf-8"))
         self.assertEqual(values["LLM_MODEL"], "")
         self.assertEqual(values["LLM_CACHE_DIR"], "")
         self.assertTrue(values["LLM_BASE_URL"].startswith("https://generativelanguage"))
