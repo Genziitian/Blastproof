@@ -17,28 +17,31 @@ They share nothing but FalkorDB. The investigators read evidence from the shared
 
 The UI plays only the two outside roles: the world (break a service, change the org chart) and the on-call engineer (confirm or reject, talk in the war room). Switch on "scripted engineer" in Director to let the eval oracle's script answer instead; if nobody answers within 10 minutes, it answers anyway.
 
-## What you see
+## Pages
 
-The page tells one incident as a story, in the order of the learning loop in the plan: **alerts → recall → check → diagnose → page → engineer confirms → learn**. Every animation is a real event appearing in the graph for the first time (a new checkpoint, a claim, a sent action, a trust change); nothing is scripted. With `prefers-reduced-motion`, things appear in their final state.
+| Address | Page |
+|---|---|
+| `/` | **Landing page.** The idea in five stages (remember, recall, check, act, learn), told with live data: the hero replays a real incident from the graph, the check cards, playbooks, preferences and results are read from the API, and the Cypher card shows the real recall query. Until this machine has run its own incidents, a recorded run (`web/static/example.json`) stands in and is labelled *recorded run*. |
+| `/war-room` | **The live demo.** Break a service and watch the agents work. |
+| `/dark`, `/classic` | Earlier views on the same API, kept as fallbacks. |
 
-- **Dependency graph** (centre): services are pills, datastores are squared. Alerting services pulse red; recall paths draw hop by hop from the alerting service to the playbook's datastore (cyan = being checked or applied, dashed = queued or ruled out), labelled "1 hop · same kind of datastore". Playbooks sit on their node as pins showing trust, which counts up when a memory helped. Uninvolved nodes dim. A **checking card** beside the node shows each check passing or failing with the observed value, computed from the investigator's checkpoints with the same measure rules as `memory/playbook.py`. The diagnosed root turns amber, then green once confirmed. Click a node to break it or move its ownership.
-- **Caption bar**: one plain sentence for what is happening now (toggle in Director).
-- **What happened** (right): the seven steps, each with its evidence. The *check* step is the **Memory Lens**: for every memory considered, *what* it is, *why* it was recalled (pinned or same kind, path, hops, score, trust at use), the *evidence* (each check, pass or fail, observed value, step), and *afterwards* (verdict, trust before → after). When the responder needs the engineer, the **war room** card appears on top: confirm or reject, say how you want to be notified, then answer the read-back. Earlier conversations with the same engineer, and "Where did we leave …?", are under the page step.
-- **Agent timeline** (right, second tab): tasks, claims, takeovers, checkpoints and sends in database-clock order, with worker and fencing epoch.
-- **Agents** (bottom): inv-1, inv-2 (OS processes), responder and learner. The ring is the time left on the lease; **Kill** sends a real SIGKILL. A killed worker shows `SIGKILL` and its lease draining; the one that takes over shows `e1 → e2`.
-- **Timeline strip** (bottom): one dot per stored event; click to jump to it in the Agent timeline.
-- **On call** (top right): who is on call per team; the person paged lights up as the envelope reaches them, and the counter shows how many notifications went out (one).
-- **Director** (header): scenarios s01–s05, "Kill the investigator after step N" (a one-shot real SIGKILL right after that checkpoint), scripted engineer, captions, on-call changes, plant the wrong playbook (M5), reset.
-- **Memory tab**: playbooks (pinned node, source incident, trust, helped · misled, status; click for its checks) and engineer preferences as versioned facts, the approved version superseding the agent's reading.
-- **Results tab**: the newest valid eval run in `eval/results/` and the load benchmark.
-- **‹›** buttons open the Cypher behind each part in a side panel, with the number of queries and milliseconds the incident view took in FalkorDB.
-- **Restart**: if FalkorDB goes away, the stage dims ("FalkorDB restarting…") and the agents wait; when it is back, a toast reports what survived, read back from the graph.
+Shared code: `web/static/core.js` turns an incident's stored records into what the pages show (steps, checks computed with the same measure rules as `memory/playbook.py`, captions, takeovers, trust, and a replay of any moment); `web/static/v2.css` is the look.
 
-`/classic` keeps the first UI (every panel at once) on the same API.
+## The war room
+
+The incident is told in the order of the learning loop in the plan: **alerts → recall → check → diagnose → page → engineer confirms → learn**. Every animation is a real event appearing in the graph for the first time (a checkpoint, a claim, a sent action, a trust change); with `prefers-reduced-motion`, things appear in their final state.
+
+- **Left:** the incident, a headline for what is happening now, and the seven steps with their evidence. The *check* step is the **Memory Lens**: for every memory considered, *what* it is, *why* it was recalled, the *evidence* (each check, pass or fail, observed value, step), and *afterwards* (verdict, trust before → after). When the responder needs the engineer, the **war room** card appears under the headline: confirm or reject, say how you want to be notified, then answer the read-back. Earlier conversations with the same engineer and "Where did we leave …?" are under the confirmation step. Below: the **agents**, with lease rings, **Kill** (a real SIGKILL) and **Start**.
+- **Right:** the service graph. Alerting services pulse; recall paths draw hop by hop, with a dashed line to where a playbook was learned when it was recalled by kind; pins show each playbook's trust and count up when it helped. A **checking card** ticks off each check from the investigator's checkpoints. Click a node to break it or move its ownership. Above: on call now and the notification count; the envelope flies to the person paged. Below: one sentence for what is happening and the five-stage strip.
+- **← ▶ →** replays the selected incident from its stored steps (claims, checkpoints, the takeover, the page, the learning); **Live** returns to the live view.
+- **Director:** scenarios s01–s05, "Kill the investigator after step N" (one-shot real SIGKILL), scripted engineer, on-call changes, plant the wrong playbook (M5), reset.
+- **Memory tab:** playbooks (pinned node, source incident, trust, helped · misled, status; click for checks) and engineer preferences as versioned facts. **Results tab:** the newest valid eval run and the load benchmark.
+- **{ } query** buttons open the Cypher behind each part, with the number of queries and milliseconds the incident view took in FalkorDB.
+- **Restart:** if FalkorDB goes away, the graph card dims (*FalkorDB restarting…*) and the agents wait; when it is back, a toast reports what survived, read back from the graph.
 
 ## The demo, from the UI
 
-1. **s01** (Director): the investigator works from scratch. Confirm in the war room, keeping Priya's line ("for DB saturation, open a ticket with the raw slow-query lines"), then send yes to the read-back.
+1. Open `/`, then **Enter the war room**. **s01** (Director): the investigator works from scratch. Confirm in the war room, keeping Priya's line ("for DB saturation, open a ticket with the raw slow-query lines"), then send yes to the read-back.
 2. The learner writes a playbook: a pin appears on `postgres-orders` (Memory tab for details).
 3. Optional: restart FalkorDB (`docker compose down && docker compose up -d falkordb`); the page dims and recovers.
 4. **s04**: switch on *Kill the investigator after step 3* in Director first. The playbook is recalled by kind for `postgres-payments` and checked; after step 3 the holder is SIGKILLed, its lease drains, and the other worker resumes at step 4 under epoch 2. One ticket, citing s01; trust 0.50 → 0.67.

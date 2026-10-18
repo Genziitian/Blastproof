@@ -31,6 +31,7 @@ from web.supervisor import Supervisor
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(__file__).resolve().parent / "static"
 log = logging.getLogger("web")
+ASSET = re.compile(r"[a-z0-9-]+\.(js|css|json)")
 FONT = re.compile(r"[a-z-]+-\d00\.woff2")
 CYPHER_PATH = re.compile(r"(web|memory|coord|chat|tools|agents|sim)/queries/\w+\.cypher")
 
@@ -94,14 +95,35 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
     def bad(e: Exception) -> HTTPException:
         return HTTPException(status_code=400, detail=str(e))
 
+    def page(name: str) -> FileResponse:
+        return FileResponse(STATIC / name, headers={"Cache-Control": "no-store"})
+
     @app.get("/")
     def index() -> FileResponse:
-        return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
+        """The landing page: the idea, told with live data from the graph."""
+        return page("landing.html")
+
+    @app.get("/war-room")
+    def war_room() -> FileResponse:
+        """The live war room: break a service and watch the agents work."""
+        return page("warroom.html")
+
+    @app.get("/dark")
+    def dark() -> FileResponse:
+        """The previous dark war room, same API."""
+        return page("dark.html")
 
     @app.get("/classic")
     def classic() -> FileResponse:
         """The first UI: every panel at once. Same API, kept as a fallback."""
-        return FileResponse(STATIC / "classic.html", headers={"Cache-Control": "no-store"})
+        return page("classic.html")
+
+    @app.get("/static/{name}")
+    def asset(name: str) -> FileResponse:
+        path = STATIC / name
+        if not ASSET.fullmatch(name) or not path.is_file():
+            raise HTTPException(status_code=404, detail="no such file")
+        return FileResponse(path, headers={"Cache-Control": "no-store"})
 
     @app.get("/fonts/{name}")
     def font(name: str) -> FileResponse:

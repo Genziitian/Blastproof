@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Blast Radius · War room</title>
+<link rel="stylesheet" href="/static/v2.css">
+<style>
+.nav .tabs { display: flex; gap: 4px; margin: 0 auto; }
+.tab { border: 0; background: transparent; color: var(--t2); padding: 7px 14px; border-radius: 999px; font-size: 15px; font-weight: 500; }
+.tab:hover { color: var(--ink); } .tab.on { background: var(--sunk); color: var(--ink); }
+.status { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--t2); white-space: nowrap; }
+.status .db { display: flex; align-items: center; gap: 8px; font: 400 12.5px var(--mono); }
+.status .model { font: 400 12.5px var(--mono); color: var(--t3); } .status .model.bad { color: var(--sig); }
+.pop { position: absolute; top: 58px; right: 20px; width: 380px; background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow2); padding: 10px; z-index: 50;
+  max-height: calc(100vh - 80px); overflow: auto; animation: brCard .2s var(--ease) both; }
+.pop h4 { margin: 10px 12px 6px; font: 600 11px var(--sans); color: var(--t3); text-transform: uppercase; letter-spacing: .07em; }
+.pop .sc { display: flex; gap: 12px; width: 100%; text-align: left; border: 0; background: transparent; padding: 9px 12px; border-radius: 10px; font-size: 14px; align-items: baseline; }
+.pop .sc:hover { background: var(--sunk); } .pop .sc b { font: 600 12.5px var(--mono); color: var(--sig); }
+.pop .row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 14px; }
+.pop .row label { flex: 1; } .pop .hint { padding: 0 12px 6px; font-size: 12.5px; color: var(--t3); }
+.pop hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+.tg { width: 34px; height: 20px; border-radius: 10px; background: var(--line2); border: 0; position: relative; flex: none; transition: background .2s; }
+.tg i { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: left .2s var(--ease); }
+.tg.on { background: var(--ink); } .tg.on i { left: 16px; }
+select.sel, input.num { border: 1px solid var(--line2); border-radius: 8px; padding: 4px 8px; background: var(--paper); font-size: 13px; }
+input.num { width: 52px; font-family: var(--mono); }
+
+main.live { display: grid; grid-template-columns: minmax(380px, 470px) minmax(0, 1fr); gap: 36px; padding: 28px max(28px, env(safe-area-inset-right, 0px)) 24px max(28px, env(safe-area-inset-left, 0px)); height: calc(100vh - 64px); min-height: 720px; }
+.left { display: flex; flex-direction: column; min-height: 0; }
+.left .eye { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--t2); }
+.incpick { border: 0; background: transparent; font: inherit; color: var(--t2); padding: 0; cursor: pointer; max-width: 100%; }
+.left h1 { margin: 14px 0 0; font: 700 40px/1.04 var(--sans); letter-spacing: -.035em; text-wrap: balance; }
+.left .sub { margin: 12px 0 0; font-size: 16px; color: var(--t2); line-height: 1.5; }
+.scroll { flex: 1; min-height: 0; overflow: auto; margin-top: 20px; padding-right: 6px; }
+.steps { display: grid; gap: 2px; }
+.step { display: grid; grid-template-columns: 20px 1fr auto; column-gap: 12px; align-items: start; padding: 5px 0; }
+.step .mk { width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--line3); display: grid; place-items: center; font-size: 9px; font-weight: 700; margin-top: 2px; color: #fff; }
+.step .ti { font-size: 14.5px; color: var(--t3); }
+.step.has .ti { cursor: pointer; }
+.step .tm { font: 400 12px var(--mono); color: var(--t3); padding-top: 2px; }
+.step .body { grid-column: 2 / 4; margin: 8px 0 8px; display: grid; gap: 10px; }
+.s-done .mk { background: var(--ink); border-color: var(--ink); } .s-done .ti { color: var(--ink); font-weight: 500; }
+.s-ok .mk { background: var(--ok); border-color: var(--ok); } .s-ok .ti { color: var(--ink); font-weight: 500; }
+.s-current .mk { border-color: var(--ink); } .s-current .mk::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); animation: brFade 1s ease-in-out infinite alternate; }
+.s-current .ti { color: var(--ink); font-weight: 600; }
+.s-ruled .mk { background: var(--t3); border-color: var(--t3); } .s-ruled .ti { color: var(--t2); font-weight: 500; }
+.s-bad .mk { background: var(--sig); border-color: var(--sig); } .s-bad .ti { color: var(--sig); font-weight: 500; }
+.step.new .ti { animation: brFade .4s var(--ease) both; }
+.box { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); padding: 12px 16px; display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; font: 400 12.5px var(--mono); }
+.box .k { color: var(--t3); } .box .v { color: var(--ink2); overflow-wrap: anywhere; }
+.note { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; border: 1px solid var(--line2); border-radius: 999px; padding: 4px 12px; background: var(--paper); justify-self: start; }
+.note b { font: 600 12px var(--mono); color: var(--sig); }
+.lens { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); overflow: hidden; }
+.lens .lh { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; flex-wrap: wrap; }
+.lens .lh b { font: 600 12.5px var(--mono); }
+.lens .q { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; padding: 12px 14px; font-size: 13px; }
+.lens .q .k { color: var(--t3); font-size: 12px; padding-top: 1px; }
+.lens .ck { display: grid; grid-template-columns: 18px 1fr; gap: 8px; margin-bottom: 6px; }
+.lens .ck .o { font: 400 11.5px var(--mono); color: var(--t3); }
+.tb { display: inline-block; width: 70px; height: 4px; border-radius: 2px; background: var(--line); vertical-align: middle; margin-left: 8px; overflow: hidden; } .tb i { display: block; height: 100%; }
+.msgs { display: grid; gap: 8px; } .msgs .msg { padding: 10px 14px; border-radius: 12px; } .msgs .tx { font-size: 13.5px; }
+details.more summary { cursor: pointer; color: var(--t2); font-size: 13px; margin: 2px 0; }
+.cite { font-size: 12.5px; color: var(--ok); }
+.pre { font: 400 12px/1.55 var(--mono); color: var(--t2); white-space: pre-wrap; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--paper); max-height: 220px; overflow: auto; }
+.war { margin-top: 18px; animation: brCard .35s var(--ease) both; }
+.agents { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 12px; }
+.agents .lbl { font-size: 12.5px; color: var(--t3); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.agrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+.ag { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.ag .nm { font: 600 13px var(--mono); } .ag .bd { font-size: 12px; color: var(--t3); margin-left: 6px; }
+.ag .bd.amb { color: var(--ink); font-weight: 500; } .ag .bd.sig { color: var(--sig); font-weight: 600; font-family: var(--mono); } .ag .bd.ok { color: var(--ok); }
+.ag .st { font-size: 12.5px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag .ep { font: 500 11.5px var(--mono); color: var(--t3); } .ag .ep.hot { color: var(--sig); }
+.ag .kill { border: 1px solid var(--sig-line); color: var(--sig); background: transparent; border-radius: 999px; font-size: 11.5px; padding: 1px 8px; margin-left: 6px; }
+.ag .start { border: 1px solid var(--line2); background: var(--paper); border-radius: 999px; font-size: 11.5px; padding: 1px 8px; margin-left: 6px; }
+.ag > div { min-width: 0; }
+.right { min-height: 0; display: flex; }
+.right .frame { flex: 1; display: flex; min-height: 0; }
+.gcard { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; overflow: hidden; }
+.gh { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+.gh b { font-weight: 600; } .gh .m { color: var(--t3); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ctl { display: flex; align-items: center; gap: 4px; }
+.ctl button { width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent; color: var(--t2); display: grid; place-items: center; font-size: 13px; }
+.ctl button:hover { background: var(--sunk); color: var(--ink); } .ctl button.play { background: var(--sunk); color: var(--ink); }
+.ctl .livebtn { width: auto; border-radius: 999px; padding: 0 12px; font-size: 12.5px; font-weight: 500; }
+.ctl .livebtn.on { background: var(--ink); color: #fff; }
+.gtop { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 12px 18px 0; font-size: 12.5px; color: var(--t3); min-height: 40px; }
+.gbody { flex: 1; min-height: 0; padding: 0 12px; position: relative; }
+.gfoot { border-top: 1px solid var(--line); padding: 14px 18px 16px; }
+.gfoot .capt { font-size: 15px; min-height: 22px; } .gfoot .capt b { font-weight: 600; }
+.gfoot .stages { margin-top: 12px; }
+.npop { position: absolute; z-index: 6; width: 300px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow2); padding: 14px 16px; font-size: 13.5px; animation: brCard .2s var(--ease) both; }
+.npop .t { font: 600 13.5px var(--mono); } .npop .m { color: var(--t3); font-size: 12.5px; margin: 3px 0 10px; } .npop .r { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.dbdown { position: absolute; inset: 0; background: rgba(250, 250, 248, .82); z-index: 8; display: grid; place-items: center; text-align: center; animation: brFade .3s both; }
+.dbdown b { display: block; font-size: 22px; font-weight: 600; letter-spacing: -.01em; } .dbdown span { color: var(--t2); }
+.envelope { position: fixed; z-index: 60; width: 26px; height: 18px; pointer-events: none; }
+.idle h1 { font-size: 44px; }
+.idle .pick { display: flex; gap: 10px; align-items: center; margin-top: 22px; flex-wrap: wrap; }
+.idle .loop { display: grid; gap: 14px; margin-top: 28px; }
+.idle .loop > div { display: grid; grid-template-columns: 26px 1fr; gap: 12px; font-size: 14px; color: var(--t2); }
+.idle .loop b { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line3); display: grid; place-items: center; font: 500 11px var(--mono); color: var(--t2); }
+.idle .loop h5 { margin: 1px 0 2px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+/* memory + results */
+.page { max-width: 1280px; margin: 0 auto; padding: 48px max(32px, env(safe-area-inset-right, 0px)) 80px max(32px, env(safe-area-inset-left, 0px)); }
+.page h2 { margin: 0; font: 700 40px/1.05 var(--sans); letter-spacing: -.035em; } .page .lead { color: var(--t2); font-size: 17px; margin: 10px 0 0; }
+.ph { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-weight: 400; color: var(--t3); font-size: 13px; padding: 16px 12px 10px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 16px 12px 16px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; } tr.main { cursor: pointer; } tr.retired td { color: var(--t4); }
+td .sig { font: 600 13.5px var(--mono); } td .d { font-size: 12.5px; color: var(--t3); margin-top: 3px; }
+.tbar { display: inline-block; width: 120px; height: 4px; border-radius: 2px; background: var(--line); vertical-align: middle; margin-right: 12px; overflow: hidden; } .tbar i { display: block; height: 100%; }
+.tcard { padding: 4px 24px; margin-top: 28px; overflow-x: auto; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; margin-top: 20px; }
+.fact { padding: 22px 26px; } .fact .k { display: flex; justify-content: space-between; gap: 10px; font: 600 13px var(--mono); } .fact .k span { font: 400 12.5px var(--sans); color: var(--ok); }
+.fact .v { font-size: 18px; font-weight: 500; margin-top: 12px; } .fact .q { font-size: 14px; color: var(--t2); margin-top: 10px; }
+.fact .old { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; font-size: 13px; color: var(--t3); }
+.rgrid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 64px; margin-top: 12px; }
+.big { font: 700 170px/.9 var(--sans); letter-spacing: -.06em; margin-top: 20px; } .big2 { font: 600 40px/1.05 var(--sans); letter-spacing: -.03em; margin-top: 14px; }
+.legend { display: flex; gap: 20px; font-size: 13.5px; color: var(--t2); flex-wrap: wrap; } .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: -1px; }
+.metric { margin-top: 32px; } .metric h5 { margin: 0; font-size: 15.5px; font-weight: 600; } .metric h5 span { font-weight: 400; color: var(--t3); font-size: 13.5px; margin-left: 8px; }
+.hrow { display: grid; grid-template-columns: 1fr 52px; gap: 14px; align-items: center; margin-top: 10px; }
+.hrow .tr { height: 10px; border-radius: 3px; background: var(--sunk2); overflow: hidden; } .hrow .tr i { display: block; height: 100%; border-radius: 3px; }
+.hrow b { font: 500 13.5px var(--mono); text-align: right; color: var(--t2); } .hrow b.me { color: var(--ink); font-weight: 600; }
+.stats3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; border-top: 1px solid var(--line); margin-top: 40px; padding-top: 24px; }
+.stats3 b { font: 600 40px var(--sans); letter-spacing: -.03em; display: block; } .stats3 span { color: var(--t2); font-size: 14px; }
+.load { margin-top: 40px; padding: 4px 24px 12px; overflow-x: auto; }
+.load td, .load th { text-align: right; } .load td:nth-child(2), .load th:nth-child(2) { text-align: left; } .load td { font-family: var(--mono); font-size: 13px; color: var(--t2); }
+.foot { color: var(--t3); font-size: 13px; margin-top: 28px; }
+@media (max-width: 1100px) { main.live { grid-template-columns: minmax(0, 1fr); height: auto; } .right .frame { min-height: 620px; } .rgrid { grid-template-columns: 1fr; } .nav .tabs { margin: 0; } .status .model, .status .tagx { display: none; } }
+</style>
+</head>
+<body>
+<header class="nav">
+  <a class="brand" href="/" title="Back to the landing page"><span class="logo"><i></i></span>Blast Radius<span class="co" id="co">company_a</span></a>
+  <nav class="tabs"><button class="tab on" data-tab="live">Live</button><button class="tab" data-tab="memory">Memory</button><button class="tab" data-tab="results">Results</button></nav>
+  <div class="status">
+    <a class="db" href="http://localhost:3000" target="_blank" rel="noopener" title="Open the FalkorDB Browser"><span class="dot ok" id="dbdot"></span><span id="dbver">FalkorDB</span><span id="dbtext">· connected</span></a>
+    <span class="model" id="model"></span><span class="chip tagx" id="timing"></span>
+    <button class="pill dark sm" id="dir-btn">Director ▾</button>
+  </div>
+  <div class="pop" id="director" hidden></div>
+</header>
+
+<main class="live" id="view-live">
+  <section class="left">
+    <div id="lhead"></div>
+    <div id="war"></div>
+    <div class="scroll" id="steps"></div>
+    <div class="agents"><div class="lbl">Agents · each task is leased; a dead agent's work is taken over <button class="qbtn" data-q="agents">{ } query</button></div><div class="agrid" id="agents"></div></div>
+  </section>
+  <section class="right"><div class="frame"><div class="card gcard" id="gcard">
+    <div class="gh"><b>Service graph</b><span class="m" id="gsub"></span><span class="grow"></span>
+      <div class="ctl" id="ctl"><button id="rp-prev" title="Previous step" aria-label="Previous step">←</button><button class="play" id="rp-play" title="Replay this incident" aria-label="Replay this incident">▶</button>
+        <button id="rp-next" title="Next step" aria-label="Next step">→</button><button class="livebtn on" id="rp-live">Live</button></div>
+      <button class="qbtn" data-q="graph">{ } query</button></div>
+    <div class="gtop"><span id="notif"></span><span>On call</span><span class="avatars" id="oncall"></span></div>
+    <div class="gbody" id="graph"></div>
+    <div class="gfoot"><div class="capt" id="capt"></div><div class="stages" id="stages"></div></div>
+    <div id="npop"></div><div id="dbdown"></div>
+  </div></div></section>
+</main>
+<main class="page" id="view-memory" hidden></main>
+<main class="page" id="view-results" hidden></main>
+
+<div class="drawer" id="drawer"><div class="dh"><div style="display:flex;gap:10px;align-items:center"><h3 id="dr-title"></h3><span class="grow"></span><button class="pill sm" id="dr-close">Close</button></div><div class="s" id="dr-why"></div></div>
+  <div class="ft" id="dr-files"></div><div class="path" id="dr-path"></div><pre class="code" id="dr-code"></pre><div class="df" id="dr-foot"></div></div>
+<div id="toast"></div>
+<svg class="envelope" id="envelope" viewBox="0 0 26 18" hidden><rect x=".75" y=".75" width="24.5" height="16.5" rx="3" fill="#111"/><path d="M2 2 L13 10 L24 2" stroke="#fff" stroke-width="1.6" fill="none"/></svg>
+
+<script src="/static/core.js"></script>
+<script>
+"use strict";
+// War room. Live view: polls the API and draws the incident as it is in FalkorDB.
+// Replay view (← ▶ →): rebuilds the same incident at each stored step.
+Object.assign(S, {tab: "live", follow: true, open: {}, armStep: 3, replay: null});
+const qs = (s) => document.querySelector(s);
+window.toast = (html, ms = 4200) => { const t = qs("#toast"); t.innerHTML = `<div class="toastbox">${html}</div>`; clearTimeout(window.toast.h); window.toast.h = setTimeout(() => t.innerHTML = "", ms); };
+const titleOf = (h) => { const sid = (h.id || "").split("-")[0]; const t = S.settings.stories[sid]; return t ? `${sid} · ${t}` : (h.root ? `${h.root} · ${label(h.family)}` : `Incident ${h.id}`); };
+
+/* ------------------------------------------------------------ view model */
+function view() {
+  if (!S.inc) return {x: null, s: null};
+  if (S.replay) { const stops = replayStops(S.inc); const t = stops[Math.min(S.replay.i, stops.length - 1)]; return {...storyAt(S.inc, t), t, stops}; }
+  return {x: S.inc, s: storyOf(S.inc)};
+}
+
+/* ------------------------------------------------------------ left column */
+function renderHead(x, s) {
+  const list = S.state?.incidents || [];
+  let html;
+  if (!x) {
+    html = `<div class="idle"><div class="eye"><span class="dot ok"></span>Watching ${esc(S.settings.graph)}</div><h1>Break something and watch the agents work.</h1>
+      <p class="sub">Memory holds ${plural((S.memory?.playbooks || []).filter((p) => p.status === "active").length, "playbook")} from past incidents. Every step is written to the graph and can be replayed.</p>
+      <div class="pick"><select class="sel" id="idle-pick" style="font-size:14.5px;padding:9px 12px">${Object.entries(S.settings.stories).map(([id, t]) => `<option value="${id}">${id} · ${esc(t)}</option>`).join("")}</select>
+        <button class="pill dark" id="idle-go">Start scenario →</button></div>
+      <div class="loop"><div><b>1</b><div><h5>Remember</h5>A confirmed incident becomes a playbook pinned to the service that failed.</div></div>
+        <div><b>2</b><div><h5>Recall and check</h5>Agents walk the dependency graph to nearby playbooks and test each against live evidence.</div></div>
+        <div><b>3</b><div><h5>Act and learn</h5>One page to the on-call engineer; the outcome raises or lowers the playbook's trust.</div></div></div></div>`;
+  } else {
+    const opts = list.map((i) => `<option value="${esc(i.key)}" ${i.key === S.inc.head.key ? "selected" : ""}>${esc(titleOf(i))}</option>`).join("");
+    html = `<div class="eye"><span class="dot ${s.phase === "learned" ? "ok" : ""}"></span><select class="incpick" id="incpick" aria-label="Switch incident">${opts}</select>
+        ${S.replay ? `<span class="chip">replay ${secs(view().t)}</span>` : ""}</div>
+      <h1>${esc(headlineOf(x, s))}</h1><p class="sub">${esc(s.cap || "")}</p>`;
+  }
+  if (qs("#lhead").dataset.sig === html) return;
+  qs("#lhead").dataset.sig = html; qs("#lhead").innerHTML = html;
+  qs("#idle-go")?.addEventListener("click", () => breakIt({story: qs("#idle-pick").value}));
+  qs("#incpick")?.addEventListener("change", (e) => { S.selected = e.target.value; S.follow = S.selected === list[0]?.key; S.inc = null; S.replay = null; pollIncident(); });
+}
+const kvHtml = (kv) => kv?.length ? `<div class="box">${kv.map(([k, v]) => `<div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>`).join("")}</div>` : "";
+const cpsHtml = (cps) => `<div class="box">${cps.map((c) => { const [t, r] = humanTool(c); return `<div class="k">step ${c.n} · ${esc(c.agent)} e${c.epoch}</div><div class="v">${esc(t)}${r ? ` <span style="color:var(--t3)">→ ${esc(r)}</span>` : ""}</div>`; }).join("")}</div>`;
+function lensCard(c) {
+  const vb = c.final ? (c.verdict === "helped" ? `<span class="chip ok">helped</span>` : c.verdict === "misled" ? `<span class="chip sig">misled</span>`
+    : c.verdict === "not_applicable" ? `<span class="chip">not applicable</span>` : `<span class="chip">verdict pending</span>`)
+    : `<span class="chip ${c.outcome === "holds" ? "ok" : c.outcome === "checking" ? "ink" : ""}">${c.outcome === "ruled" ? "ruled out" : c.outcome === "holds" ? "all checks hold" : c.outcome === "checking" ? "checking now" : "queued"}</span>`;
+  const after = !c.final ? "decided after the diagnosis is confirmed" : c.verdict === "not_applicable" ? `trust ${fmt(c.trust)}, unchanged: it never steered the investigation`
+    : c.trustAfter !== null && c.trustAfter !== undefined ? `trust ${fmt(c.trust)} → <b>${fmt(c.trustAfter)}</b>` : `trust at use ${fmt(c.trust)}`;
+  const bar = Math.round((c.final && c.verdict !== "not_applicable" ? (c.trustAfter ?? c.trust) : c.trust) * 100);
+  const rows = c.outcome === "ruled" ? c.rows.filter((r) => r.state !== "wait" && r.state !== "pend") : c.rows;
+  return `<div class="lens"><div class="lh">${vb}<b>${esc(sigShort(c.signature))}</b><span style="color:var(--t3)">on</span><b>${esc(c.target)}</b></div>
+    <div class="q"><div class="k">What</div><div>Playbook learned from <span class="mono">${esc(c.learned.join(", ") || "—")}</span>, pinned to <span class="mono">${esc(c.pinned.join(", "))}</span></div>
+      <div class="k">Why recalled</div><div>${c.viaKind ? "Same kind of datastore as where it was learned" : "Pinned right here"}, ${plural(c.hops, "hop")} from the alerts<div class="mono" style="font-size:11.5px;color:var(--t3);margin-top:2px">${c.path.map(esc).join(" → ")} · score ${fmt(c.score, 3)}</div></div>
+      <div class="k">Evidence</div><div>${rows.map((r) => `<div class="ck"><span class="gl g-${r.state}">${r.state === "pass" ? "✓" : r.state === "fail" ? "✕" : ""}</span><div>${esc(r.text)}<div class="o">${esc(r.raw)}${r.obsText ? ` · observed ${esc(String(r.observed))}` : ""}${r.step ? ` · step ${r.step}` : ""}</div></div></div>`).join("")}${c.outcome === "ruled" ? `<div style="font-size:12px;color:var(--t3)">Stopped at the first check that failed.</div>` : ""}</div>
+      <div class="k">Afterwards</div><div>${after}<span class="tb"><i style="width:${bar}%;background:${c.verdict === "helped" ? "var(--ok)" : c.verdict === "misled" ? "var(--sig)" : "var(--t2)"}"></i></span></div></div></div>`;
+}
+function chatHtml(x, s) {
+  const a = s.action; if (!a) return "";
+  const strip = (t) => String(t).split("\n").filter((l) => !l.startsWith("Sent this way ")).join("\n");
+  const msgs = x.messages.length ? x.messages : [{role: "agent", text: a.payload?.text || ""}];
+  let html = `<div class="msgs">${msgs.map((m) => `<div class="msg"><div><div class="who">${m.role === "agent" ? `responder · ${esc(a.channel)} to ${esc(a.recipient)}` : esc(m.handle || a.recipient)}</div><div class="tx">${esc(strip(m.text))}</div></div></div>`).join("")}</div>`;
+  (a.payload?.applied_preferences || []).forEach((c) => { html += `<div class="cite">↳ sent this way ${esc(c)}</div>`; });
+  if (x.earlier?.length) {
+    const inc = [...new Set(x.earlier.map((m) => m.incident))];
+    html += `<details class="more"><summary>Earlier with ${esc(a.recipient)}: ${plural(x.earlier.length, "message")} from ${esc(inc.join(", "))}, read back from the graph</summary>
+      <div class="msgs" style="margin-top:8px">${[...x.earlier].reverse().map((m) => `<div class="msg"><div><div class="who">${m.role === "agent" ? "responder" : esc(a.recipient)} · ${esc(m.incident)}</div><div class="tx">${esc(String(m.text).split("\n")[0])}</div></div></div>`).join("")}</div>
+      <button class="pill xs" style="margin-top:8px" data-recap="${esc(inc[0])}">Where did we leave ${esc(inc[0])}?</button><div class="pre" id="recap-out" hidden style="margin-top:8px"></div></details>`;
+  }
+  return html;
+}
+function warCard(x, s) {
+  const p = s.pending; if (!p || S.replay) return "";
+  const who = s.action?.recipient || "you";
+  if (p.kind === "review") {
+    const d = p.prompt || {};
+    const ctx = s.applied ? `Recalled ${sigShort(s.applied.signature)}; all ${s.applied.total} checks held on ${s.applied.target}.` : s.allRuled ? `Recalled memory was ruled out on evidence. ${x.head.summary || ""}` : (x.head.summary || "");
+    return `<div class="war"><div class="wh"><b>War room</b><span class="m">#${esc(x.head.id)}</span><span class="need">Needs ${esc(who)}</span></div><div class="wb">
+      <h4>Confirm diagnosis?</h4><div class="q">${esc(d.root)} · ${esc(label(d.family))}</div><div class="ctx">${esc(ctx)}</div>
+      <div class="acts" style="margin-top:12px"><textarea id="war-msg" placeholder="Message the agents… (instructions become preferences after a read-back)">${esc(p.suggestion || "")}</textarea></div>
+      <div class="acts"><span class="grow" style="font-size:12px;color:var(--t3)">${p.suggestion ? "scripted reply prefilled" : ""}</span><button class="pill" id="war-no">Not this</button><button class="pill dark" id="war-yes">Confirm</button></div></div></div>`;
+  }
+  const last = [...x.messages].reverse().find((m) => m.role === "agent");
+  return `<div class="war"><div class="wh"><b>War room</b><span class="m">#${esc(x.head.id)}</span><span class="need">Read-back</span></div><div class="wb">
+    <h4>Is this what you meant?</h4><div class="ctx">${esc(last?.text || "")}</div>
+    <div class="acts"><input id="war-reply" value="${esc(p.suggestion || "")}" aria-label="Reply"><button class="pill dark" id="war-send">Send</button></div></div></div>`;
+}
+function renderLeft(x, s) {
+  renderHead(x, s);
+  const war = x ? warCard(x, s) : "";
+  const typing = ["war-msg", "war-reply"].includes(document.activeElement?.id);
+  if (!typing && qs("#war").dataset.sig !== war) {
+    qs("#war").dataset.sig = war; qs("#war").innerHTML = war;
+    const p = s?.pending;
+    if (p?.kind === "review") { qs("#war-yes").onclick = () => review(p.incident_key, true); qs("#war-no").onclick = () => review(p.incident_key, false); }
+    else if (p) qs("#war-send").onclick = async () => { await api(`/api/reply/${encodeURIComponent(p.incident_key)}`, {text: qs("#war-reply").value}); qs("#war-reply").blur(); };
+  }
+  let html = "";
+  if (x) html = `<div class="steps">${s.steps.map((st, i) => {
+    const has = !!(st.kv?.length || st.lens || st.cps?.length || st.chat || st.action);
+    const k = x.head.key + ":" + st.id;
+    const auto = st.state === "current" || st.id === "check" || (st.id === "learn" && st.state !== "pending");
+    const open = has && (S.open[k] ?? auto);
+    const fresh = once("wr:step:" + k + ":" + st.title);
+    let inner = "";
+    if (open) {
+      if (st.note) inner += `<span class="note"><b>${esc(st.noteTag)}</b>${esc(st.note)}</span>`;
+      if (st.kv) inner += kvHtml(st.kv);
+      if (st.lens) inner += [...st.lens].sort((a, b) => (a.outcome === "ruled") - (b.outcome === "ruled")).map(lensCard).join("") + (st.extra ? `<div style="font-size:12px;color:var(--t3)">Then, step by step:</div>` + cpsHtml(st.extra) : "");
+      if (st.cps?.length) inner += cpsHtml(st.cps);
+      if (st.action) inner += `<details class="more"><summary>The ${esc(st.action.channel)} as sent</summary><div class="pre">${esc(String(st.action.payload?.text || "").split("\n").filter((l) => !l.startsWith("Sent this way ")).join("\n"))}</div></details>`;
+      if (st.chat) inner += chatHtml(x, s);
+    }
+    return `<div class="step s-${st.state} ${has ? "has" : ""} ${fresh ? "new" : ""}"><span class="mk">${st.state === "done" || st.state === "ok" ? "✓" : st.state === "ruled" || st.state === "bad" ? "✕" : ""}</span>
+      <span class="ti" data-step="${esc(k)}" data-open="${open ? 1 : 0}">${esc(st.title)}</span><span class="tm">${esc(st.time || "")}</span>${inner ? `<div class="body">${inner}</div>` : ""}</div>`;
+  }).join("")}</div>`;
+  const box = qs("#steps");
+  if (box.dataset.sig !== html && !typing) {
+    const sc = box.scrollTop; box.dataset.sig = html; box.innerHTML = html; box.scrollTop = sc;
+    box.querySelectorAll("[data-step]").forEach((el) => el.onclick = () => { S.open[el.dataset.step] = el.dataset.open !== "1"; render(); });
+    box.querySelectorAll("[data-recap]").forEach((b) => b.onclick = async () => { const r = await api(`/api/recap/${encodeURIComponent(b.dataset.recap)}`); const o = qs("#recap-out"); o.hidden = false; o.textContent = r.text; });
+  }
+}
+async function review(key, confirmed) { const msg = qs("#war-msg")?.value || ""; qs("#war-msg")?.blur(); await api(`/api/review/${encodeURIComponent(key)}`, {confirmed, message: msg}); }
+
+/* ------------------------------------------------------------ agents */
+function renderAgents(x, s) {
+  const st = S.state; if (!st) return;
+  const lease = S.settings.lease_ms, C = 2 * Math.PI * 17, tasks = x?.tasks || [];
+  const workers = S.replay && x ? workersAt(S.inc, view().t) : st.workers;
+  const cards = [];
+  workers.forEach((w) => {
+    const holds = tasks.find((t) => t.owner === w.name && t.status === "leased");
+    const mine = (x?.checkpoints || []).filter((c) => c.agent === w.name), last = mine[mine.length - 1];
+    const took = s?.takeover?.to === w.name && !x.head.decision_id;
+    if (!w.alive) cards.push({name: w.name, badge: w.killed ? "SIGKILL" : "stopped", bc: "sig", step: last ? `Stopped at step ${last.n} · ${holds ? "lease draining" : "lease expired"}` : "Not running",
+      ep: last ? `e${last.epoch}` : "", left: holds ? holds.lease_left_ms : 0, col: "var(--sig)", start: !S.replay});
+    else if (holds) cards.push({name: w.name, badge: took ? "took over" : "working", bc: "amb", step: last ? `Step ${last.n} · ${shortTool(last)}` : "Claimed the task",
+      ep: took ? `e${holds.epoch - 1} → e${holds.epoch}` : `e${holds.epoch}`, hot: took, left: holds.lease_left_ms, col: "var(--ink)", kill: !S.replay});
+    else { const done = tasks.find((t) => t.owner === w.name && t.status === "done");
+      cards.push({name: w.name, badge: done ? "done" : "standby", bc: done ? "ok" : "", step: done && x?.head.root ? `Diagnosed ${x.head.root}` : "Ready to take over", ep: done ? `e${done.epoch}` : "", left: 0, col: "var(--t4)", kill: !S.replay}); }
+  });
+  const th = (name, type, busy, done, idle) => { const t = tasks.find((q) => q.type === type);
+    cards.push(t?.status === "leased" ? {name, badge: "working", bc: "amb", step: busy, ep: `e${t.epoch}`, left: t.lease_left_ms, col: "var(--ink)"}
+      : t?.status === "done" ? {name, badge: "done", bc: "ok", step: done, ep: `e${t.epoch}`, left: 0, col: "var(--t4)"} : {name, badge: "waiting", bc: "", step: idle, ep: "", left: 0, col: "var(--t4)"}); };
+  const a = s?.action;
+  th("responder", "respond", s?.pending ? `Waiting for ${a?.recipient || "the engineer"}` : "Notifying the on-call engineer", a ? `Sent ${plural(x.actions.length, a.channel)} · 0 duplicates` : "Done", "Waiting for a diagnosis");
+  th("learner", "learn", "Recording verdicts and trust", s?.helped ? `trust ${fmt(s.helped.trust)} → ${fmt(s.helped.trustAfter)}` : s?.newPb ? `New playbook on ${s.newPb.about.join(", ")}` : "Verdicts recorded", "Waiting for an outcome");
+  const ring = (c) => { const f = c.left > 0 ? Math.min(1, c.left / lease) : 0;
+    return `<div class="ring"><svg width="40" height="40"><circle class="tr" cx="20" cy="20" r="17"/><circle class="fg" cx="20" cy="20" r="17" stroke="${c.col}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - f)).toFixed(1)}"/></svg><span>${c.left > 0 ? (c.bc === "sig" ? fmt(c.left / 1000, 1) : Math.ceil(c.left / 1000) + "s") : ""}</span></div>`; };
+  const html = cards.map((c) => `<div class="ag" data-ag="${esc(c.name)}">${ring(c)}<div><div><span class="nm">${esc(c.name)}</span><span class="bd ${c.bc}">${esc(c.badge)}</span>
+    ${c.kill ? `<button class="kill" data-kill="${esc(c.name)}" title="Send a real SIGKILL to this process">Kill</button>` : c.start ? `<button class="start" data-start="${esc(c.name)}">Start</button>` : ""}</div>
+    <div class="st" title="${esc(c.step)}">${esc(c.step)}</div>${c.ep ? `<div class="ep ${c.hot ? "hot" : ""}">epoch ${esc(c.ep)}</div>` : ""}</div></div>`).join("");
+  const shape = html.replace(/stroke-dashoffset="[\d.]+"/g, "").replace(/<span>[\d.]+s?<\/span>/g, "");
+  const box = qs("#agents");
+  if (box.dataset.shape === shape) { cards.forEach((c, i) => { const el = box.children[i]; if (!el) return; const f = c.left > 0 ? Math.min(1, c.left / lease) : 0;
+    el.querySelector(".fg").setAttribute("stroke-dashoffset", (C * (1 - f)).toFixed(1));
+    el.querySelector(".ring span").textContent = c.left > 0 ? (c.bc === "sig" ? fmt(c.left / 1000, 1) : Math.ceil(c.left / 1000) + "s") : ""; }); return; }
+  box.dataset.shape = shape; box.innerHTML = html;
+  box.querySelectorAll("[data-kill]").forEach((b) => b.onclick = async () => { await api(`/api/workers/${b.dataset.kill}/kill`, {}); pollState(); });
+  box.querySelectorAll("[data-start]").forEach((b) => b.onclick = async () => { await api(`/api/workers/${b.dataset.start}/start`, {}); pollState(); });
+}
+
+/* ------------------------------------------------------------ graph side */
+function renderRight(x, s) {
+  drawGraph(qs("#graph"), {x, s, tag: S.replay ? "rp" : "wr", k: 1.15});
+  qs("#graph").querySelectorAll("[data-node]").forEach((el) => el.onclick = (e) => { e.stopPropagation(); openNodePop(el.dataset.node); });
+  const svc = S.map.nodes.filter((n) => !n.kind).length, pb = (S.memory?.playbooks || []).filter((p) => p.status === "active").length;
+  qs("#gsub").textContent = `· ${S.settings.graph} · ${svc} services · ${S.map.nodes.length - svc} datastores · ${plural(pb, "playbook")}`;
+  const org = S.map.org || [], hot = s?.action?.recipient;
+  const oc = org.flatMap((t) => t.on_call.map((p) => `<span class="av ${p === hot ? "hot" : ""}" data-av="${esc(p)}" title="${esc(p)} · on call for ${esc(t.team)}">${esc(p.slice(0, 2).toUpperCase())}</span>`)).join("");
+  if (qs("#oncall").innerHTML !== oc) qs("#oncall").innerHTML = oc;
+  const nt = x?.actions.length ? `<span class="chip ink">${plural(x.actions.length, "notification")}</span>` : "";
+  if (qs("#notif").innerHTML !== nt) qs("#notif").innerHTML = nt;
+  const t = x ? (S.replay ? view().t : (x.timeline[x.timeline.length - 1]?.t_ms || 0)) : null;
+  const cap = !x ? "Agents share one graph. Confirmed fixes are saved there as playbooks, pinned to the service that failed."
+    : `<b>${secs(t)}.</b> ${esc(s.cap || headlineOf(x, s))}`;
+  if (qs("#capt").innerHTML !== cap) qs("#capt").innerHTML = cap;
+  const st = stagesOf(x, s);
+  const sh = st.items.map(([n, v], k) => `<div class="stage ${k < st.idx ? "done" : k === st.idx && x ? "on" : ""}"><div class="v">${esc(v)}</div><div class="n">${n}</div></div>`).join("");
+  if (qs("#stages").innerHTML !== sh) qs("#stages").innerHTML = sh;
+  if (!S.replay && s?.action && x.head.root && once("wr:env:" + s.action.key)) flyEnvelope(x.head.root, s.action.recipient);
+  qs("#ctl").style.visibility = x ? "visible" : "hidden";
+  qs("#rp-live").classList.toggle("on", !S.replay);
+  qs("#rp-play").textContent = S.replay?.playing ? "❚❚" : "▶";
+}
+function nodeScreen(name) {
+  const svg = qs("#graph svg"), p = S.xy?.[name]; if (!svg || !p) return null;
+  const pt = svg.createSVGPoint(); pt.x = p.x; pt.y = p.y; const r = pt.matrixTransform(svg.getScreenCTM()); return {x: r.x, y: r.y};
+}
+function flyEnvelope(from, to) {
+  const a = nodeScreen(from), av = document.querySelector(`[data-av="${CSS.escape(to)}"]`); if (!a || !av) return;
+  const b = av.getBoundingClientRect(), e = qs("#envelope");
+  e.hidden = false; e.style.transition = "none"; e.style.opacity = "1"; e.style.left = "0"; e.style.top = "0"; e.style.transform = `translate(${a.x - 13}px, ${a.y - 9}px)`;
+  requestAnimationFrame(() => requestAnimationFrame(() => { e.style.transition = "transform 1.1s cubic-bezier(.16,1,.3,1), opacity .3s 1.1s";
+    e.style.transform = `translate(${b.left + b.width / 2 - 13}px, ${b.top + b.height / 2 - 9}px) scale(.8)`; e.style.opacity = "0"; setTimeout(() => e.hidden = true, 1500); }));
+}
+function openNodePop(name) {
+  if (S.mapNode === name) return closeNodePop();
+  S.mapNode = name; render();
+  const fam = S.settings.breakable[name], owner = (S.map.org || []).find((t) => t.owns.includes(name));
+  const teams = Object.keys(S.settings.teams).filter((t) => t !== owner?.team), pb = (S.memory?.playbooks || []).filter((p) => p.about.includes(name));
+  const sp = nodeScreen(name), card = qs("#gcard").getBoundingClientRect();
+  const left = Math.min(Math.max(12, sp.x - card.left + 16), card.width - 312), top = Math.min(sp.y - card.top + 20, card.height - 200);
+  qs("#npop").innerHTML = `<div class="npop" style="left:${left}px;top:${top}px" onclick="event.stopPropagation()"><div class="t">${esc(name)}</div>
+    <div class="m">${owner ? `owned by ${esc(owner.team)} · on call ${esc(owner.on_call.join(", ") || "nobody")}` : "datastore"}${pb.length ? ` · ${plural(pb.length, "playbook")} pinned` : ""}</div>
+    ${fam ? `<button class="pill sm danger" id="np-break">Break it: ${esc(label(fam))}</button>` : `<div class="m">No failure family for this kind.</div>`}
+    ${owner ? `<div class="r"><span class="m" style="margin:0">Move ownership to</span><select class="sel" id="np-team">${teams.map((t) => `<option>${esc(t)}</option>`).join("")}</select><button class="pill xs" id="np-move">Move</button></div>` : ""}</div>`;
+  if (fam) qs("#np-break").onclick = () => { closeNodePop(); breakIt({node: name}); };
+  if (owner) qs("#np-move").onclick = async () => { const t = qs("#np-team").value; await api("/api/org/owner", {node: name, team: t}); toast(`<b>${esc(name)}</b> is now owned by ${esc(t)}.`); closeNodePop(); loadMap(); };
+}
+function closeNodePop() { if (!S.mapNode) return; S.mapNode = null; qs("#npop").innerHTML = ""; render(); }
+document.addEventListener("click", () => { closeNodePop(); qs("#director").hidden = true; });
+
+/* ------------------------------------------------------------ replay controls */
+let playTimer = null;
+function setReplay(i, playing = false) {
+  const stops = replayStops(S.inc);
+  if (i === null) { S.replay = null; clearTimeout(playTimer); render(); return; }
+  if (i === 0 || !S.replay) [...S.seen].filter((k) => k.startsWith("rp:")).forEach((k) => S.seen.delete(k));
+  S.replay = {i: Math.max(0, Math.min(i, stops.length - 1)), playing};
+  render();
+  clearTimeout(playTimer);
+  if (playing) playTimer = setTimeout(() => { if (S.replay.i >= stops.length - 1) { S.replay.playing = false; render(); } else setReplay(S.replay.i + 1, true); }, 1500);
+}
+qs("#rp-prev").onclick = (e) => { e.stopPropagation(); if (!S.inc) return; const n = replayStops(S.inc).length; setReplay(S.replay ? S.replay.i - 1 : n - 2); };
+qs("#rp-next").onclick = (e) => { e.stopPropagation(); if (!S.inc || !S.replay) return; const n = replayStops(S.inc).length; if (S.replay.i >= n - 1) setReplay(null); else setReplay(S.replay.i + 1); };
+qs("#rp-play").onclick = (e) => { e.stopPropagation(); if (!S.inc) return; if (S.replay?.playing) { S.replay.playing = false; clearTimeout(playTimer); render(); } else setReplay(S.replay && S.replay.i < replayStops(S.inc).length - 1 ? S.replay.i : 0, true); };
+qs("#rp-live").onclick = (e) => { e.stopPropagation(); setReplay(null); };
+
+/* ------------------------------------------------------------ memory + results */
+const checkLine = (c) => humanCheck(c.tool, String(Object.values(c.args)[0]).replace("$alerting", "alerting service").replace("$caller", "caller").replace("$target", "target"), c.measure, c.op, c.value, "target");
+function renderMemory() {
+  const m = S.memory; if (!m) return;
+  const pbs = m.playbooks, planted = pbs.some((p) => p.signature.endsWith(":planted") && p.status === "active");
+  const rows = pbs.map((p) => { const k = "pb:" + p.id, open = !!S.open[k], tc = p.trust >= .6 ? "var(--ok)" : "var(--ink)";
+    return `<tr class="main ${p.status}" data-pb="${esc(k)}"><td><div class="sig">${esc(sigShort(p.signature))}</div><div class="d">${esc(p.signature)} · any ${esc(p.kind)}</div></td>
+      <td class="mono" style="white-space:nowrap">${esc(p.about.join(", "))}</td><td class="mono">${esc((p.learned_from || []).join(", ") || "planted")}</td>
+      <td style="white-space:nowrap"><span class="tbar"><i style="width:${p.trust * 100}%;background:${tc}"></i></span><b class="mono" style="color:${tc}">${fmt(p.trust)}</b></td>
+      <td class="mono">${p.helped} · ${p.misled}</td><td><span class="chip ${p.status === "active" ? "ok" : ""}">${esc(p.status)}</span></td></tr>
+      ${open ? `<tr><td colspan="6" style="color:var(--t2);font-size:13.5px"><b style="color:var(--ink);font-weight:600">Rule out first:</b> ${esc(p.preconditions.map(checkLine).join(" · ") || "nothing")}<br><b style="color:var(--ink);font-weight:600">Then expect:</b> ${esc(p.steps.map(checkLine).join(" · "))}<br><span style="color:var(--t3)">Stops at the first check that fails; the playbook is then not applicable and its trust is untouched.</span></td></tr>` : ""}`; }).join("");
+  const byId = Object.fromEntries(m.facts.map((f) => [f.id, f]));
+  const facts = m.facts.filter((f) => !f.valid_to).map((f) => { const old = (f.supersedes || []).map((id) => byId[id]).filter(Boolean)[0];
+    const v = `${f.predicate === "preferred_channel" ? "Notify by" : f.predicate === "wants_detail" ? "Include" : f.predicate.replace(/_/g, " ")} ${String(f.value).replace("_", " ")}${f.condition_family ? `, for ${label(f.condition_family)}` : ""}.`;
+    return `<div class="card fact"><div class="k">${esc(f.handle)}.${esc(f.predicate)}<span>v${old ? 2 : 1} · ${f.source === "human" ? "engineer-approved" : "agent's reading"}</span></div><div class="v">${esc(v.charAt(0).toUpperCase() + v.slice(1))}</div>
+      <div class="q">“${esc(f.said)}” · ${esc(f.handle)}, incident ${esc(f.learned_in)}</div>${old ? `<div class="old">v1 <s>${esc(old.predicate)} = ${esc(old.value)}</s> · agent's reading before the read-back</div>` : ""}</div>`; }).join("");
+  const html = `<div class="ph"><div class="grow"><h2>What the agents remember.</h2><p class="lead">Playbooks and preferences, stored as nodes on the graph. They survive a database restart.</p></div>
+      <button class="qbtn" data-q="memory">{ } query</button></div>
+    <div class="card tcard">${pbs.length ? `<table><tr><th>Playbook</th><th>Pinned to</th><th>Learned from</th><th>Trust</th><th>Helped · misled</th><th>Status</th></tr>${rows}</table>` : `<p style="color:var(--t2)">Nothing learned yet. Run s01 and confirm: the learner writes the first playbook.</p>`}</div>
+    <p class="foot">Trust = (helped + 1) / (helped + misled + 2). A playbook that misleads twice with trust under 0.5 retires and is never recalled again. Click a playbook for its checks.</p>
+    <div style="display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap"><button class="pill sm" id="plant" ${planted ? "disabled" : ""}>Plant a deliberately wrong playbook</button>
+      <span style="font-size:13.5px;color:var(--t3)">Claims any postgres over 30% of connections is saturated. Break redis-cache a few times and reject the wrong diagnosis: it misleads twice, then retires.</span></div>
+    <div class="ph" style="margin-top:56px"><div class="grow"><h2 style="font-size:28px">Engineer preferences</h2><p class="lead">The engineer-approved version supersedes the agent's own reading. Both stay on record.</p></div><button class="qbtn" data-q="prefs">{ } query</button></div>
+    <div class="facts">${facts || `<p style="color:var(--t2)">None yet. In s01, tell the responder how you want database incidents handled.</p>`}</div>`;
+  const v = qs("#view-memory"); if (v.dataset.sig === html) return; v.dataset.sig = html; v.innerHTML = html;
+  v.querySelectorAll("[data-pb]").forEach((r) => r.onclick = () => { S.open[r.dataset.pb] = !S.open[r.dataset.pb]; renderMemory(); });
+  qs("#plant").onclick = async () => { await api("/api/plant-wrong-memory", {}); toast("A wrong playbook is planted on postgres-orders."); S.memory = await api("/api/memory"); renderMemory(); };
+  bindQ(v);
+}
+async function renderResults() {
+  const r = await api("/api/results"), ev = r.eval, v = qs("#view-results");
+  if (!ev) { v.innerHTML = `<h2>No results yet</h2><p class="lead">Run make eval and make bench.</p>`; return; }
+  const A = ev.summary.A.all, B = ev.summary.B.all, C = ev.summary.C.all, req = (x) => Math.round(x.mean_llm_requests * x.n), ok = (x) => Math.round(x.accuracy * x.n);
+  const cut = Math.round((1 - req(C) / req(A)) * 100), COL = ["#DDDBD5", "#8E8C86", "#111111"], m2 = ev.summary.m2, m5 = ev.m5, load = r.load || [];
+  const metric = (t, sub, vals, max) => `<div class="metric"><h5>${t}<span>${sub}</span></h5>${vals.map((x, i) => `<div class="hrow"><span class="tr"><i style="width:${Math.max(.6, x / max * 100)}%;background:${COL[i]}"></i></span><b class="${i === 2 ? "me" : ""}">${x}</b></div>`).join("")}</div>`;
+  const dup = [A, B, C].reduce((n, x) => n + x.duplicate_notifications, 0) + load.reduce((n, l) => n + l.duplicate_notifications, 0);
+  v.innerHTML = `<div class="eyebrow">${C.n} incidents · 3 memory arms · same model (${esc(ev.meta.model)})</div>
+    <div class="rgrid"><div><div class="big">${cut}%</div><div class="big2">fewer model calls.</div>
+      <p class="lead">Graph memory solved the same ${C.n} incidents with ${req(C)} model requests. With no memory it took ${req(A)}. Correct diagnoses held at ${ok(C)} of ${C.n}.</p></div>
+    <div><div class="legend"><span><i style="background:${COL[0]}"></i>No memory</span><span><i style="background:${COL[1]}"></i>Text memory</span><span><i style="background:${COL[2]}"></i>Graph memory</span></div>
+      ${metric("Model requests", `across ${C.n} incidents`, [req(A), req(B), req(C)], req(A))}${metric("Solved with no model call", `of ${C.n}`, [A.memory_helped, B.memory_helped, C.memory_helped], C.n)}${metric("Correct diagnoses", `of ${C.n}`, [ok(A), ok(B), ok(C)], C.n)}
+      <div class="stats3">${m2 ? `<div><b>${Math.round(m2.graph_recall_at_5 * 100)}%</b><span>right memory in the top 5, vs ${Math.round(m2.text_recall_at_5 * 100)}% for text</span></div>` : ""}<div><b>${dup}</b><span>duplicate notifications, with leases expired at random</span></div>
+        ${m5 ? `<div><b>${m5.misleading_uses_before_retirement} uses</b><span>before a deliberately wrong playbook was retired</span></div>` : ""}</div></div></div>
+    ${load.length ? `<div class="card load"><table><tr><th>worker pairs</th><th>stalled workers</th><th>done</th><th>per min</th><th>read p50 / p95 ms</th><th>write p50 / p95 ms</th><th>duplicates</th><th>takeovers</th></tr>
+      ${load.map((l) => `<tr><td>${l.worker_pairs_per_company}</td><td>${l.chaos_ms ? "lease expired every " + l.chaos_ms + " ms" : "none"}</td><td>${l.completed}/${l.incidents}</td><td>${Math.round(l.incidents_per_minute).toLocaleString()}</td><td>${l.memory_reads.p50_ms} / ${l.memory_reads.p95_ms}</td><td>${l.memory_writes.p50_ms} / ${l.memory_writes.p95_ms}</td><td style="color:var(--ok)">${l.duplicate_notifications}</td><td>${l.takeovers}</td></tr>`).join("")}</table></div>` : ""}
+    <p class="foot">Run ${esc(ev.name)}. Synthetic 15-node company, three failure families. Rerun with make eval · make bench · make isolation.</p>`;
+}
+
+/* ------------------------------------------------------------ director */
+function renderDirector() {
+  const d = qs("#director"); if (d.hidden) return;
+  const st = S.state || {}, armed = !!st.kill_after, org = S.map?.org || [];
+  d.innerHTML = `<h4>Scenario</h4>${Object.entries(S.settings.stories).map(([id, t]) => `<button class="sc" data-story="${id}"><b>${id}</b><span>${esc(t)}</span></button>`).join("")}
+    <div class="hint">Or click any service on the graph to break it.</div><hr>
+    <div class="row"><label for="arm-step">Kill the investigator after step</label><input class="num" id="arm-step" type="number" min="1" max="10" value="${st.kill_after || S.armStep}"><button class="tg ${armed ? "on" : ""}" id="arm" aria-label="Arm the kill"><i></i></button></div>
+    <div class="hint">One shot: a real SIGKILL right after that checkpoint.</div>
+    <div class="row"><label>Scripted engineer</label><button class="tg ${st.autopilot ? "on" : ""}" id="auto" aria-label="Scripted engineer"><i></i></button></div><hr>
+    <h4>On call now</h4>${org.map((t) => `<div class="row"><label>${esc(t.team)}</label><select class="sel" data-team="${esc(t.team)}">${(S.settings.teams[t.team] || []).map((p) => `<option ${t.on_call.includes(p) ? "selected" : ""}>${esc(p)}</option>`).join("")}</select></div>`).join("")}<hr>
+    <div class="row"><button class="pill xs" id="plant2">Plant a wrong playbook</button><span class="grow"></span><button class="pill xs danger" id="reset">Reset company</button></div>
+    <div class="hint" style="padding-top:6px"><a href="/" style="text-decoration:underline">Landing page</a> · <a href="/dark" style="text-decoration:underline">dark view</a> · <a href="/classic" style="text-decoration:underline">classic view</a></div>`;
+  d.querySelectorAll("[data-story]").forEach((b) => b.onclick = () => { d.hidden = true; breakIt({story: b.dataset.story}); });
+  const arm = (on) => api("/api/arm-kill", {after: on ? Number(qs("#arm-step").value) : null}).then(pollState).then(renderDirector);
+  qs("#arm").onclick = () => arm(!armed);
+  qs("#arm-step").onchange = () => { S.armStep = Number(qs("#arm-step").value); if (armed) arm(true); };
+  qs("#auto").onclick = () => api("/api/autopilot", {on: !st.autopilot}).then(pollState).then(renderDirector);
+  d.querySelectorAll("[data-team]").forEach((s) => s.onchange = async () => { await api("/api/org/on-call", {team: s.dataset.team, person: s.value}); toast(`<b>${esc(s.value)}</b> is now on call for ${esc(s.dataset.team)}.`); loadMap(); });
+  qs("#plant2").onclick = async () => { await api("/api/plant-wrong-memory", {}); toast("A wrong playbook is planted on postgres-orders."); S.memory = await api("/api/memory"); render(); };
+  qs("#reset").onclick = async (e) => { if (e.target.dataset.sure !== "1") { e.target.dataset.sure = "1"; e.target.textContent = "Click again to reset"; return; }
+    d.hidden = true; await api("/api/reset", {}); Object.assign(S, {selected: null, inc: null, follow: true, replay: null}); S.seen.clear();
+    S.memory = await api("/api/memory"); await loadMap(); await pollState(); await pollIncident(); toast(`${esc(S.settings.graph)} reset to the seeded company.`); };
+}
+qs("#dir-btn").onclick = (e) => { e.stopPropagation(); const d = qs("#director"); d.hidden = !d.hidden; renderDirector(); };
+qs("#director").onclick = (e) => e.stopPropagation();
+
+/* ------------------------------------------------------------ cypher drawer */
+const CYPHER = {
+  graph: ["Service graph", "The graph, and the walks agents run over it to recall memory.", [["this panel", "web/queries/service_map.cypher"], ["recall: walk downstream from the alerts", "memory/queries/recall.cypher"], ["recall: same kind of datastore", "memory/queries/recall_kind.cypher"], ["blast radius", "tools/queries/blast_radius.cypher"], ["who to page", "tools/queries/who_to_page.cypher"]]],
+  agents: ["Agents", "Agents share nothing but these queries: a lease, a heartbeat, a fenced write.", [["claim: new epoch, DB clock", "coord/queries/claim.cypher"], ["heartbeat", "coord/queries/heartbeat.cypher"], ["fenced checkpoint", "coord/queries/checkpoint.cypher"], ["send once per intent", "coord/queries/send_action.cypher"], ["tasks (this panel)", "web/queries/tasks.cypher"]]],
+  memory: ["Playbooks", "What the agents remembered, and how trust moves.", [["playbooks", "web/queries/playbooks.cypher"], ["write a playbook", "memory/queries/write_playbook.cypher"], ["trust after the verdict", "memory/queries/feedback.cypher"], ["memory lens", "web/queries/lens.cypher"]]],
+  prefs: ["Engineer preferences", "Facts are superseded, never edited.", [["facts", "web/queries/facts.cypher"], ["supersede a fact", "memory/queries/fact_supersede.cypher"], ["preferences in force", "chat/queries/preferences_for.cypher"], ["war-room messages", "web/queries/messages.cypher"]]],
+};
+function hl(text) { return text.split("\n").map((line) => `<span class="ln">${line.trim().startsWith("//") ? `<span class="c">${esc(line)}</span>` : esc(line).replace(/\$[A-Za-z_]\w*/g, (m) => `<span class="p">${m}</span>`)
+  .replace(/\b(OPTIONAL MATCH|MATCH|WHERE|RETURN|WITH|SET|MERGE|CREATE|UNWIND|ORDER BY|LIMIT|AS|AND|OR|NOT|IN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|DISTINCT|DESC|ASC|CALL|YIELD)\b/g, (m) => `<span class="k">${m}</span>`).replace(/:([A-Z][A-Za-z_]+)/g, (m, l) => `:<span class="l">${l}</span>`)}</span>`).join(""); }
+async function showCypher(key, i = 0) {
+  const [title, why, files] = CYPHER[key];
+  qs("#dr-title").textContent = title; qs("#dr-why").textContent = why;
+  qs("#dr-files").innerHTML = files.map(([l], j) => `<button class="${j === i ? "on" : ""}" data-f="${j}">${esc(l)}</button>`).join("");
+  qs("#dr-files").querySelectorAll("[data-f]").forEach((b) => b.onclick = () => showCypher(key, +b.dataset.f));
+  const r = await api(`/api/cypher?path=${encodeURIComponent(files[i][1])}`);
+  qs("#dr-path").textContent = r.path; qs("#dr-code").innerHTML = hl(r.text);
+  const db = S.inc?.db;
+  qs("#dr-foot").innerHTML = `${db ? `This incident view: ${db.queries} Cypher queries, ${db.ms} ms in FalkorDB, every refresh. ` : ""}Try it in the <a href="http://localhost:3000" target="_blank" rel="noopener" style="text-decoration:underline">FalkorDB Browser</a> on graph <span class="mono">${esc(S.settings.graph)}</span>.`;
+  qs("#drawer").classList.add("on");
+}
+function bindQ(root) { root.querySelectorAll("[data-q]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); showCypher(b.dataset.q); }); }
+qs("#dr-close").onclick = () => qs("#drawer").classList.remove("on");
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { qs("#drawer").classList.remove("on"); qs("#director").hidden = true; closeNodePop(); } });
+
+/* ------------------------------------------------------------ restart */
+window.setDbDown = (down) => {
+  if (down === S.dbDown) { if (down) dbOverlay(); return; }
+  S.dbDown = down;
+  if (down) { S.dbSince = Date.now(); dbOverlay(); }
+  else { qs("#dbdown").innerHTML = ""; qs("#dbdot").className = "dot ok"; qs("#dbtext").textContent = "· connected";
+    Promise.all([api("/api/memory"), api("/api/state")]).then(([m, st]) => { S.memory = m; S.state = st;
+      toast(`<span class="dot ok"></span><span><b>Memory survived the restart:</b> ${plural(m.playbooks.filter((p) => p.status === "active").length, "playbook")}, ${plural(st.incidents.filter((i) => i.status !== "planted").length, "incident")}, ${plural(m.facts.filter((f) => !f.valid_to).length, "preference")}</span>`, 6000); }).catch(() => {}); }
+};
+function dbOverlay() { qs("#dbdot").className = "dot"; qs("#dbtext").textContent = "· reconnecting";
+  qs("#dbdown").innerHTML = `<div class="dbdown"><div><b>FalkorDB restarting…</b><span>The agents are waiting. Nothing is lost · ${Math.round((Date.now() - S.dbSince) / 1000)} s</span></div></div>`; }
+
+/* ------------------------------------------------------------ polling */
+async function breakIt(body) { const r = await api("/api/break", body); Object.assign(S, {selected: r.key, follow: true, inc: null, replay: null}); await pollState(); await pollIncident(); }
+async function pollState() {
+  S.state = await api("/api/state");
+  const list = S.state.incidents;
+  if (S.follow && list.length && list[0].key !== S.selected) { S.selected = list[0].key; S.inc = null; S.replay = null; }
+  if (!S.selected && list.length) S.selected = list[0].key;
+  if (S.selected && !list.find((i) => i.key === S.selected)) { S.selected = list[0]?.key || null; S.inc = null; }
+  if (!qs("#director").hidden && document.activeElement?.id !== "arm-step") renderDirector();
+}
+async function pollIncident() {
+  if (S.selected) { try { S.inc = await api(`/api/incident/${encodeURIComponent(S.selected)}`); } catch (e) { if (!S.dbDown) { S.inc = null; S.selected = null; } } }
+  else S.inc = null;
+  render();
+}
+function render() {
+  if (S.tab === "live") { const {x, s} = view(); renderLeft(x, s); renderAgents(x, s); renderRight(x, s); }
+  if (S.tab === "memory") renderMemory();
+}
+async function loadMap() { S.map = await api("/api/map"); qs("#graph").dataset.sig = ""; render(); }
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
+  S.tab = b.dataset.tab; document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
+  for (const v of ["live", "memory", "results"]) qs("#view-" + v).hidden = v !== S.tab;
+  if (S.tab === "results") renderResults().catch(() => {});
+  if (S.tab === "live") qs("#graph").dataset.sig = "";
+  render();
+});
+async function boot() {
+  bindQ(document);
+  S.settings = await api("/api/settings");
+  qs("#co").textContent = S.settings.graph;
+  const bad = (S.settings.model_status || "").startsWith("unavailable");
+  qs("#model").textContent = bad ? `${S.settings.model} unavailable · rule-based` : S.settings.model; qs("#model").className = "model" + (bad ? " bad" : "");
+  qs("#timing").textContent = S.settings.timing_profile === "demo" ? "demo timing" : `lease ${S.settings.lease_ms / 1000} s`;
+  qs("#timing").title = `lease ${S.settings.lease_ms / 1000} s, heartbeat ${S.settings.heartbeat_ms / 1000} s${S.settings.timing_profile === "demo" ? " (production 30 s / 10 s)" : ""}`;
+  await Promise.all([api("/api/map").then((m) => S.map = m), api("/api/memory").then((m) => S.memory = m), api("/api/db").then((d) => { S.db = d; qs("#dbver").textContent = `FalkorDB ${d.version || ""}`; }).catch(() => {})]);
+  await pollState(); await pollIncident();
+  S.booted = true;
+  const loop = async (fn, ms) => { try { await fn(); } catch (e) { /* shown */ } setTimeout(() => loop(fn, ms), S.dbDown ? 1000 : ms); };
+  setTimeout(() => loop(pollState, 1000), 1000);
+  setTimeout(() => loop(() => S.replay ? null : pollIncident(), 600), 600);
+  setTimeout(() => loop(async () => { S.memory = await api("/api/memory"); S.map = await api("/api/map"); render(); }, 3000), 3000);
+}
+boot();
+</script>
+</body>
+</html>

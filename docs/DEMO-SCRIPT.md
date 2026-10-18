@@ -13,8 +13,8 @@ make ui                                   # Terminal A, keep visible in a corner
 curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 ```
 
-- Open http://localhost:8000 and refresh after the reset. The right panel says *No active incident*.
-- **Director**: *scripted engineer* off (you play Priya), *captions* on, kill switch off for now.
+- Open http://localhost:8000 (the landing page) and refresh after the reset. Scenes 1–2 are recorded there; **Enter the war room** opens http://localhost:8000/war-room for the rest.
+- In the war room's **Director**: *scripted engineer* off (you play Priya), kill switch off for now.
 - Header shows `FalkorDB 4.22.1 · connected`, `claude-haiku-5-5`, *demo timing*.
 - Second tab: the FalkorDB Browser (http://localhost:3000), for scene 7.
 - If anything misbehaves, `/classic` is the old all-panels view on the same data.
@@ -23,14 +23,14 @@ curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 
 ### Scene 1 · The problem (0:00–0:25)
 
-**Screen:** the Live tab, idle: the company graph and the three-step loop on the right. (Or a plain title card: *Blast Radius · on-call agents that remember*.)
+**Screen:** the landing page hero: *On-call agents that remember every incident.* with the service graph replaying an incident on the right. Scroll slowly past the five stages (Remember · Recall · Check · Act · Learn).
 
 **Say:**
 > "When production breaks at 3 a.m., the on-call engineer usually starts from zero. What the team learned last month is in a postmortem nobody reads. AI agents have the same problem, plus two of their own: they trust old memory blindly, even when it doesn't fit, and when one crashes mid-investigation, the work is lost or someone gets paged twice."
 
 ### Scene 2 · The idea (0:25–0:50)
 
-**Screen:** stay on the idle view; point at the three steps (Remember · Recall and check · Act and learn), then at the graph.
+**Screen:** scroll to *01 · Recall* (the walk) and *02 · Check* (the two check cards), then click **Enter the war room**: *Break something and watch the agents work.*
 
 **Say:**
 > "Blast Radius is a team of on-call agents that share one FalkorDB graph. Every confirmed fix becomes a playbook pinned to the service that failed. On the next incident, agents find it by walking the dependency graph, check it against live evidence before trusting it, and coordinate through leased tasks in the same graph, so a crash is just a handover. This is a synthetic company: nine services, six datastores. Let's break it."
@@ -39,7 +39,7 @@ curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 
 **Do:** Director → **s01**. Let *What happened* fill. When the war-room card appears, keep Priya's line in the box, click **Confirm**, then **Send** on the read-back.
 
-**Screen:** three services pulse red; the caption says nothing is in memory; steps appear one by one; the war-room card.
+**Screen:** three services pulse red; the headline says nothing is in memory; steps appear one by one on the left; the war-room card appears under the headline.
 
 **Say:**
 > "The orders database saturates. Nothing in memory yet, so the investigator works it out step by step, and every step is checkpointed to the graph. One page goes to Priya, who's on call. She confirms, and tells the agents how she wants database incidents handled next time: a ticket with the raw slow-query lines. The agent reads it back before saving it."
@@ -48,7 +48,7 @@ curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 
 **Do:** point at the **0.50** pin that dropped onto `postgres-orders`. Open **Memory** for three seconds (the playbook; Priya's approved preference superseding the agent's reading). Back to **Live**. In Terminal B: `docker compose down && docker compose up -d falkordb` (speed this up in editing).
 
-**Screen:** the pin; the Memory tab; the stage dims (*FalkorDB restarting…*) and comes back with *Memory survived the restart*.
+**Screen:** the pin; the Memory tab; the graph card dims (*FalkorDB restarting…*) and comes back with *Memory survived the restart*.
 
 **Say:**
 > "The learner turned that investigation into a playbook pinned to postgres-orders, with where it came from. Priya's request is a sourced, versioned fact. Now a full database restart. Nothing reseeds. The memory is still there."
@@ -57,7 +57,7 @@ curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 
 **Do:** Director → switch on **Kill the investigator after step 3** → **s04**. Don't touch anything until the takeover. When the war-room card appears, clear the box and **Confirm**. Open the *page* step.
 
-**Screen:** the recall path draws from `payments-gw` to `postgres-payments`, *1 hop · same kind of datastore*; the checking card ticks off each check; after step 3 one card shows **SIGKILL** and its lease ring drains; the other shows **took over · e1 → e2**; the envelope flies to Priya (**1 notification**); the pin counts up **0.50 → 0.67**.
+**Screen:** the recall path draws from `payments-gw` to `postgres-payments`, *1 hop · same kind of datastore*; the dashed line to `postgres-orders` shows where the playbook was learned; the checking card ticks off each check; after step 3 one agent shows **SIGKILL** and its lease ring drains; the headline says *took over at step 4, not from scratch* and the other agent shows **e1 → e2**; the envelope flies to Priya (**1 notification**); the pin counts up **0.50 → 0.67**.
 
 **Say:**
 > "Now the payments database saturates, with alerts worded differently. A text search wouldn't match it. The graph does: the orders playbook is recalled for payments, one hop from the alerts, same kind of datastore. Before trusting it, the agent checks each condition against live evidence."
@@ -75,7 +75,7 @@ curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 
 ### Scene 7 · The proof (2:50–3:20)
 
-**Do:** **Results** tab (hold three seconds on the 71%), then the charts. Back on Live, click **‹›** next to *Dependency graph* → *recall: walk downstream from the alerts*. Optionally flash the FalkorDB Browser tab.
+**Do:** **Results** tab (hold three seconds on the 71%), then the charts. Back on Live, press **▶** on the graph card to replay s04 from its stored steps, then click **{ } query** → *recall: walk downstream from the alerts*. Optionally flash the FalkorDB Browser tab.
 
 **Say:**
 > "We measured it on thirty incidents, with the same model and tools, changing only how memory is retrieved. Graph memory made 71% fewer model calls than no memory, solved twenty incidents with no model call at all, and found the right memory every time, against 55% for text similarity. Zero duplicate pages, even with leases expiring at random, and a deliberately wrong playbook retired itself after misleading twice. Every panel is a Cypher query on FalkorDB, and one command reruns all of it. That's Blast Radius."
@@ -99,4 +99,4 @@ curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 
 ## The 60-second GIF for the README
 
-Scenes 5 and 6 only, no narration, captions on: s04 with the armed kill (checking card → SIGKILL → lease drains → takeover → envelope → trust count-up), then s05 (ruled out). Save as `docs/img/demo.gif` and put it at the top of the README in place of the screenshot.
+Scenes 5 and 6 only, no narration: s04 with the armed kill (checking card → SIGKILL → lease drains → takeover → envelope → trust count-up), then s05 (ruled out). Save as `docs/img/demo.gif` and put it at the top of the README in place of the screenshot.

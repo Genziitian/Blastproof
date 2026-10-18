@@ -144,7 +144,7 @@ Say the caveats before they're asked: synthetic benchmark; no accuracy gain beca
 ## 12. Practice drill
 
 1. Open the UI, click **s01**, and explain each timeline row as it appears.
-2. Click **‹›** next to *Dependency graph*, open *recall: walk downstream from the alerts*, and read `recall.cypher` aloud (section 4).
+2. In the war room, click **{ } query** on the graph card, open *recall: walk downstream from the alerts*, and read `recall.cypher` aloud (section 4).
 3. Arm the kill, click **s04**, and narrate section 8 while it happens.
 4. Click **s05** and explain the failed precondition (section 5).
 5. Plant the wrong playbook, break `redis-cache` three times, and explain the trust numbers (section 6).
