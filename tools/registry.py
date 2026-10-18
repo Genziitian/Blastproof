@@ -15,7 +15,8 @@ from typing import Any
 from tools import evidence, topology
 from tools.context import ToolContext, ToolError
 
-__all__ = ["TOOLS", "Tool", "ToolContext", "ToolError", "ToolResult", "call", "validate"]
+__all__ = ["INVESTIGATOR_TOOLS", "TOOLS", "Tool", "ToolContext", "ToolError", "ToolResult", "call",
+           "validate"]
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,9 @@ class Tool:
     run: Callable[..., Any]
     source: str
     required: tuple[str, ...] = field(default=())
+    # False: served over MCP (and to people) but not offered to the investigator, so
+    # adding an analysis tool never changes how the benchmark's agent behaves.
+    investigator: bool = True
 
     def schema(self) -> dict[str, Any]:
         return {
@@ -114,8 +118,31 @@ TOOLS: dict[str, Tool] = {
             "cypher:tools/queries/who_to_page.cypher",
             required=("node",),
         ),
+        Tool(
+            "rank_suspects",
+            "Where to look first: nodes the alerting services depend on, ranked by how many "
+            "of them reach it, how close it is, then FalkorDB PageRank over DEPENDS_ON (how "
+            "much of the system leans on it). A ranking, not a diagnosis: evidence decides.",
+            {"alerting": {"type": "array", "items": _STRING, "minItems": 1}},
+            topology.rank_suspects,
+            "cypher:tools/queries/rank_suspects.cypher",
+            required=("alerting",),
+            investigator=False,
+        ),
+        Tool(
+            "explain_path",
+            "Why a node matters to these alerts: the shortest DEPENDS_ON path from each "
+            "alerting service to it (FalkorDB algo.SPpaths, at most 4 hops).",
+            {"alerting": {"type": "array", "items": _STRING, "minItems": 1}, "node": _SERVICE},
+            topology.explain_path,
+            "cypher:tools/queries/explain_path.cypher",
+            required=("alerting", "node"),
+            investigator=False,
+        ),
     ]
 }
+# The tools the investigating agent may call (in-process and LLM-planned).
+INVESTIGATOR_TOOLS: dict[str, Tool] = {n: t for n, t in TOOLS.items() if t.investigator}
 
 _TYPES: dict[str, type | tuple[type, ...]] = {
     "string": str,

@@ -13,6 +13,14 @@ def find_upstream_candidates(ctx: ToolContext, alerting: list[str]) -> list[dict
     return run(ctx.graph, Q + "upstream_candidates.cypher", {"alerting": alerting})
 
 
+def rank_suspects(ctx: ToolContext, alerting: list[str]) -> list[dict[str, Any]]:
+    return run(ctx.graph, Q + "rank_suspects.cypher", {"alerting": alerting})
+
+
+def explain_path(ctx: ToolContext, alerting: list[str], node: str) -> list[dict[str, Any]]:
+    return run(ctx.graph, Q + "explain_path.cypher", {"alerting": alerting, "node": node})
+
+
 def blast_radius(ctx: ToolContext, node: str) -> list[dict[str, Any]]:
     return run(ctx.graph, Q + "blast_radius.cypher", {"node": node})
 

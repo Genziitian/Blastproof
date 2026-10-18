@@ -49,7 +49,7 @@ FalkorDB is the only store: the company, incidents, the agents' memory, the task
 5. **Tenant isolation.** One graph per company, chosen from trusted config; no tool takes a graph name.
 6. **Persistence.** RDB snapshots; the acceptance test restarts FalkorDB, then SIGKILLs a worker, and the replacement resumes at the next step.
 
-All 73 queries are `.cypher` files indexed in `docs/QUERIES.md`, and the UI shows the Cypher behind every panel. We also found three FalkorDB issues, with reproductions in `docs/FALKORDB-FINDINGS.md`.
+All 76 queries are `.cypher` files indexed in `docs/QUERIES.md`, and the UI shows the Cypher behind every panel. We also found three FalkorDB issues, with reproductions in `docs/FALKORDB-FINDINGS.md`.
 
 ### Blog link
 

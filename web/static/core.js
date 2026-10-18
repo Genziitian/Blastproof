@@ -98,7 +98,7 @@ function candidatesOf(x) {
       const total = pb ? pb.preconditions.length + pb.steps.length : rows.length;
       return {key: l.memory + ">" + l.target, memory: l.memory, signature: l.signature, target: l.target, path: l.path || [],
         hops: l.hops, score: l.score, viaKind: !(l.pinned_to || []).includes(l.target), pinned: l.pinned_to || [],
-        trust: l.trust_at_use, trustAfter: l.trust_after, verdict: l.verdict, learned: l.learned_from || [], status: l.status,
+        learnedPath: l.learned_path || null, trust: l.trust_at_use, trustAfter: l.trust_after, verdict: l.verdict, learned: l.learned_from || [], status: l.status,
         rows, total, outcome: l.applied ? "holds" : "ruled", final: true};
     });
   }

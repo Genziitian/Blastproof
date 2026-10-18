@@ -43,7 +43,10 @@ class McpCases:
                                    ("blast_radius", {"node": "postgres-orders"}),
                                    ("inspect_recent_changes", {"service": "checkout-api"}),
                                    ("who_to_page", {"node": "checkout-api"}),
-                                   ("inspect_metrics", {"node": "checkout-api"})):
+                                   ("inspect_metrics", {"node": "checkout-api"}),
+                                   ("rank_suspects", {"alerting": list(sc.alerting)}),
+                                   ("explain_path", {"alerting": ["web-gateway"],
+                                                     "node": "postgres-orders"})):
                     res = await client.call_tool(name, args)
                     out[name] = json.loads(res.content[0].text)
                 bad = await client.call_tool("blast_radius", {"node": "x", "graph": "company_b"})
@@ -59,6 +62,16 @@ class McpCases:
         self.assertEqual((change["kind"], change["author"]), ("deploy", "rohan"))
         self.assertEqual(out["who_to_page"]["result"]["on_call"], "rohan")
         self.assertEqual(out["inspect_metrics"]["source"], "simulator")
+        # Graph algorithms as tools: PageRank breaks ties between equally reached nodes,
+        # and the shortest path explains why a node matters to the alerts.
+        suspects = out["rank_suspects"]["result"]
+        self.assertTrue(all(isinstance(r["pagerank"], float) for r in suspects))
+        self.assertEqual([(r["hits"], r["hops"]) for r in suspects],
+                         sorted(((r["hits"], r["hops"]) for r in suspects),
+                                key=lambda x: (-x[0], x[1])))
+        [why] = out["explain_path"]["result"]
+        self.assertEqual((why["path"][0], why["path"][-1], why["hops"]),
+                         ("web-gateway", "postgres-orders", 2.0))
         is_error, text = out["bad"]  # the schema forbids extra arguments, such as a graph name
         self.assertTrue(is_error)
         self.assertIn("graph", text)

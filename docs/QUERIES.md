@@ -2,7 +2,7 @@
 
 Every query the product runs lives in a `.cypher` file; this index is generated from each file's leading comment (`python -m scripts.query_index`). Comment lines are stripped before a query is sent (`common/db.py`).
 
-74 queries.
+76 queries.
 
 ## Memory: recall (A1, A1b), trust (A2), facts (A3), playbooks (A4)
 
@@ -75,6 +75,8 @@ Every query the product runs lives in a `.cypher` file; this index is generated 
 | Query | What it does |
 |---|---|
 | [`tools/queries/blast_radius.cypher`](../tools/queries/blast_radius.cypher) | Everything that depends on a node, with distance and customer impact. |
+| [`tools/queries/explain_path.cypher`](../tools/queries/explain_path.cypher) | Why a node matters to these alerts: FalkorDB's shortest-path algorithm from each alerting service down DEPENDS_ON to the node (at most 4 hops), shortest first. |
+| [`tools/queries/rank_suspects.cypher`](../tools/queries/rank_suspects.cypher) | Root-cause suspects for a set of alerting services. Ranked by how many alerting services depend on each node (hits), how close it is (hops), then by FalkorDB's PageRank over DEPENDS_ON: how much of the whole system leans on that node, so a shared dependency beats a leaf when the walk alone can't tell them apart. |
 | [`tools/queries/recent_changes.cypher`](../tools/queries/recent_changes.cypher) | Deploys and config changes to a service between $since and $now (scenario time), with who made them: a two-hop walk Person -> Change -> Service. |
 | [`tools/queries/upstream_candidates.cypher`](../tools/queries/upstream_candidates.cypher) | Nodes the alerting services depend on (1-3 hops downstream), ranked by how many alerting services reach them, then by distance. |
 | [`tools/queries/who_to_page.cypher`](../tools/queries/who_to_page.cypher) | Owner team and on-call engineer for a node, as they were at scenario time $at. |

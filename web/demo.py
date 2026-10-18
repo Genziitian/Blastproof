@@ -276,6 +276,14 @@ class Demo:
             checks = _json(row.pop("checks_json")) or {}
             row["checks"] = checks.get("checks", []) if isinstance(checks, dict) else []
             row["note"] = checks.get("note", "") if isinstance(checks, dict) else ""
+            # Recalled by kind: show how the alerts reach the node it was learned on,
+            # via FalkorDB's shortest-path algorithm (the dashed line on the graph).
+            pinned = row.get("pinned_to") or []
+            row["learned_path"] = None
+            if pinned and row["target"] not in pinned and head[0]["alerting"]:
+                why = q("tools/queries/explain_path.cypher",
+                        {"alerting": head[0]["alerting"], "node": pinned[0]})
+                row["learned_path"] = why[0]["path"] if why else None
         checkpoints = q(Q + "checkpoints.cypher", p)
         for c in checkpoints:
             c["args"] = _json(c.pop("args_json"))

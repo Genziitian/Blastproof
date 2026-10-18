@@ -16,7 +16,8 @@ from typing import Any
 from agents.contracts import Call, Diagnosis, Step
 from agents.planning import Planner, RuleBasedPlanner
 from common.llm import ChatModel, LLMError, Reply
-from tools.registry import TOOLS, ToolError, validate
+from tools.registry import INVESTIGATOR_TOOLS as TOOLS
+from tools.registry import ToolError, validate
 
 FAMILIES = ("db_saturation", "bad_deploy", "cache_failure")
 MAX_OBSERVATION_CHARS = 1500

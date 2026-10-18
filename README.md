@@ -82,6 +82,13 @@ When an incident is confirmed, its investigation becomes a **playbook** pinned t
 | Separate memory per user or tenant | One graph per company; per-engineer preferences; no tool takes a graph argument | `make isolation`; the UI API test; canary search: 0 found |
 | Persist, update over time | RDB snapshots + restart test; trust moves on verdicts; facts superseded, never edited; a wrong playbook retires | Acceptance part 1 → restart → part 2; M5 |
 
+### Track 01: agents that act on connected data
+
+- **Multi-hop graph queries as the agent's tools:** shared dependencies of the alerting services (1–3 hops), blast radius (up to 4 hops), who to page right now (a time-valid two-hop walk), and deploy history (`Person → Change → Service`). The investigator decides with them; the responder pages with them.
+- **FalkorDB graph algorithms as tools:** `rank_suspects` orders where to look first by how many alerting services reach a node, how close it is, then **`algo.pageRank`** over `DEPENDS_ON` (how much of the system leans on it). `explain_path` gives **`algo.SPpaths`** shortest paths from the alerts to any node; the Memory Lens uses it to show how the alerts reach the node a playbook was learned on.
+- **Tool selection through MCP:** all nine tools are served over MCP (below). The two algorithm tools are for people and other agents; the benchmark's investigator keeps its seven, so the frozen results stay comparable.
+- **Explainable:** every decision stores what it recalled, why (path, hops, score), and each check's evidence for and against; every UI panel opens the Cypher behind it.
+
 ## Results
 
 A 30-incident synthetic benchmark replayed in time order. Three setups, each in its own graph, with the same model (Claude Haiku 5.5), tools, step budget (12), oracle and learning; **only how memories are retrieved differs**:
@@ -257,7 +264,7 @@ Shared memory fields: `id`, `lineage_id`, `version`, `source` (agent or human), 
 
 ## Queries
 
-All 73 queries are `.cypher` files, indexed with what each does in **[`docs/QUERIES.md`](docs/QUERIES.md)** (generated from the files; a test keeps it current). In the UI, the **{ } query** button on each part opens the queries behind it. The ones the product depends on most:
+All 76 queries are `.cypher` files, indexed with what each does in **[`docs/QUERIES.md`](docs/QUERIES.md)** (generated from the files; a test keeps it current). In the UI, the **{ } query** button on each part opens the queries behind it. The ones the product depends on most:
 
 | Query | Does |
 |---|---|
@@ -273,6 +280,9 @@ All 73 queries are `.cypher` files, indexed with what each does in **[`docs/QUER
 | [`chat/queries/preferences_for.cypher`](chat/queries/preferences_for.cypher) | Preferences in force at incident time, with the message they came from |
 | [`tools/queries/who_to_page.cypher`](tools/queries/who_to_page.cypher) | Owner and on-call *at scenario time* |
 | [`tools/queries/upstream_candidates.cypher`](tools/queries/upstream_candidates.cypher) | Shared downstream dependencies of the alerting services |
+| [`tools/queries/rank_suspects.cypher`](tools/queries/rank_suspects.cypher) | The same walk, ties broken by FalkorDB `algo.pageRank` over `DEPENDS_ON` |
+| [`tools/queries/explain_path.cypher`](tools/queries/explain_path.cypher) | FalkorDB `algo.SPpaths`: the shortest path from the alerts to a node |
+| [`memory/queries/fact_retract.cypher`](memory/queries/fact_retract.cypher) | Close an agent's reading the engineer didn't confirm |
 
 ## FalkorDB findings
 
@@ -333,7 +343,7 @@ The integration suites are written once and run on two backends: FalkorDB when i
 - **Claude** (what the results use): `LLM_BASE_URL=https://api.anthropic.com`, `LLM_MODEL=claude-haiku-5-5`, `LLM_API_KEY=...`. Native Messages API with prompt caching: tools, instructions and earlier steps are re-read from cache on each turn.
 - **Any OpenAI-compatible endpoint** (Gemini, DeepSeek, Groq, OpenAI, Ollama): set base URL, model and key; see `.env.example`.
 
-**MCP.** `python -m tools.mcp_server --company a --scenario s01` serves the agents' seven tools (four multi-hop graph queries, three evidence tools) to any MCP client. `tests/test_mcp.py` runs a real client session against it.
+**MCP.** `python -m tools.mcp_server --company a --scenario s01` serves nine tools to any MCP client: the investigator's seven (four multi-hop graph queries, three evidence tools) plus the two graph-algorithm tools, `rank_suspects` (PageRank) and `explain_path` (shortest paths). For Claude Desktop or Claude Code, add it as a stdio server with that command, run from this folder, and ask, for example, "who do I page if postgres-orders fails, and what else breaks?". `tests/test_mcp.py` runs a real client session against it.
 
 ### Layout
 

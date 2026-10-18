@@ -31,6 +31,12 @@ class RegistryTests(unittest.TestCase):
                 self.assertTrue(set(schema["required"]) <= set(schema["properties"]))
                 self.assertTrue(tool.description.endswith("."))
 
+    def test_analysis_tools_are_served_but_not_given_to_the_investigator(self):
+        from tools.registry import INVESTIGATOR_TOOLS
+        self.assertEqual({"rank_suspects", "explain_path"}, set(TOOLS) - set(INVESTIGATOR_TOOLS))
+        self.assertTrue(all(TOOLS[n].source.startswith("cypher:")
+                            for n in ("rank_suspects", "explain_path")))
+
     def test_rejects_bad_arguments(self):
         tool = TOOLS["inspect_metrics"]
         with self.assertRaises(ToolError):

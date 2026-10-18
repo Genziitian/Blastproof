@@ -924,6 +924,44 @@ def _upstream_candidates(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, An
     return sorted(rows, key=lambda r: (-r["hits"], r["hops"], r["name"]))
 
 
+def _pagerank(g: GraphDouble, rel: str, damping: float = 0.85, rounds: int = 40) -> dict[int, float]:
+    """Plain PageRank over `rel` edges, standing in for FalkorDB's algo.pageRank: the
+    double checks ordering and shape, not FalkorDB's exact scores."""
+    nodes = [n for n in g.nodes.values() if n.labels & {"Service", "Datastore"}]
+    outs = {n.id: [m.id for _, m in g.out(n, rel)] for n in nodes}
+    rank = {n.id: 1.0 / len(nodes) for n in nodes}
+    for _ in range(rounds):
+        nxt = {i: (1 - damping) / len(nodes) for i in rank}
+        for i, targets in outs.items():
+            for t in targets:
+                nxt[t] += damping * rank[i] / len(targets)
+        rank = nxt
+    return rank
+
+
+@implements("tools/queries/rank_suspects.cypher")
+def _rank_suspects(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    rank = _pagerank(g, "DEPENDS_ON")
+    rows = _upstream_candidates(g, p)
+    for r in rows:
+        node = g.entity(r["name"])
+        r["pagerank"] = rank.get(node.id) if node else None
+    return sorted(rows, key=lambda r: (-r["hits"], r["hops"], -(r["pagerank"] or 0), r["name"]))
+
+
+@implements("tools/queries/explain_path.cypher")
+def _explain_path(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    target = g.entity(p["node"])
+    rows = []
+    for a in (_alerting(g, p["alerting"]) if target else []):
+        best = min((path for path in g.paths(a, "DEPENDS_ON", 1, 4) if path[-1].id == target.id),
+                   key=len, default=None)
+        if best is not None:
+            rows.append({"alerting": a.get("name"), "path": [n.get("name") for n in best],
+                         "hops": float(len(best) - 1)})
+    return sorted(rows, key=lambda r: (r["hops"], r["alerting"]))
+
+
 @implements("tools/queries/blast_radius.cypher")
 def _blast_radius(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     root = g.entity(p["node"])
