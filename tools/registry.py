@@ -159,9 +159,21 @@ def validate(tool: Tool, args: dict[str, Any]) -> None:
     if missing:
         raise ToolError(f"{tool.name}: missing argument(s) {missing}")
     for name, value in args.items():
-        expected = _TYPES[tool.parameters[name]["type"]]
+        spec = tool.parameters[name]
+        expected = _TYPES[spec["type"]]
         if not isinstance(value, expected) or isinstance(value, bool):
-            raise ToolError(f"{tool.name}: {name} must be {tool.parameters[name]['type']}")
+            raise ToolError(f"{tool.name}: {name} must be {spec['type']}")
+        # The bounds the schema advertises are enforced too (a model asking for
+        # hours=100000 or an empty alert list is told so, not obeyed).
+        if "minimum" in spec and value < spec["minimum"]:
+            raise ToolError(f"{tool.name}: {name} must be at least {spec['minimum']}")
+        if "maximum" in spec and value > spec["maximum"]:
+            raise ToolError(f"{tool.name}: {name} must be at most {spec['maximum']}")
+        if "minItems" in spec and isinstance(value, list) and len(value) < spec["minItems"]:
+            raise ToolError(f"{tool.name}: {name} needs at least {spec['minItems']} item(s)")
+        item = spec.get("items", {}).get("type")
+        if item and isinstance(value, list) and not all(isinstance(v, _TYPES[item]) for v in value):
+            raise ToolError(f"{tool.name}: every {name} item must be {item}")
 
 
 def call(ctx: ToolContext, name: str, args: dict[str, Any]) -> ToolResult:

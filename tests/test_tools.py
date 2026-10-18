@@ -49,6 +49,12 @@ class RegistryTests(unittest.TestCase):
             validate(tool, {"node": "x", "window_min": True})
         with self.assertRaises(ToolError):
             call(self.ctx, "drop_database", {})
+        for name, args in (("inspect_metrics", {"node": "x", "window_min": 100000}),
+                           ("inspect_logs", {"node": "x", "n": 0}),
+                           ("find_upstream_candidates", {"alerting": []}),
+                           ("find_upstream_candidates", {"alerting": ["ok", 3]})):
+            with self.subTest(tool=name, args=args), self.assertRaises(ToolError):
+                validate(TOOLS[name], args)
 
     def test_evidence_results_serialise(self):
         for name, args in [

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -117,7 +118,10 @@ class GuardedLLMPlanner:
                    history: Sequence[Step]) -> Diagnosis | None:
         root, family = args.get("root"), args.get("family")
         seen = " ".join(alerting) + json.dumps([s.observation for s in history])
-        if not isinstance(root, str) or not root or root not in seen:
+        # A whole node name, not a fragment: "postgres" must not pass for "postgres-orders".
+        whole = isinstance(root, str) and bool(root) and re.search(
+            rf"(?<![\w-]){re.escape(root)}(?![\w-])", seen) is not None
+        if not whole:
             self.log.info("rejected: diagnosis names a node never observed (%r)", root)
             return None
         if family not in FAMILIES or len(history) < 2:
@@ -125,4 +129,4 @@ class GuardedLLMPlanner:
             return None
         steps = tuple(n for n in args.get("evidence_steps") or ()
                       if isinstance(n, int) and 1 <= n <= len(history))
-        return Diagnosis(root, family, str(args.get("summary", ""))[:300], steps)
+        return Diagnosis(str(root), str(family), str(args.get("summary", ""))[:300], steps)

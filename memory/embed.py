@@ -13,6 +13,7 @@ memory says.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import itertools
 import json
 import math
@@ -89,7 +90,7 @@ class OpenAIEmbedder:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
                 data: dict[str, Any] = json.load(response)
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+        except (OSError, http.client.HTTPException, ValueError) as e:  # incl. dropped connections
             raise LLMError(f"{self.url}: {e}") from e
         self.calls += 1
         vector = _normalise([float(v) for v in data["data"][0]["embedding"]][: self.dim])

@@ -718,6 +718,9 @@ def _write_playbook(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     i, root = g.one("Incident", key=p["incident_key"]), g.entity(p["root"])
     if i is None or root is None:
         return []
+    if any(o.get("status") == "active" and o.get("id") != p["id"]
+           for o in g.find("Playbook", signature=p["signature"])):
+        return []
     pb = g.merge(["Memory", "Playbook"], {"id": p["id"]}, {
         "lineage_id": p["signature"], "version": 1, "signature": p["signature"],
         "family": p["family"], "applies_to_kind": p["applies_to_kind"],

@@ -27,6 +27,7 @@ from chat.war_room import WarRoom
 from common.db import run
 from eval import truth
 from eval.oracle import Oracle
+from memory import feedback
 from scripts import acceptance
 from scripts.run_incident import run_incident
 from scripts.seed import seed_graph
@@ -237,6 +238,16 @@ class MemoryLifecycleCases:
         self.assertEqual(outcome(self.g, third)["verdict"], "confirmed")
         statuses = sorted(row[3] for row in playbook(self.g, DB_PLAYBOOK))
         self.assertEqual(statuses, ["active", "retired"], "relearned from fresh evidence")
+
+    def test_a_memory_used_twice_by_one_decision_is_credited_once(self):
+        """s04 uses the s01 playbook twice (pinned on postgres-orders, and by kind on
+        postgres-payments). However the two verdicts are ordered, helped counts once."""
+        run_incident(self.g, truth.load("s04"), "s04-twice", learn=False)
+        usage = run(self.g, "agents/queries/decision_usage.cypher", {"decision_id": "dec-s04-twice"})
+        self.assertEqual((len(usage), len({u["id"] for u in usage})), (2, 1))
+        vs = sorted(feedback.verdicts(usage, confirmed=True), key=lambda v: v["verdict"] != "helped")
+        run(self.g, "memory/queries/feedback.cypher", {"decision_id": "dec-s04-twice", "verdicts": vs})
+        self.assertEqual(playbook(self.g, DB_PLAYBOOK)[0][:2], [1, 0])
 
     def test_a_second_confirmed_run_adds_a_source_not_a_duplicate(self):
         key = run_incident(self.g, truth.load("s04"), "s04-p", use_memory=False)

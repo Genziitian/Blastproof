@@ -17,7 +17,8 @@ from common.db import run
 
 Q = "memory/queries/"
 DAY_MS = 86_400_000
-HALF_LIFE_DAYS = 30.0
+# Recency weight e^(-age / 30 days): a memory's weight halves about every 21 days.
+DECAY_DAYS = 30.0
 TOP_K = 5
 # One playbook can be pinned to many nodes (a bad-deploy playbook learned on four
 # services). Without a cap its targets crowd every other memory out of the top K.
@@ -58,7 +59,7 @@ def rank(rows: Iterable[Mapping[str, Any]], scenario_now: int, k: int = TOP_K) -
         # The path used for binding: strongest contribution, ties broken by name.
         _, top = min(per_alerting.values(), key=lambda cr: (-cr[0], cr[1]["alerting"]))
         age_days = max(0.0, (scenario_now - int(top["recorded_at"])) / DAY_MS)
-        decay = math.exp(-age_days / HALF_LIFE_DAYS)
+        decay = math.exp(-age_days / DECAY_DAYS)
         score = float(top["trust"]) * decay * sum(c for c, _ in per_alerting.values())
         ranked.append(Recalled(memory_id, target, round(score, 6), float(top["trust"]),
                                int(top["hops"]), tuple(top["path"]), float(top["weight"]) < 1.0))
