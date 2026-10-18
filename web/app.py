@@ -30,9 +30,11 @@ from web.supervisor import Supervisor
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(__file__).resolve().parent / "static"
+BLOG = ROOT / "docs" / "blog"
 log = logging.getLogger("web")
 ASSET = re.compile(r"[a-z0-9-]+\.(js|css|json)")
 FONT = re.compile(r"[a-z-]+-\d00\.woff2")
+BLOG_FILE = re.compile(r"(assets|media|assets/fonts)/[a-z0-9_-]+\.(js|css|json|jpg|png|mp4|webm|woff2)")
 CYPHER_PATH = re.compile(r"(web|memory|coord|chat|tools|agents|sim)/queries/\w+\.cypher")
 
 
@@ -122,6 +124,22 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
     def classic() -> FileResponse:
         """The first UI: every panel at once. Same API, kept as a fallback."""
         return page("classic.html")
+
+    @app.get("/blog")
+    def blog_slash() -> RedirectResponse:
+        return RedirectResponse("/blog/")
+
+    @app.get("/blog/")
+    def blog() -> FileResponse:
+        """The write-up: what we built, how it works, what we learned (also on GitHub Pages)."""
+        return FileResponse(BLOG / "index.html", headers={"Cache-Control": "no-store"})
+
+    @app.get("/blog/{rel:path}")
+    def blog_file(rel: str) -> FileResponse:
+        path = BLOG / rel
+        if not BLOG_FILE.fullmatch(rel) or not path.is_file():
+            raise HTTPException(status_code=404, detail="no such file")
+        return FileResponse(path)
 
     @app.get("/static/{name}")
     def asset(name: str) -> FileResponse:

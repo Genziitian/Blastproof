@@ -8,6 +8,8 @@ Built for Graph Hacks 2026 on FalkorDB by team **Blastproof** (sri ram, Aditi Ak
 
 *The war room during demo moment 4, live (deterministic planner, demo timing). inv-2 was SIGKILLed after step 3; inv-1 took over at step 4 under epoch 2, not from scratch. The playbook learned on `postgres-orders` was recalled for `postgres-payments` (one hop, same kind of datastore, the dashed line) and is being checked against live evidence; the left column is the Memory Lens. Every element is read from FalkorDB.*
 
+**Read the write-up:** [Teaching on-call agents to remember](https://genziitian.github.io/Blastproof/blog/), what we built, how it works and what we learned (also served locally at `/blog/` by `make ui`; source in [`docs/blog/`](docs/blog/)).
+
 ## Contents
 
 [The idea](#the-idea) · [Track 02](#track-02-what-it-asks-and-where-we-do-it) · [Results](#results) · [How memory works](#how-memory-works) · [Crash safety](#crash-safety-and-coordination) · [Graph data model](#graph-data-model) · [Queries](#queries) · [FalkorDB findings](#falkordb-findings) · [Run it](#run-it) · [Limits](#limits-and-what-didnt-work) · [AI assistance](#ai-assistance)
@@ -250,7 +252,7 @@ cp .env.example .env     # settings are read from .env automatically
 make db          # FalkorDB 4.22.1, pinned by digest (Browser on http://localhost:3000)
 make schema      # indexes + unique constraints; waits until all are OPERATIONAL
 make seed        # explicit; nothing reseeds on startup
-make ui          # http://localhost:8000 (landing page) and /mission-control (the live demo)
+make ui          # http://localhost:8000 (landing page), /mission-control (the live demo), /blog/ (the write-up)
 ```
 
 ![The landing page: the idea, told with a replay of a real incident read from the graph](docs/img/landing.png)

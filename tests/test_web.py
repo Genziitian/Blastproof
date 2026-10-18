@@ -325,6 +325,11 @@ class WebCases:
         for path in ("/mission-control", "/war-room", "/dark", "/static/core.js", "/static/v2.css", "/static/example.json"):
             self.assertEqual(api.get(path).status_code, 200, path)
         self.assertEqual(api.get("/static/app.py").status_code, 404)
+        self.assertIn("Teaching on-call agents", api.get("/blog/").text)
+        for path in ("/blog/assets/core.js", "/blog/media/takeover.mp4", "/blog/assets/fonts/inter-400.woff2"):
+            self.assertEqual(api.get(path).status_code, 200, path)
+        for bad in ("/blog/../web/app.py", "/blog/assets/..%2F..%2F..%2F.env", "/blog/index.md"):
+            self.assertEqual(api.get(bad).status_code, 404, bad)
         font = api.get("/fonts/inter-400.woff2")
         self.assertEqual((font.status_code, font.headers["content-type"]), (200, "font/woff2"))
         self.assertEqual(api.get("/fonts/..%2Fapp.py").status_code, 404)

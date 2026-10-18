@@ -53,7 +53,9 @@ All 73 queries are `.cypher` files indexed in `docs/QUERIES.md`, and the UI show
 
 ### Blog link
 
-*(Optional; the best post wins AirPods 5.)*
+https://genziitian.github.io/Blastproof/blog/
+
+*(Before submitting: GitHub → Settings → Pages → Deploy from a branch → `main` / `/docs`, wait a minute, then open the link in a private window. The page is `docs/blog/index.html`; `make ui` also serves it at http://localhost:8000/blog/. When the demo video is on YouTube, set `YOUTUBE_URL` near the top of the page's script.)*
 
 ## Part 2: Feedback
 

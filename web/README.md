@@ -24,6 +24,7 @@ The UI plays only the two outside roles: the world (break a service, change the 
 | `/` | **Landing page.** The idea in five stages (remember, recall, check, act, learn), told with live data: the hero replays a real incident from the graph, the check cards, playbooks, preferences and results are read from the API, and the Cypher card shows the real recall query. Until this machine has run its own incidents, a recorded run (`web/static/example.json`) stands in and is labelled *recorded run*. |
 | `/mission-control` | **Mission control, the live demo.** Break a service and watch the agents work. (`/war-room` redirects here.) |
 | `/dark`, `/classic` | Earlier views on the same API, kept as fallbacks. |
+| `/blog/` | **The write-up** (`docs/blog/`), the same page published on GitHub Pages. |
 
 Shared code: `web/static/core.js` turns an incident's stored records into what the pages show (steps, checks computed with the same measure rules as `memory/playbook.py`, captions, takeovers, trust, and a replay of any moment); `web/static/v2.css` is the look.
 
