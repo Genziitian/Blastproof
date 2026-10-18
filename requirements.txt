@@ -1,6 +1,6 @@
-# Pin exact versions with `pip freeze > requirements.lock` once G1 passes.
-falkordb==1.8.0          # official Python client (verified with FalkorDB 4.18)
+falkordb==1.8.0          # official Python client (tested with FalkorDB 4.22.1)
 mcp>=1.20,<2             # MCP server; mcp 2.x removed the low-level Server.list_tools API
-fastapi           # UI backend (G3)
-uvicorn           # UI backend (G3)
-# Add ONE LLM SDK for the agents, e.g. `anthropic` or `openai`, and name the model in the README.
+fastapi==0.143.3         # UI backend (version tested on Oct 18)
+uvicorn==0.54.0          # UI server (version tested on Oct 18)
+# No LLM SDK: common/llm.py talks to Claude's Messages API and OpenAI-compatible
+# endpoints over plain HTTP (urllib), so the model is optional and swappable.

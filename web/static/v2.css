@@ -13,7 +13,7 @@
 :root {
   --bg: #FAFAF8; --paper: #FFFFFF; --sunk: #F2F1EE; --sunk2: #F0EEEA;
   --line: #ECEAE6; --line2: #E2E0DB; --line3: #DDDBD5;
-  --ink: #111111; --ink2: #2B2A28; --t2: #5F5E5A; --t3: #9A9893; --t4: #C9C7C1;
+  --ink: #111111; --ink2: #2B2A28; --t2: #5F5E5A; --t3: #73716C; --t4: #C9C7C1; --edge: #ACAAA4;
   --sig: #E2552B; --sig-bg: rgba(226, 85, 43, .08); --sig-line: rgba(226, 85, 43, .35);
   --ok: #1F8A4C; --ok2: #3DBE74; --ok-bg: rgba(31, 138, 76, .08); --warn: #B7791F; --warn-bg: rgba(183, 121, 31, .1);
   --shadow: 0 12px 32px rgba(17, 17, 17, .05); --shadow2: 0 18px 40px rgba(17, 17, 17, .07);
@@ -66,7 +66,7 @@ button { cursor: pointer; }
 
 /* graph */
 .gsvg { width: 100%; height: 100%; display: block; overflow: visible; }
-.ge { stroke: var(--line3); stroke-width: calc(1px * var(--k, 1)); fill: none; transition: opacity .3s; }
+.ge { stroke: var(--edge, var(--line3)); stroke-width: calc(1px * var(--k, 1)); fill: none; transition: opacity .3s; }
 .dim .ge { opacity: .55; }
 .gp { fill: none; stroke-linecap: round; }
 .gp.main { stroke: var(--ink); stroke-width: 2.2; }
@@ -80,7 +80,7 @@ button { cursor: pointer; }
 .gnode { cursor: pointer; transition: opacity .3s; }
 .gnode.faded { opacity: .45; }
 .quiet .gnode.faded .glab { display: none; }
-.gn { fill: var(--paper); stroke: var(--t4); stroke-width: 1.4; transition: all .3s; }
+.gn { fill: var(--paper); stroke: var(--edge, var(--t4)); stroke-width: 1.4; transition: all .3s; }
 .glab { font: 400 calc(12px * var(--k, 1)) var(--mono); fill: var(--t2); pointer-events: none; }
 .gcap { font: 500 calc(12px * var(--k, 1)) var(--sans); fill: var(--t2); pointer-events: none; }
 .ghit { fill: transparent; }

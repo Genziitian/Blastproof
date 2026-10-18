@@ -1,0 +1,118 @@
+[
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 1,
+    "incidents": 20,
+    "completed": 20,
+    "seconds": 0.376,
+    "incidents_per_minute": 3190.6,
+    "memory_reads": {
+      "p50_ms": 1.1,
+      "p95_ms": 2.08,
+      "n": 192
+    },
+    "memory_writes": {
+      "p50_ms": 1.13,
+      "p95_ms": 2.3,
+      "n": 384
+    },
+    "duplicate_notifications": 0,
+    "duplicate_sends_absorbed": 0,
+    "takeovers": 0,
+    "lost_leases": 0,
+    "errors": [],
+    "chaos_ms": 0,
+    "leases_expired_by_chaos": 0,
+    "stuck_for_a_human": 0
+  },
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 2,
+    "incidents": 20,
+    "completed": 20,
+    "seconds": 0.283,
+    "incidents_per_minute": 4244.7,
+    "memory_reads": {
+      "p50_ms": 1.53,
+      "p95_ms": 3.13,
+      "n": 194
+    },
+    "memory_writes": {
+      "p50_ms": 1.75,
+      "p95_ms": 3.37,
+      "n": 403
+    },
+    "duplicate_notifications": 0,
+    "duplicate_sends_absorbed": 0,
+    "takeovers": 0,
+    "lost_leases": 0,
+    "errors": [],
+    "chaos_ms": 0,
+    "leases_expired_by_chaos": 0,
+    "stuck_for_a_human": 0
+  },
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 4,
+    "incidents": 20,
+    "completed": 20,
+    "seconds": 0.296,
+    "incidents_per_minute": 4049.6,
+    "memory_reads": {
+      "p50_ms": 2.32,
+      "p95_ms": 5.02,
+      "n": 198
+    },
+    "memory_writes": {
+      "p50_ms": 2.68,
+      "p95_ms": 6.22,
+      "n": 465
+    },
+    "duplicate_notifications": 0,
+    "duplicate_sends_absorbed": 0,
+    "takeovers": 0,
+    "lost_leases": 0,
+    "errors": [],
+    "chaos_ms": 0,
+    "leases_expired_by_chaos": 0,
+    "stuck_for_a_human": 0
+  },
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 4,
+    "incidents": 20,
+    "completed": 20,
+    "seconds": 0.296,
+    "incidents_per_minute": 4055.1,
+    "memory_reads": {
+      "p50_ms": 2.17,
+      "p95_ms": 4.97,
+      "n": 204
+    },
+    "memory_writes": {
+      "p50_ms": 2.86,
+      "p95_ms": 7.28,
+      "n": 473
+    },
+    "duplicate_notifications": 0,
+    "duplicate_sends_absorbed": 2,
+    "takeovers": 3,
+    "lost_leases": 3,
+    "errors": [],
+    "chaos_ms": 50,
+    "leases_expired_by_chaos": 3,
+    "stuck_for_a_human": 0
+  }
+]

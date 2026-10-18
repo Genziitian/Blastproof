@@ -1,0 +1,8 @@
+.git
+.venv
+.env
+.sim
+.llm-cache
+**/__pycache__
+**/*.pyc
+.acceptance.json

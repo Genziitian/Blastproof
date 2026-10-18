@@ -17,6 +17,7 @@ top-level `cache_control` lets every call reuse the previous call's prefix.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import re
 import threading
@@ -118,7 +119,9 @@ class _HTTPModel:
                     raise LLMError(f"{self.url}: HTTP {e.code} {e.reason}: {_body(e)}") from e
                 self.stats["retries"] += 1
                 time.sleep(_backoff_s(e, attempt))
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+            # OSError covers URLError, timeouts and dropped connections (ConnectionResetError,
+            # RemoteDisconnected); HTTPException covers IncompleteRead; ValueError, bad JSON.
+            except (OSError, http.client.HTTPException, ValueError) as e:
                 self.stats["errors"] += 1
                 raise LLMError(f"{self.url}: {e}") from e
         raise LLMError(f"{self.url}: gave up after {self.max_retries} retries")

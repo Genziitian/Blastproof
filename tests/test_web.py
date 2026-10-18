@@ -203,6 +203,7 @@ class WebCases:
 
     def test_wrong_playbook_misleads_twice_then_retires(self):
         pid = self.demo.plant_wrong_memory()
+        self.assertEqual(self.demo.plant_wrong_memory(), pid, "one wrong playbook at a time")
         results = []
         for _ in range(3):
             x = self.finish(self.demo.break_node("redis-cache"), self.investigator("inv-1"))
@@ -318,6 +319,64 @@ class WebCases:
         with self.assertRaises(ValueError):
             self.demo.break_node("kafka-events")
 
+    def test_writes_are_guarded(self):
+        from unittest import mock
+
+        from common import config
+        api = TestClient(create_app(self.demo))
+        # Another site's page can't drive the local UI (CSRF / DNS rebinding) ...
+        evil = api.post("/api/reset", headers={"Origin": "http://evil.example"})
+        self.assertEqual(evil.status_code, 403)
+        self.assertEqual(TestClient(create_app(self.demo)).get(
+            "/api/settings", headers={"Host": "evil.example"}).status_code, 400)
+        # ... the page itself and curl still can; text is bounded.
+        same = api.post("/api/autopilot", json={"on": False},
+                        headers={"Origin": "http://testserver"})
+        self.assertEqual(same.status_code, 200)
+        self.assertEqual(api.post("/api/reply/x", json={"text": "x" * 5000}).status_code, 422)
+        # A public deployment refuses every write and says so; reads still work.
+        with mock.patch.object(config, "PUBLIC_MODE", True):
+            public = TestClient(create_app(self.demo))
+            for path, body in (("/api/reset", None), ("/api/break", {"story": "s01"}),
+                               ("/api/workers/inv-1/kill", None),
+                               ("/api/plant-wrong-memory", None),
+                               ("/api/review/k", {"confirmed": True})):
+                self.assertEqual(public.post(path, json=body).status_code, 403, path)
+            self.assertEqual(public.get("/api/state").status_code, 200)
+            self.assertTrue(public.get("/api/settings").json()["public_mode"])
+
+    def test_public_investigators_never_call_a_model(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from common import config
+        from web import supervisor as sup
+        seen: list[dict[str, str]] = []
+
+        class FakePopen:
+            pid, returncode, stdout = 1, None, iter(())
+
+            def __init__(self, cmd, **kw):
+                seen.append(kw["env"])
+
+            def poll(self):
+                return None
+
+        with (mock.patch.object(config, "PUBLIC_MODE", True),
+              mock.patch.dict("os.environ", {"LLM_MODEL": "some-model"}),
+              mock.patch.object(sup.subprocess, "Popen", FakePopen)):
+            sup.Supervisor("a", Path(tempfile.mkdtemp())).start("inv-1")
+        self.assertEqual(seen[0]["LLM_MODEL"], "")
+
+    def test_a_reply_only_answers_the_question_that_was_asked(self):
+        from web.engineer import Pending
+        eng = self.demo.engineer
+        with eng._lock:
+            eng._pending["incident:k"] = Pending("incident:k", "review", {}, None)
+        self.assertFalse(eng.submit("incident:k", {"text": "yes"}, kind="readback"))
+        self.assertTrue(eng.submit("incident:k", {"confirmed": True}, kind="review"))
+
     def test_http_api(self):
         api = TestClient(create_app(self.demo))
         self.assertIn("Blast Radius", api.get("/").text)
@@ -411,6 +470,16 @@ class ResultsTests(unittest.TestCase):
             {"meta": {"arms": ["A", "B", "C"], "invalid": "no model"}, "summary": {}}))
         self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
         self.assertIsNone(latest_results(root)["load"])
+        # Newer deterministic runs (named or labelled rule-based) and capped-budget
+        # experiments never replace the model run on the Results tab.
+        for name, meta in (("2026-01-05-rule-based-ranked", {"model": "rule-based"}),
+                           ("2026-01-06-x", {"model": "rule-based"}),
+                           ("2026-01-07-m", {"model": "m", "max_steps": 8})):
+            d = root / "eval" / "results" / name
+            d.mkdir()
+            (d / "summary.json").write_text(json.dumps(
+                {"meta": {"arms": ["A", "B", "C"], **meta}, "summary": {}}))
+        self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
 
 
 if __name__ == "__main__":
@@ -425,8 +494,8 @@ class BlogTranslationTests(unittest.TestCase):
         import re
 
         from scripts import blog_i18n
-        page = blog_i18n.PAGE.read_text()
-        en = json.loads((blog_i18n.I18N / "en.json").read_text())
+        page = blog_i18n.PAGE.read_text(encoding="utf-8")
+        en = json.loads((blog_i18n.I18N / "en.json").read_text(encoding="utf-8"))
         self.assertEqual(set(re.findall(r'data-i18n="(k\d+)"', page)), set(en["html"]), "run: python -m scripts.blog_i18n mark")
         self.assertEqual(set(blog_i18n.dyn_strings(page)), set(en["dyn"]), "run: python -m scripts.blog_i18n mark")
         with contextlib.redirect_stdout(io.StringIO()):

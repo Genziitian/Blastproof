@@ -63,7 +63,8 @@ def _negated(text: str, word: str) -> bool:
 
 
 def parse_rules(text: str) -> list[Preference]:
-    t = text.lower()
+    # Curly apostrophes (phones, docs) would hide "don't" from the negation check.
+    t = text.lower().replace("\u2019", "'").replace("\u2018", "'")
     family = next((f for f, words in _FAMILY_WORDS.items() if any(w in t for w in words)), None)
     prefs = []
 
@@ -77,9 +78,12 @@ def parse_rules(text: str) -> list[Preference]:
     if channel:
         prefs.append(Preference("preferred_channel", channel, family))
 
-    if "raw" in t and re.search(r"\b(log|lines|quer)", t):
+    # Raw lines win when asked for ("raw logs and a summary"), but a negated request
+    # is never saved as the thing it negates ("do not paste raw logs, just a summary").
+    if ("raw" in t and re.search(r"\b(log|lines|quer)", t)
+            and not _negated(t, r"(?:\w+ )?raw")):
         prefs.append(Preference("wants_detail", "raw_logs", family))
-    elif re.search(r"\bjust (a |the )?summary\b", t):
+    elif _mentioned(t, "summary") and not _negated(t, r"(?:\w+ )?summary"):
         prefs.append(Preference("wants_detail", "summary", family))
     return prefs
 
@@ -103,6 +107,8 @@ def parse_with_model(model: ChatModel, text: str) -> list[Preference] | None:
         return None
     prefs = []
     for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict):
+            return None
         predicate, value = item.get("predicate"), item.get("value")
         family = item.get("condition_family")
         allowed = CHANNELS if predicate == "preferred_channel" else DETAILS
@@ -110,7 +116,7 @@ def parse_with_model(model: ChatModel, text: str) -> list[Preference] | None:
             return None
         if family is not None and family not in FAMILY_LABELS:
             return None
-        prefs.append(Preference(predicate, value, family))
+        prefs.append(Preference(str(predicate), str(value), family))
     return prefs
 
 

@@ -237,7 +237,7 @@ dfn { font-style: normal; text-decoration: underline dotted var(--t3); text-unde
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 /* dark */
 #themebtn { width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center; }
-[data-theme=dark] { --bg: #121211; --paper: #1B1B1A; --sunk: #232321; --sunk2: #262624; --line: #2D2C2A; --line2: #363532; --line3: #403F3B;
+[data-theme=dark] { --bg: #121211; --paper: #1B1B1A; --sunk: #232321; --sunk2: #262624; --line: #2D2C2A; --line2: #363532; --line3: #403F3B; --edge: #5E5C57;
   --ink: #F2F1EE; --ink2: #D9D8D3; --t2: #ABA9A3; --t3: #7F7D78; --t4: #5A5853; --sig: #F26A40; --sig-bg: rgba(242, 106, 64, .12); --ok: #3DBE74; --ok-bg: rgba(61, 190, 116, .12);
   --shadow: 0 12px 32px rgba(0, 0, 0, .35); --shadow2: 0 18px 40px rgba(0, 0, 0, .5); color-scheme: dark; }
 [data-theme=dark] .top { background: rgba(18, 18, 17, .88); }
@@ -538,7 +538,7 @@ html[lang=ur] article p, html[lang=ur] article li, html[lang=ur] .beat span { li
     <p data-i18n="k153">One graph per company, identical in shape. The world (services, owners, on-call, deploys), incidents and immutable decisions, the coordination state, the conversations, and the memory all live side by side, so “what did the agent believe then, and why?” is a query, not a guess. Hover a node:</p>
   </section>
   <figure class="wide card demo dm deep"><div class="db"><svg id="dmsvg" viewBox="0 0 1000 470" role="img" aria-label="Graph data model"></svg><div class="dminfo" id="dminfo">Each <code>Decision</code> has a <code>USED</code> edge to every memory it considered, with the path, the trust at use, every check's result, and later the verdict.</div></div></figure>
-  <div class="col deep"><p data-i18n="k154">All 73 queries are <code>.cypher</code> files, indexed in <a class="ln" href="https://github.com/Genziitian/Blastproof/blob/main/docs/QUERIES.md" target="_blank" rel="noopener">docs/QUERIES.md</a>, and the app shows the Cypher behind every panel. A few rules kept it honest: the graph is chosen from trusted config and never by the model; leases use the database clock while evidence uses scenario time; memory is never edited, only superseded; and ground truth for the benchmark lives outside the graph, with a test that fails if agent code imports it.</p></div>
+  <div class="col deep"><p data-i18n="k154">All 76 queries are <code>.cypher</code> files, indexed in <a class="ln" href="https://github.com/Genziitian/Blastproof/blob/main/docs/QUERIES.md" target="_blank" rel="noopener">docs/QUERIES.md</a>, and the app shows the Cypher behind every panel. A few rules kept it honest: the graph is chosen from trusted config and never by the model; leases use the database clock while evidence uses scenario time; memory is never edited, only superseded; and ground truth for the benchmark lives outside the graph, with a test that fails if agent code imports it.</p></div>
 
   <section class="s col" id="learned" data-at="final">
     <span data-i18n="k155" class="eyebrow">What we learned</span>

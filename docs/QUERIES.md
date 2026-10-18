@@ -2,7 +2,7 @@
 
 Every query the product runs lives in a `.cypher` file; this index is generated from each file's leading comment (`python -m scripts.query_index`). Comment lines are stripped before a query is sent (`common/db.py`).
 
-73 queries.
+76 queries.
 
 ## Memory: recall (A1, A1b), trust (A2), facts (A3), playbooks (A4)
 
@@ -12,7 +12,8 @@ Every query the product runs lives in a `.cypher` file; this index is generated 
 | [`memory/queries/bind_path.cypher`](../memory/queries/bind_path.cypher) | Arm B binding only: routes from an alerting service to a target, so the shared precondition executor can bind $alerting and $caller. |
 | [`memory/queries/datastores_of_kind.cypher`](../memory/queries/datastores_of_kind.cypher) | Arm B targets: every datastore of a kind (text retrieval has no notion of "nearby"). |
 | [`memory/queries/fact_check.cypher`](../memory/queries/fact_check.cypher) | A3 step 1 (read-only): validate scope, source and any existing version first, and count earlier versions of this lineage. |
-| [`memory/queries/fact_supersede.cypher`](../memory/queries/fact_supersede.cypher) | A3 step 2: create one new version (safe to retry) and close older ones. Run only after fact_check says scope and source exist and the id is new or carries the same payload_hash. |
+| [`memory/queries/fact_retract.cypher`](../memory/queries/fact_retract.cypher) | A3: the engineer did not confirm the agent's reading of their message, so close it. Nothing is deleted or rewritten; the version just stops being valid from the moment they answered (it stays in the history, struck through). |
+| [`memory/queries/fact_supersede.cypher`](../memory/queries/fact_supersede.cypher) | A3 step 2: create one new version (safe to retry) and close older ones. Run only after fact_check says scope and source exist and the id is new or carries the same payload_hash. The agent's own (unconfirmed) reading never closes a version the engineer approved; only another approval does. |
 | [`memory/queries/feedback.cypher`](../memory/queries/feedback.cypher) | A2: one verdict per USED edge, applied once; a retried call changes nothing. $verdicts = [{id, target, verdict: 'helped' / 'misled' / 'not_applicable'}] Only memories that were followed can be credited or blamed. |
 | [`memory/queries/playbook_by_signature.cypher`](../memory/queries/playbook_by_signature.cypher) | Learner: the oldest active playbook with this signature, so a repeat adds a source instead of a duplicate playbook. |
 | [`memory/queries/playbook_texts.cypher`](../memory/queries/playbook_texts.cypher) | Arm B indexing: what each active playbook says, where it is pinned and which alerts it was learned from, to embed as text. |
@@ -22,7 +23,7 @@ Every query the product runs lives in a `.cypher` file; this index is generated 
 | [`memory/queries/recall_kind.cypher`](../memory/queries/recall_kind.cypher) | A1b: playbooks learned on another datastore of the same kind (e.g. any postgres), at half weight. Restricted to Datastore so service-level playbooks stay specific. |
 | [`memory/queries/set_embedding.cypher`](../memory/queries/set_embedding.cypher) | Arm B indexing: store a playbook's text embedding (index data, not content). |
 | [`memory/queries/vector_recall.cypher`](../memory/queries/vector_recall.cypher) | Arm B retrieval: nearest memories to the alert text by exact cosine distance, with the same validity rules as graph recall. Exact search over a few dozen memories is cheap, and exact by definition, so this arm is never handicapped by approximate search. |
-| [`memory/queries/write_playbook.cypher`](../memory/queries/write_playbook.cypher) | A4: a candidate playbook from a confirmed incident. Idempotent by id (derived from the decision), pinned ABOUT the root it was learned on, sourced to the incident. |
+| [`memory/queries/write_playbook.cypher`](../memory/queries/write_playbook.cypher) | A4: a candidate playbook from a confirmed incident. Idempotent by id (derived from the decision), pinned ABOUT the root it was learned on, sourced to the incident. Writes nothing if another active playbook already has this signature (two learners racing on the same lesson): the caller then adds this incident as its source. |
 
 ## Coordination: fenced leases, checkpoints, actions, handoffs
 
@@ -74,6 +75,8 @@ Every query the product runs lives in a `.cypher` file; this index is generated 
 | Query | What it does |
 |---|---|
 | [`tools/queries/blast_radius.cypher`](../tools/queries/blast_radius.cypher) | Everything that depends on a node, with distance and customer impact. |
+| [`tools/queries/explain_path.cypher`](../tools/queries/explain_path.cypher) | Why a node matters to these alerts: FalkorDB's shortest-path algorithm from each alerting service down DEPENDS_ON to the node (at most 4 hops), shortest first. |
+| [`tools/queries/rank_suspects.cypher`](../tools/queries/rank_suspects.cypher) | Root-cause suspects for a set of alerting services. Ranked by how many alerting services depend on each node (hits), how close it is (hops), then by FalkorDB's PageRank over DEPENDS_ON: how much of the whole system leans on that node, so a shared dependency beats a leaf when the walk alone can't tell them apart. |
 | [`tools/queries/recent_changes.cypher`](../tools/queries/recent_changes.cypher) | Deploys and config changes to a service between $since and $now (scenario time), with who made them: a two-hop walk Person -> Change -> Service. |
 | [`tools/queries/upstream_candidates.cypher`](../tools/queries/upstream_candidates.cypher) | Nodes the alerting services depend on (1-3 hops downstream), ranked by how many alerting services reach them, then by distance. |
 | [`tools/queries/who_to_page.cypher`](../tools/queries/who_to_page.cypher) | Owner team and on-call engineer for a node, as they were at scenario time $at. |

@@ -27,6 +27,7 @@ from chat.war_room import WarRoom
 from common.db import run
 from eval import truth
 from eval.oracle import Oracle
+from memory import feedback
 from scripts import acceptance
 from scripts.run_incident import run_incident
 from scripts.seed import seed_graph
@@ -238,6 +239,19 @@ class MemoryLifecycleCases:
         statuses = sorted(row[3] for row in playbook(self.g, DB_PLAYBOOK))
         self.assertEqual(statuses, ["active", "retired"], "relearned from fresh evidence")
 
+    def test_a_memory_used_twice_by_one_decision_is_credited_once(self):
+        """s04 uses the s01 playbook twice (pinned on postgres-orders, and by kind on
+        postgres-payments). However the two verdicts are ordered, helped counts once."""
+        run_incident(self.g, truth.load("s04"), "s04-twice", learn=False)
+        usage = run(self.g, "agents/queries/decision_usage.cypher", {"decision_id": "dec-s04-twice"})
+        self.assertEqual((len(usage), len({u["id"] for u in usage})), (2, 1))
+        vs = sorted(feedback.verdicts(usage, confirmed=True), key=lambda v: v["verdict"] != "helped")
+        run(self.g, "memory/queries/feedback.cypher", {"decision_id": "dec-s04-twice", "verdicts": vs})
+        self.assertEqual(playbook(self.g, DB_PLAYBOOK)[0][:2], [1, 0])
+        lens = run(self.g, "web/queries/lens.cypher", {"incident_key": "incident:s04-twice"})
+        self.assertEqual({round(r["trust_after"], 3) for r in lens}, {0.667},
+                         "both uses show the trust after the whole decision")
+
     def test_a_second_confirmed_run_adds_a_source_not_a_duplicate(self):
         key = run_incident(self.g, truth.load("s04"), "s04-p", use_memory=False)
         self.assertEqual(len(playbook(self.g, DB_PLAYBOOK)), 1)
@@ -267,8 +281,69 @@ class MemoryLifecycleCases:
         self.assertEqual(playbook(self.g, DB_PLAYBOOK)[0][:2], [1, 0])
 
 
+class SaysNoToTheReadBack:
+    """Confirms the diagnosis, says `message`, then answers the read-back with `reply`."""
+
+    def __init__(self, message: str, reply: str = "No, that's wrong.") -> None:
+        self.message, self.reply = message, reply
+
+    def review(self, incident_key: str, diagnosis: Diagnosis) -> Verdict:
+        return Verdict(confirmed=True, by="test", message=self.message)
+
+    def answer(self, incident_key: str, question: str) -> str:
+        return self.reply
+
+
+class ReadBackCases:
+    """Preferences are applied only after a read-back and a yes (README, war room)."""
+    backend: Any
+
+    def setUp(self):
+        self.g = self.backend("test_readback")
+        seed_graph(self.g, "a")
+
+    def tearDown(self):
+        with contextlib.suppress(Exception):
+            self.g.delete()
+
+    def prefs_at_s04(self) -> set[tuple[str, str, str]]:
+        later = truth.load("s04").scenario().now_ms
+        rows = run(self.g, "chat/queries/preferences_for.cypher",
+                   {"person_key": "person:priya", "family": "db_saturation", "scenario_now": later})
+        return {(r["predicate"], r["value"], r["source"]) for r in rows}
+
+    def test_a_no_closes_the_agents_reading(self):
+        key = run_incident(self.g, truth.load("s01"), "s01-no", chat_model=None,
+                           confirmer=SaysNoToTheReadBack(truth.load("s01").engineer_says))
+        self.assertEqual(self.prefs_at_s04(), set(), "nothing unconfirmed steers the next page")
+        facts = run(self.g, "web/queries/facts.cypher", {})
+        self.assertEqual(sorted((f["source"], f["valid_to"] is not None) for f in facts),
+                         [("agent", True), ("agent", True)],
+                         "the reading is kept as history, closed, never deleted")
+        said = run(self.g, "web/queries/messages.cypher", {"incident_key": key})
+        self.assertEqual([m["role"] for m in said], ["agent", "engineer", "agent", "engineer", "agent"])
+        self.assertTrue(said[-1]["text"].startswith("Not saved."))
+
+    def test_an_unconfirmed_reading_never_overrides_an_approved_preference(self):
+        run_incident(self.g, truth.load("s01"), "s01-yes", chat_model=None)  # oracle says yes
+        approved = self.prefs_at_s04()
+        self.assertIn(("preferred_channel", "ticket", "human"), approved)
+        run_incident(self.g, truth.load("s01"), "s01-later", chat_model=None,
+                     confirmer=SaysNoToTheReadBack("For DB saturation, page me instead."))
+        self.assertEqual(self.prefs_at_s04(), approved)
+
+
 class StoryOnDouble(StoryCases, unittest.TestCase):
     backend = staticmethod(double)
+
+
+class ReadBackOnDouble(ReadBackCases, unittest.TestCase):
+    backend = staticmethod(double)
+
+
+@unittest.skipUnless(falkordb_up(), SKIP_REASON)
+class ReadBackOnFalkorDB(ReadBackCases, unittest.TestCase):
+    backend = staticmethod(falkordb)
 
 
 class AcceptanceOnDouble(AcceptanceCases, unittest.TestCase):

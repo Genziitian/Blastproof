@@ -80,3 +80,13 @@ class Learner(Worker):
         if written:
             self.log.info("learned %s (%s) from %s", written[0]["id"], playbook.signature,
                           c["incident_key"])
+            return
+        # Another learner wrote the same lesson a moment ago: add this incident as a
+        # source of that playbook instead of creating a duplicate.
+        existing = run(self.graph, Q + "playbook_by_signature.cypher",
+                       {"signature": playbook.signature})
+        if existing:
+            run(self.graph, Q + "add_provenance.cypher",
+                {"id": existing[0]["id"], "incident_key": c["incident_key"], "root": c["root"]})
+            self.log.info("%s also supports %s (written concurrently)", c["incident_key"],
+                          existing[0]["id"])

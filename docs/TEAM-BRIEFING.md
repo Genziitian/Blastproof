@@ -148,3 +148,28 @@ Say the caveats before they're asked: synthetic benchmark; no accuracy gain beca
 3. Arm the kill, click **s04**, and narrate section 8 while it happens.
 4. Click **s05** and explain the failed precondition (section 5).
 5. Plant the wrong playbook, break `redis-cache` three times, and explain the trust numbers (section 6).
+
+## 13. What changed on Oct 18 (audit fixes): know these too
+
+An audit of the repo, with Claude Code, led to the changes in pull request #1. Rule 12 means each of you must be able to explain them, so here they are in plain words.
+
+| Change | What to say | Where |
+|---|---|---|
+| **"No" really means no** | The agent's reading of Priya's message is saved at once, but if she doesn't say a plain yes, that reading is **closed** (`valid_to`), never deleted, and the agent says "Not saved." An unconfirmed reading never overrides a preference she approved. The rule parser now understands "do not paste raw logs, just a summary" and curly apostrophes. | `agents/responder.py`, `memory/queries/fact_retract.cypher`, `chat/preferences.py` |
+| **Trust is summed per memory** | One decision can use the same playbook twice (pinned on postgres-orders, and by kind on postgres-payments). The trust query now sums the verdicts per memory before writing. Row by row, FalkorDB's SET visibility (our finding #3) could drop a "helped". | `memory/queries/feedback.cypher` |
+| **A stale worker stops** | The responder checks its lease before the review and before war-room writes. If a send comes back `already_done`, it checks it still owns the task; if not, it stops. | `agents/responder.py` |
+| **Graph algorithms as tools (Track 01)** | `rank_suspects` breaks ties with **FalkorDB `algo.pageRank`** over `DEPENDS_ON`: shared dependencies score higher. `explain_path` uses **`algo.SPpaths`** for the shortest path from the alerts to a node; the Memory Lens shows it for kind-transferred playbooks. Both are served over MCP (nine tools), but the benchmark's investigator keeps its seven, so the frozen results stay comparable. | `tools/queries/rank_suspects.cypher`, `explain_path.cypher` |
+| **Honest eval numbers** | Each arm holds 3 playbooks, so "top 5" is a small pool. Graph recall has the right one **first 29%**, top-3 62%, top-5 100%; text: 10% / 29% / 48% (deterministic run). The 71% saving comes almost entirely from the 20 incidents where a memory applied; on cold ones graph memory makes fewer model calls but more tool calls. The simulator's evidence is clean, so this benchmark measures cost, not diagnostic ability. | README "Results", `eval/results/2026-10-18-rule-based-ranked/` |
+| **When steps are capped** | `--max-steps 8`: no memory 30/30, graph 14/30. Checking memories that don't apply pushes cold incidents over budget, and a failed incident teaches nothing. Next fix: batch the checks, and learn from the engineer when the agent fails. | README "Limits" |
+| **Duplicates that could fail** | The bench now counts duplicate sends the intent key absorbed, not only Action nodes (which `MERGE` caps at one). With a lease expired every 5 ms (7,690 times in 2 minutes): 0 duplicates. | `bench/load.py`, `bench/results/load-2026-10-18*.json` |
+| **Live, read-only demo** | `PUBLIC_MODE=1`: every POST refused, the story plays itself (s01 → s04 with a real kill → s05), model off, graph reset on start. Locally, POSTs from other sites are refused and only `ALLOWED_HOSTS` are answered. | `docs/DEPLOY.md`, `web/app.py` |
+| **Runs on Windows** | Kill uses `Popen.kill()` (Windows has no SIGKILL); the test double uses POSIX paths; files are read as UTF-8. | `web/supervisor.py`, `tests/graph_double.py` |
+
+New judge questions:
+
+| Question | Answer |
+|---|---|
+| "What if the engineer says no to the read-back?" | "The agent's reading is closed with `valid_to`, kept as history, and the next incident uses the default. Try it." |
+| "Your recall@5 is 100%, but out of how many?" | "About 5 candidates from 3 playbooks. Ranked, graph recall is first 29% of the time and top-3 62%; text is 10% and 29%. Every candidate is checked, which is why nothing misled." |
+| "Can memory make you slower?" | "On cold incidents, yes: about 2 more tool calls, though fewer model calls. Capped at 8 steps, that costs accuracy (14/30 vs 30/30). We measured it and wrote it down; batching the checks is next." |
+| "Where are FalkorDB's graph algorithms?" | "`algo.pageRank` ranks suspects, `algo.SPpaths` explains paths; both are tools over MCP and in the UI's query drawer." |

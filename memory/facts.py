@@ -63,3 +63,11 @@ def write(graph: Any, fact: FactWrite, scenario_now: int) -> str:
         "a": a, "b": b, "hash": digest,
     })
     return "ok"
+
+
+def retract(graph: Any, ids: list[str], at: int) -> list[str]:
+    """Close agent readings the engineer did not confirm (valid_to = `at`).
+
+    Only agent-sourced versions are closed; nothing is deleted or rewritten.
+    Returns the ids closed (empty on a retry)."""
+    return [r["id"] for r in run(graph, Q + "fact_retract.cypher", {"ids": ids, "at": at})]

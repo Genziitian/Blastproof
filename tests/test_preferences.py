@@ -4,6 +4,7 @@ import json
 import unittest
 
 from chat.preferences import Preference, extract, parse_rules, readback
+from chat.war_room import affirms
 from common.llm import LLMError, Reply
 from eval import truth
 
@@ -38,6 +39,33 @@ class RuleParserTests(unittest.TestCase):
     def test_unconditional_preference(self):
         self.assertEqual(parse_rules("Always open a ticket."),
                          [Preference("preferred_channel", "ticket", None)])
+
+    def test_a_negated_detail_is_never_saved_as_what_it_negates(self):
+        self.assertEqual(
+            parse_rules("For DB saturation, please do not paste raw logs, just a summary."),
+            [Preference("wants_detail", "summary", "db_saturation")])
+        self.assertEqual(
+            parse_rules("Open a ticket and paste the raw slow-query lines, not a summary."),
+            [Preference("preferred_channel", "ticket", None),
+             Preference("wants_detail", "raw_logs", None)])
+
+    def test_raw_lines_win_when_asked_for_with_a_summary(self):
+        self.assertEqual(parse_rules("Page me with raw logs and a summary."),
+                         [Preference("preferred_channel", "page", None),
+                          Preference("wants_detail", "raw_logs", None)])
+
+    def test_curly_apostrophes_still_negate(self):
+        self.assertEqual(parse_rules("For DB saturation, don\u2019t open a ticket, page me."),
+                         [Preference("preferred_channel", "page", "db_saturation")])
+
+    def test_only_a_plain_yes_approves_a_read_back(self):
+        for reply in ("Yes, that's right.", "yes", "Correct.", "Yep"):
+            with self.subTest(reply=reply):
+                self.assertTrue(affirms(reply))
+        for reply in ("No, that's wrong.", "Correct me if I am wrong, but no", "Yes? No.",
+                      "Right, but don\u2019t use Slack", "", None):
+            with self.subTest(reply=reply):
+                self.assertFalse(affirms(reply))
 
     def test_readback_is_plain_language(self):
         text = readback(parse_rules(truth.load("s01").engineer_says))

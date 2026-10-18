@@ -21,10 +21,16 @@ Q = "chat/queries/"
 DIAGNOSIS_LABELS = {"db_saturation": "database saturation", "bad_deploy": "a bad deploy",
                     "cache_failure": "a cache failure"}
 AFFIRMATIVE = re.compile(r"\s*(yes|yep|yeah|correct|right|confirmed|that's right|sure)\b", re.I)
+# Any of these anywhere means the read-back is not approved ("Correct me if I'm
+# wrong, but no"). Saving nothing is the safe side: the engineer can say it again.
+DISSENT = re.compile(r"\b(no|not|nope|wrong|incorrect|don'?t|isn'?t|never)\b", re.I)
 
 
 def affirms(reply: str | None) -> bool:
-    return bool(reply and AFFIRMATIVE.match(reply))
+    if not reply:
+        return False
+    reply = reply.replace("\u2019", "'")
+    return bool(AFFIRMATIVE.match(reply)) and not DISSENT.search(reply)
 
 
 @dataclass(frozen=True)
@@ -68,6 +74,12 @@ class WarRoom:
     def understand(self, text: str) -> list[Preference]:
         return extract(text, self.model)
 
+    @staticmethod
+    def _fact_ids(message_key: str, prefs: list[Preference],
+                  version_key: str | None = None) -> list[str]:
+        version = (version_key or message_key).removeprefix("message:")
+        return [f"fact:{version}:{i}" for i in range(len(prefs))]
+
     def remember(self, handle: str, message_key: str, prefs: list[Preference],
                  approved_by: str | None, scenario_now: int,
                  version_key: str | None = None, valid_from: int | None = None) -> None:
@@ -77,10 +89,10 @@ class WarRoom:
         confirms the read-back, a human-approved version supersedes it (A3), still
         sourced to the engineer's own words; `version_key` names that version.
         """
-        version = (version_key or message_key).removeprefix("message:")
-        for i, pref in enumerate(prefs):
+        ids = self._fact_ids(message_key, prefs, version_key)
+        for fact_id, pref in zip(ids, prefs, strict=True):
             facts.write(self.graph, facts.FactWrite(
-                id=f"fact:{version}:{i}",
+                id=fact_id,
                 lineage=pref.lineage(person_key(handle)),
                 subject=person_key(handle),
                 predicate=pref.predicate,
@@ -92,12 +104,18 @@ class WarRoom:
                 valid_from=scenario_now if valid_from is None else valid_from,
             ), scenario_now)
 
+    def forget_reading(self, message_key: str, prefs: list[Preference], at: int) -> list[str]:
+        """The engineer did not confirm the read-back: close the agent's reading."""
+        return facts.retract(self.graph, self._fact_ids(message_key, prefs), at)
+
     def preferences(self, handle: str, family: str, scenario_now: int) -> list[AppliedPreference]:
         rows = run(self.graph, Q + "preferences_for.cypher", {
             "person_key": person_key(handle), "family": family, "scenario_now": scenario_now,
         })
-        # A preference for this family beats a general one; then the newest wins.
-        rows.sort(key=lambda r: (r["condition_family"] is None, -int(r["recorded_at"])))
+        # A preference for this family beats a general one; one the engineer
+        # approved beats the agent's unconfirmed reading; then the newest wins.
+        rows.sort(key=lambda r: (r["condition_family"] is None, r["source"] != "human",
+                                 -int(r["recorded_at"])))
         seen: set[str] = set()
         prefs = []
         for r in rows:

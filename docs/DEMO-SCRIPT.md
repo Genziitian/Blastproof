@@ -7,7 +7,7 @@ Record at 1920×1080, browser at 90% zoom. Keep a small Terminal in a corner run
 ## Before recording
 
 ```bash
-cd ~/Desktop/BlastRadius-GraphHacks/code && source .venv/bin/activate
+cd Blastproof && source .venv/bin/activate   # the repo root (Windows: .venv\Scripts\activate)
 docker compose up -d falkordb
 make ui                                   # Terminal A, keep visible in a corner
 curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a

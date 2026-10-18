@@ -6,7 +6,6 @@ scenario store. They share nothing with each other or with the UI except FalkorD
 from __future__ import annotations
 
 import os
-import signal
 import subprocess
 import sys
 import threading
@@ -15,6 +14,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Any
+
+from common import config
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -62,7 +63,10 @@ class Supervisor:
             cmd = [sys.executable, "-u", "-m", "scripts.run_worker", "--company", self.company,
                    "--world", str(self.world_dir), "--forever", "--instance", name,
                    "--pace", str(self.pace_s), "--exit-with-parent"]
-            p.popen = subprocess.Popen(cmd, cwd=ROOT, env=os.environ.copy(), text=True,
+            env = os.environ.copy()
+            if config.PUBLIC_MODE and not env.get("PUBLIC_LLM"):
+                env["LLM_MODEL"] = ""  # a public demo never calls a model (beats .env)
+            p.popen = subprocess.Popen(cmd, cwd=ROOT, env=env, text=True,
                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             p.started_at, p.ended_at, p.exit_code, p.killed = time.time(), None, None, False
             p.log.append(f"started pid {p.popen.pid}")
@@ -71,11 +75,14 @@ class Supervisor:
             return p.view()
 
     def kill(self, name: str) -> dict[str, Any]:
-        """SIGKILL: no cleanup, no lease release. The lease simply runs out."""
+        """SIGKILL: no cleanup, no lease release. The lease simply runs out.
+
+        Popen.kill() is SIGKILL on POSIX and TerminateProcess on Windows: a hard
+        kill on both, with no chance for the worker to clean up."""
         with self._lock:
             p = self.procs[name]
             if p.alive() and p.popen is not None:
-                os.kill(p.popen.pid, signal.SIGKILL)
+                p.popen.kill()
                 p.popen.wait(timeout=5)
                 p.killed, p.ended_at, p.exit_code = True, time.time(), p.popen.returncode
                 p.log.append(f"SIGKILL pid {p.popen.pid} (exit {p.popen.returncode})")

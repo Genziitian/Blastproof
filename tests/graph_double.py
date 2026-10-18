@@ -195,7 +195,7 @@ class GraphDouble:
         if cls._by_text is None:
             cls._by_text = {}
             for path in ROOT.glob("*/queries/*.cypher"):
-                rel = str(path.relative_to(ROOT))
+                rel = path.relative_to(ROOT).as_posix()  # same key on every OS
                 cls._by_text[_norm(load_query(rel))] = rel
             missing = set(cls._by_text.values()) - IMPLS.keys()
             if missing:
@@ -718,6 +718,9 @@ def _write_playbook(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     i, root = g.one("Incident", key=p["incident_key"]), g.entity(p["root"])
     if i is None or root is None:
         return []
+    if any(o.get("status") == "active" and o.get("id") != p["id"]
+           for o in g.find("Playbook", signature=p["signature"])):
+        return []
     pb = g.merge(["Memory", "Playbook"], {"id": p["id"]}, {
         "lineage_id": p["signature"], "version": 1, "signature": p["signature"],
         "family": p["family"], "applies_to_kind": p["applies_to_kind"],
@@ -745,19 +748,26 @@ def _add_provenance(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
 @implements("memory/queries/feedback.cypher")
 def _feedback(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     d = g.one("Decision", id=p["decision_id"])
-    out = []
+    # Like the Cypher: set each edge's verdict, then sum per memory and update its
+    # counters, trust and status once, then stamp the final trust on all its edges.
+    used: dict[int, tuple[Node, list[Edge]]] = {}
     for v in (p["verdicts"] if d else []):
         for e, m in _usage(g, d):  # type: ignore[arg-type]
             if (e.props.get("target"), m.get("id")) != (v["target"], v["id"]) \
                     or "verdict" in e.props:
                 continue
             g.set(e, {"verdict": v["verdict"]})
-            g.set(m, {"helped": m.get("helped") + (v["verdict"] == "helped"),
-                      "misled": m.get("misled") + (v["verdict"] == "misled")})
-            g.set(m, {"trust": (m.get("helped") + m.get("prior_a")) * 1.0
-                      / (m.get("helped") + m.get("misled") + m.get("prior_a") + m.get("prior_b"))})
-            if m.get("misled") >= 2 and m.get("trust") < 0.5:
-                g.set(m, {"status": "retired"})
+            used.setdefault(m.id, (m, []))[1].append(e)
+    out = []
+    for m, edges in used.values():
+        verdicts = [e.props["verdict"] for e in edges]
+        g.set(m, {"helped": m.get("helped") + verdicts.count("helped"),
+                  "misled": m.get("misled") + verdicts.count("misled")})
+        g.set(m, {"trust": (m.get("helped") + m.get("prior_a")) * 1.0
+                  / (m.get("helped") + m.get("misled") + m.get("prior_a") + m.get("prior_b"))})
+        if m.get("misled") >= 2 and m.get("trust") < 0.5:
+            g.set(m, {"status": "retired"})
+        for e in edges:
             g.set(e, {"trust_after": m.get("trust")})
             out.append({"id": m.get("id"), "target": e.props.get("target"),
                         "verdict": e.props.get("verdict"), "trust": m.get("trust"),
@@ -795,10 +805,23 @@ def _fact_supersede(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     g.merge_edge(new, "LEARNED_FROM", src)
     for old in g.find("Fact", lineage_id=p["lineage"]):
         if old.get("id") != new.get("id") and old.get("status") == "active" and (
-                old.get("valid_to") is None or old.get("valid_to") > p["valid_from"]):
+                old.get("valid_to") is None or old.get("valid_to") > p["valid_from"]) and (
+                p["source_kind"] == "human" or old.get("source") != "human"):
             g.set(old, {"valid_to": p["valid_from"]})
             g.merge_edge(new, "SUPERSEDES", old)
     return []
+
+
+@implements("memory/queries/fact_retract.cypher")
+def _fact_retract(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    out = []
+    for f in g.find("Fact"):
+        if ("Memory" in f.labels and f.get("id") in p["ids"] and f.get("source") == "agent"
+                and f.get("status") == "active"
+                and (f.get("valid_to") is None or f.get("valid_to") > p["at"])):
+            g.set(f, {"valid_to": p["at"]})
+            out.append({"id": f.get("id")})
+    return out
 
 
 # ====================================================================== chat/
@@ -909,6 +932,46 @@ def _upstream_candidates(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, An
              "kind": g.nodes[c].get("kind"), "hits": len(hits[c]), "hops": hops[c]}
             for c in hits]
     return sorted(rows, key=lambda r: (-r["hits"], r["hops"], r["name"]))
+
+
+def _pagerank(g: GraphDouble, rel: str, damping: float = 0.85, rounds: int = 40) -> dict[int, float]:
+    """Plain PageRank over `rel` edges, standing in for FalkorDB's algo.pageRank: the
+    double checks ordering and shape, not FalkorDB's exact scores."""
+    nodes = [n for n in g.nodes.values() if n.labels & {"Service", "Datastore"}]
+    outs = {n.id: [m.id for _, m in g.out(n, rel)] for n in nodes}
+    rank = {n.id: 1.0 / len(nodes) for n in nodes}
+    for _ in range(rounds):
+        nxt = {i: (1 - damping) / len(nodes) for i in rank}
+        for i, targets in outs.items():
+            for t in targets:
+                nxt[t] += damping * rank[i] / len(targets)
+        rank = nxt
+    return rank
+
+
+@implements("tools/queries/rank_suspects.cypher")
+def _rank_suspects(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    rank = _pagerank(g, "DEPENDS_ON")
+    rows = _upstream_candidates(g, p)
+    for r in rows:
+        node = g.entity(r["name"])
+        r["pagerank"] = rank.get(node.id) if node else None
+    return sorted(rows, key=lambda r: (-r["hits"], r["hops"], -(r["pagerank"] or 0), r["name"]))
+
+
+@implements("tools/queries/explain_path.cypher")
+def _explain_path(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    target = g.entity(p["node"])
+    if target is None:
+        return []
+    rows = []
+    for a in _alerting(g, p["alerting"]):
+        best = min((path for path in g.paths(a, "DEPENDS_ON", 1, 4) if path[-1].id == target.id),
+                   key=len, default=None)
+        if best is not None:
+            rows.append({"alerting": a.get("name"), "path": [n.get("name") for n in best],
+                         "hops": float(len(best) - 1)})
+    return sorted(rows, key=lambda r: (r["hops"], r["alerting"]))
 
 
 @implements("tools/queries/blast_radius.cypher")

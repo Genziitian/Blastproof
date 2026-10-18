@@ -420,7 +420,7 @@ async function hood(src) {
   const db = src.x.db;
   qs("#q-foot").textContent = `One of ${db?.queries ?? 7} queries behind the incident view, ${db?.ms ?? "~5"} ms in FalkorDB on graph ${S.settings.graph}.`;
   qs("#facttbl").innerHTML = [["Graph database", `FalkorDB ${S.db?.version || ""}`], ["Model", S.settings.model], ["Agents", "inv-1 · inv-2 · responder · learner"],
-    ["Graph", `${S.db?.nodes ?? "–"} nodes · ${S.db?.edges ?? "–"} edges`], ["Queries", "73 .cypher files"], ["Page", "static HTML, reads the JSON API"]]
+    ["Graph", `${S.db?.nodes ?? "–"} nodes · ${S.db?.edges ?? "–"} edges`], ["Queries", "76 .cypher files"], ["Page", "static HTML, reads the JSON API"]]
     .map(([k, v]) => `<div><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join("");
   qs("#foot-db").textContent = `FalkorDB ${S.db?.version || ""}`;
 }

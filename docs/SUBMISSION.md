@@ -36,7 +36,7 @@ https://github.com/Genziitian/Blastproof
 
 ### Live demo or deployment
 
-Leave empty, or paste https://github.com/Genziitian/Blastproof#run-it (complete local setup: `make db schema seed ui`).
+If the read-only public copy is deployed (docs/DEPLOY.md: one container plus FalkorDB, playing s01 → s04 with a real kill → s05 by itself), paste its URL. Otherwise paste the write-up with its interactive replay, https://genziitian.github.io/Blastproof/blog/ (Pages must be on), plus https://github.com/Genziitian/Blastproof#run-it for the full local setup (`make db schema seed ui`).
 
 ### How did you use FalkorDB? (technical problems solved)
 
@@ -48,8 +48,9 @@ FalkorDB is the only store: the company, incidents, the agents' memory, the task
 4. **Who to page right now.** A time-valid two-hop query (service → owning team → on-call person), and deploy history as `(:Person)-[:AUTHORED]->(:Change)-[:MODIFIED]->(:Service)`.
 5. **Tenant isolation.** One graph per company, chosen from trusted config; no tool takes a graph name.
 6. **Persistence.** RDB snapshots; the acceptance test restarts FalkorDB, then SIGKILLs a worker, and the replacement resumes at the next step.
+7. **Graph algorithms as agent tools.** `algo.pageRank` over `DEPENDS_ON` ranks root-cause suspects (shared dependencies first); `algo.SPpaths` explains how the alerts reach a node, shown in the Memory Lens. Both are served over MCP with the agents' seven tools.
 
-All 73 queries are `.cypher` files indexed in `docs/QUERIES.md`, and the UI shows the Cypher behind every panel. We also found three FalkorDB issues, with reproductions in `docs/FALKORDB-FINDINGS.md`.
+All 76 queries are `.cypher` files indexed in `docs/QUERIES.md`, and the UI shows the Cypher behind every panel. We also found three FalkorDB issues, with reproductions in `docs/FALKORDB-FINDINGS.md`.
 
 ### Blog link
 

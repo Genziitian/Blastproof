@@ -118,7 +118,7 @@ def dyn_strings(text: str) -> list[str]:
 
 def mark() -> None:
     global TEXT
-    text = PAGE.read_text()
+    text = PAGE.read_text(encoding="utf-8")
     TEXT = text
     tree = Tree(text)
     used = [int(m.group(1)) for m in re.finditer(r'data-i18n(?:-alt)?="[ka](\d+)"', text)]
@@ -144,7 +144,7 @@ def mark() -> None:
                 nxt += 1
     for at, s in sorted(inserts, reverse=True):
         text = text[:at] + s + text[at:]
-    PAGE.write_text(text)
+    PAGE.write_text(text, encoding="utf-8")
     tree = Tree(text)  # re-read so the extracted HTML has the final offsets
     html = {n.attrs["data-i18n"]: text[n.inner:n.end].strip() for n in tree.nodes if "data-i18n" in n.attrs}
     attr = {n.attrs["data-i18n-alt"]: n.attrs["alt"] for n in tree.nodes if "data-i18n-alt" in n.attrs}
@@ -154,7 +154,8 @@ def mark() -> None:
     meta = {"title": title, "description": desc.group(1) if desc else ""}
     I18N.mkdir(parents=True, exist_ok=True)
     en = {"lang": "en", "meta": meta, "html": html, "alt": attr, "dyn": {s: s for s in dyn_strings(text)}}
-    (I18N / "en.json").write_text(json.dumps(en, ensure_ascii=False, indent=1) + "\n")
+    (I18N / "en.json").write_text(json.dumps(en, ensure_ascii=False, indent=1) + "\n",
+                                  encoding="utf-8")
     print(f"{len(html)} elements, {len(attr)} alt texts, {len(en['dyn'])} script strings; {len(inserts)} new keys")
 
 
@@ -166,7 +167,7 @@ def shape(s: str) -> tuple[list[str], list[str], list[str]]:
 
 
 def check(langs: tuple[str, ...] = LANGS) -> int:
-    en = json.loads((I18N / "en.json").read_text())
+    en = json.loads((I18N / "en.json").read_text(encoding="utf-8"))
     bad = 0
     for lang in langs:
         p = I18N / f"{lang}.json"
@@ -174,7 +175,7 @@ def check(langs: tuple[str, ...] = LANGS) -> int:
             print(f"{lang}: missing")
             bad += 1
             continue
-        t = json.loads(p.read_text())
+        t = json.loads(p.read_text(encoding="utf-8"))
         for part in ("html", "alt", "dyn"):
             for k, v in en[part].items():
                 got = t.get(part, {}).get(k)

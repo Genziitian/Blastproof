@@ -54,13 +54,24 @@ else:
 
 MAX_ATTEMPTS = 3
 
+# A public, read-only deployment of the UI (docs/DEPLOY.md): every POST is refused,
+# the scripted engineer answers, and the server plays s01 -> s04 (with a real kill)
+# -> s05 on its own, resetting the graph after every PUBLIC_RESET_EVERY rounds (default: each
+# round, so s01 always starts with nothing in memory, as the story needs).
+PUBLIC_MODE = os.getenv("PUBLIC_MODE", "").lower() in ("1", "true", "yes")
+PUBLIC_RESET_EVERY = int(os.getenv("PUBLIC_RESET_EVERY", "1"))  # 1: each round starts empty
+# Host names the UI answers to (DNS-rebinding guard); "*" turns the check off.
+ALLOWED_HOSTS = [h.strip() for h in
+                 os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,testserver").split(",")
+                 if h.strip()]
+
 # Any OpenAI-compatible chat endpoint, or Anthropic's Messages API (chosen
 # automatically when LLM_BASE_URL is api.anthropic.com, or set LLM_PROVIDER).
 # Leave LLM_MODEL empty to run without a model: the rule-based planner and the
 # rule-based preference parser take over.
 #   Claude (with prompt caching):
 #       LLM_BASE_URL=https://api.anthropic.com  LLM_MODEL=claude-haiku-5-5  LLM_API_KEY=...
-#   Gemini (free tier, the project default; see .env.example):
+#   Gemini (free tier; see .env.example):
 #       LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 #       LLM_MODEL=gemini-3.5-flash  LLM_API_KEY=...  LLM_MIN_INTERVAL_S=6.5
 #   Ollama (local, free):  LLM_BASE_URL=http://localhost:11434/v1  LLM_MODEL=gemma4:e4b
@@ -73,12 +84,12 @@ LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "4"))           # on 429 / 5x
 LLM_CACHE_DIR = os.getenv("LLM_CACHE_DIR", "")                     # empty = no cache
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "")                       # anthropic | openai | auto
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4096"))          # Anthropic: includes thinking
-LLM_EFFORT = os.getenv("LLM_EFFORT", "")
+LLM_EFFORT = os.getenv("LLM_EFFORT", "")                           # Anthropic effort; empty = default
 # Arm B text embeddings: empty EMBED_MODEL = deterministic hashed bag of words.
 EMBED_MODEL = os.getenv("EMBED_MODEL", "")
 EMBED_BASE_URL = os.getenv("EMBED_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai")
 EMBED_API_KEY = os.getenv("EMBED_API_KEY", "")
-EMBED_DIM = int(os.getenv("EMBED_DIM", "256"))                           # Anthropic effort; empty = default
+EMBED_DIM = int(os.getenv("EMBED_DIM", "256"))
 
 
 def graph_name(company_id: str) -> str:

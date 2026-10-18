@@ -158,7 +158,7 @@
   "k151": "In short",
   "k152": "World, incidents, coordination, conversations and memory live in one graph per company, so “what did the agent believe, and why?” is a query.",
   "k153": "One graph per company, identical in shape. The world (services, owners, on-call, deploys), incidents and immutable decisions, the coordination state, the conversations, and the memory all live side by side, so “what did the agent believe then, and why?” is a query, not a guess. Hover a node:",
-  "k154": "All 73 queries are <code>.cypher</code> files, indexed in <a class=\"ln\" href=\"https://github.com/Genziitian/Blastproof/blob/main/docs/QUERIES.md\" target=\"_blank\" rel=\"noopener\">docs/QUERIES.md</a>, and the app shows the Cypher behind every panel. A few rules kept it honest: the graph is chosen from trusted config and never by the model; leases use the database clock while evidence uses scenario time; memory is never edited, only superseded; and ground truth for the benchmark lives outside the graph, with a test that fails if agent code imports it.",
+  "k154": "All 76 queries are <code>.cypher</code> files, indexed in <a class=\"ln\" href=\"https://github.com/Genziitian/Blastproof/blob/main/docs/QUERIES.md\" target=\"_blank\" rel=\"noopener\">docs/QUERIES.md</a>, and the app shows the Cypher behind every panel. A few rules kept it honest: the graph is chosen from trusted config and never by the model; leases use the database clock while evidence uses scenario time; memory is never edited, only superseded; and ground truth for the benchmark lives outside the graph, with a test that fails if agent code imports it.",
   "k155": "What we learned",
   "k156": "What FalkorDB, and the build, taught us.",
   "k157": "In short",

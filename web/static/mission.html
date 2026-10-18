@@ -6,6 +6,10 @@
 <title>Blast Radius · Mission control</title>
 <link rel="stylesheet" href="/static/v2.css">
 <style>
+/* public, read-only deployment: no controls, a line that says so */
+.public #dir-btn, .public #idle-go, .public [data-kill], .public [data-start], .public .war .acts { display: none !important; }
+.public .db { pointer-events: none; }
+.pubnote { font-size: 13px; color: var(--ink2); background: var(--sunk); border-bottom: 1px solid var(--line); padding: 8px 24px; text-align: center; }
 .nav .tabs { display: flex; gap: 4px; margin: 0 auto; }
 .tab { border: 0; background: transparent; color: var(--t2); padding: 7px 14px; border-radius: 999px; font-size: 15px; font-weight: 500; }
 .tab:hover { color: var(--ink); } .tab.on { background: var(--sunk); color: var(--ink); }
@@ -221,7 +225,7 @@ function lensCard(c) {
   const rows = c.outcome === "ruled" ? c.rows.filter((r) => r.state !== "wait" && r.state !== "pend") : c.rows;
   return `<div class="lens"><div class="lh">${vb}<b>${esc(sigShort(c.signature))}</b><span style="color:var(--t3)">on</span><b>${esc(c.target)}</b></div>
     <div class="q"><div class="k">What</div><div>Playbook learned from <span class="mono">${esc(c.learned.join(", ") || "—")}</span>, pinned to <span class="mono">${esc(c.pinned.join(", "))}</span></div>
-      <div class="k">Why recalled</div><div>${c.viaKind ? "Same kind of datastore as where it was learned" : "Pinned right here"}, ${plural(c.hops, "hop")} from the alerts<div class="mono" style="font-size:11.5px;color:var(--t3);margin-top:2px">${c.path.map(esc).join(" → ")} · score ${fmt(c.score, 3)}</div></div>
+      <div class="k">Why recalled</div><div>${c.viaKind ? "Same kind of datastore as where it was learned" : "Pinned right here"}, ${plural(c.hops, "hop")} from the alerts<div class="mono" style="font-size:11.5px;color:var(--t3);margin-top:2px">${c.path.map(esc).join(" → ")} · score ${fmt(c.score, 3)}</div>${c.viaKind && c.learnedPath ? `<div class="mono" style="font-size:11.5px;color:var(--t3);margin-top:2px">learned on ${esc(c.learnedPath[c.learnedPath.length - 1])}: ${c.learnedPath.map(esc).join(" → ")} · FalkorDB algo.SPpaths</div>` : ""}</div>
       <div class="k">Evidence</div><div>${rows.map((r) => `<div class="ck"><span class="gl g-${r.state}">${r.state === "pass" ? "✓" : r.state === "fail" ? "✕" : ""}</span><div>${esc(r.text)}<div class="o">${esc(r.raw)}${r.obsText ? ` · observed ${esc(String(r.observed))}` : ""}${r.step ? ` · step ${r.step}` : ""}</div></div></div>`).join("")}${c.outcome === "ruled" ? `<div style="font-size:12px;color:var(--t3)">Stopped at the first check that failed.</div>` : ""}</div>
       <div class="k">Afterwards</div><div>${after}<span class="tb"><i style="width:${bar}%;background:${c.verdict === "helped" ? "var(--ok)" : c.verdict === "misled" ? "var(--sig)" : "var(--t2)"}"></i></span></div></div></div>`;
 }
@@ -474,10 +478,10 @@ qs("#director").onclick = (e) => e.stopPropagation();
 
 /* ------------------------------------------------------------ cypher drawer */
 const CYPHER = {
-  graph: ["Service graph", "The graph, and the walks agents run over it to recall memory.", [["this panel", "web/queries/service_map.cypher"], ["recall: walk downstream from the alerts", "memory/queries/recall.cypher"], ["recall: same kind of datastore", "memory/queries/recall_kind.cypher"], ["blast radius", "tools/queries/blast_radius.cypher"], ["who to page", "tools/queries/who_to_page.cypher"]]],
+  graph: ["Service graph", "The graph, and the walks agents run over it to recall memory.", [["this panel", "web/queries/service_map.cypher"], ["recall: walk downstream from the alerts", "memory/queries/recall.cypher"], ["recall: same kind of datastore", "memory/queries/recall_kind.cypher"], ["blast radius", "tools/queries/blast_radius.cypher"], ["who to page", "tools/queries/who_to_page.cypher"], ["rank suspects: FalkorDB PageRank", "tools/queries/rank_suspects.cypher"], ["why: FalkorDB shortest path", "tools/queries/explain_path.cypher"]]],
   agents: ["Agents", "Agents share nothing but these queries: a lease, a heartbeat, a fenced write.", [["claim: new epoch, DB clock", "coord/queries/claim.cypher"], ["heartbeat", "coord/queries/heartbeat.cypher"], ["fenced checkpoint", "coord/queries/checkpoint.cypher"], ["send once per intent", "coord/queries/send_action.cypher"], ["tasks (this panel)", "web/queries/tasks.cypher"]]],
   memory: ["Playbooks", "What the agents remembered, and how trust moves.", [["playbooks", "web/queries/playbooks.cypher"], ["write a playbook", "memory/queries/write_playbook.cypher"], ["trust after the verdict", "memory/queries/feedback.cypher"], ["memory lens", "web/queries/lens.cypher"]]],
-  prefs: ["Engineer preferences", "Facts are superseded, never edited.", [["facts", "web/queries/facts.cypher"], ["supersede a fact", "memory/queries/fact_supersede.cypher"], ["preferences in force", "chat/queries/preferences_for.cypher"], ["war-room messages", "web/queries/messages.cypher"]]],
+  prefs: ["Engineer preferences", "Facts are superseded, never edited.", [["facts", "web/queries/facts.cypher"], ["supersede a fact", "memory/queries/fact_supersede.cypher"], ["close an unconfirmed reading", "memory/queries/fact_retract.cypher"], ["preferences in force", "chat/queries/preferences_for.cypher"], ["war-room messages", "web/queries/messages.cypher"]]],
 };
 function hl(text) { return text.split("\n").map((line) => `<span class="ln">${line.trim().startsWith("//") ? `<span class="c">${esc(line)}</span>` : esc(line).replace(/\$[A-Za-z_]\w*/g, (m) => `<span class="p">${m}</span>`)
   .replace(/\b(OPTIONAL MATCH|MATCH|WHERE|RETURN|WITH|SET|MERGE|CREATE|UNWIND|ORDER BY|LIMIT|AS|AND|OR|NOT|IN|IS NULL|IS NOT NULL|CASE|WHEN|THEN|ELSE|END|DISTINCT|DESC|ASC|CALL|YIELD)\b/g, (m) => `<span class="k">${m}</span>`).replace(/:([A-Z][A-Za-z_]+)/g, (m, l) => `:<span class="l">${l}</span>`)}</span>`).join(""); }
@@ -535,16 +539,27 @@ document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
   if (S.tab === "live") qs("#graph").dataset.sig = "";
   render();
 });
+// If FalkorDB (or the server) is down when the page opens, keep trying: the
+// overlay counts the seconds, and the page comes up by itself when it's back.
+async function untilUp(fn) {
+  for (let wait = 1000; ; wait = Math.min(wait * 1.5, 4000)) {
+    try { return await fn(); } catch (e) { if (S.dbDown) dbOverlay(); await new Promise((r) => setTimeout(r, wait)); }
+  }
+}
 async function boot() {
   bindQ(document);
-  S.settings = await api("/api/settings");
+  S.settings = await untilUp(() => api("/api/settings"));
+  if (S.settings.public_mode) {
+    document.body.classList.add("public");
+    qs(".nav").insertAdjacentHTML("afterend", `<div class="pubnote">Live and read-only: the agents play the story on their own on FalkorDB (s01 → s04, with a real kill and takeover → s05). Run it locally for the controls.</div>`);
+  }
   qs("#co").textContent = S.settings.graph;
   const bad = (S.settings.model_status || "").startsWith("unavailable");
   qs("#model").textContent = bad ? `${S.settings.model} unavailable · rule-based` : S.settings.model; qs("#model").className = "model" + (bad ? " bad" : "");
   qs("#timing").textContent = S.settings.timing_profile === "demo" ? "demo timing" : `lease ${S.settings.lease_ms / 1000} s`;
   qs("#timing").title = `lease ${S.settings.lease_ms / 1000} s, heartbeat ${S.settings.heartbeat_ms / 1000} s${S.settings.timing_profile === "demo" ? " (production 30 s / 10 s)" : ""}`;
-  await Promise.all([api("/api/map").then((m) => S.map = m), api("/api/memory").then((m) => S.memory = m), api("/api/db").then((d) => { S.db = d; qs("#dbver").textContent = `FalkorDB ${d.version || ""}`; }).catch(() => {})]);
-  await pollState(); await pollIncident();
+  await untilUp(() => Promise.all([api("/api/map").then((m) => S.map = m), api("/api/memory").then((m) => S.memory = m), api("/api/db").then((d) => { S.db = d; qs("#dbver").textContent = `FalkorDB ${d.version || ""}`; }).catch(() => {})]));
+  await untilUp(async () => { await pollState(); await pollIncident(); });
   S.booted = true;
   const loop = async (fn, ms) => { try { await fn(); } catch (e) { /* shown */ } setTimeout(() => loop(fn, ms), S.dbDown ? 1000 : ms); };
   setTimeout(() => loop(pollState, 1000), 1000);

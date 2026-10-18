@@ -56,9 +56,15 @@ class Responder(Worker):
         if diagnosis.root != "unknown":
             sent = self._notify(lease, key, diagnosis, now)
 
+        self.check_lease()
         verdict = self.confirmer.review(key, diagnosis)
+        if verdict.confirmed and diagnosis.root == "unknown":
+            # Nothing to resolve or learn from: leave it for a person to review.
+            self.log.info("%s: an 'unknown' root can't be confirmed; left for review", key)
+            verdict = Verdict(confirmed=False, by=verdict.by, message=verdict.message)
         self.log.info("%s: diagnosis %s by %s", key,
                       "confirmed" if verdict.confirmed else "rejected", verdict.by)
+        self.check_lease()
         if sent and verdict.message:
             self._converse(c["incident_id"], key, sent, verdict, now)
         self._close(lease, c["decision_id"], verdict, now)
@@ -97,6 +103,13 @@ class Responder(Worker):
         via = result.data.get("channel")
         if result.outcome is Outcome.ALREADY_DONE:
             self.log.info("%s: %s was already notified via %s", key, sent_to, via)
+            # already_done also answers a worker whose lease is gone (someone else sent
+            # it). That worker must stop here: the war room and memory writes that
+            # follow belong to whoever holds the task now.
+            task = run(self.graph, "coord/queries/read_task.cypher", {"task_id": lease.task_id})
+            if not task or (task[0]["epoch"], task[0]["lease_owner"]) != (lease.epoch,
+                                                                          lease.instance):
+                raise LeaseLost
         else:
             self.log.info("%s: notified %s via %s", key, sent_to, via)
         return sent_to, text
@@ -125,6 +138,12 @@ class Responder(Worker):
             room.remember(handle, said, prefs, approved_by=handle, scenario_now=now,
                           version_key=confirmed, valid_from=now + 4)
             self.log.info("%s: %s confirmed %d preference(s)", key, handle, len(prefs))
+        else:
+            # Not a yes: the reading must not steer the next incident.
+            room.forget_reading(said, prefs, at=now + 4)
+            room.say(session, 5, "agent",
+                     "Not saved. Tell me again on the next incident and I'll read it back.", now)
+            self.log.info("%s: %s did not confirm; %d reading(s) closed", key, handle, len(prefs))
 
     def _close(self, lease: Lease, decision_id: str, verdict: Verdict, now: int) -> None:
         params = {

@@ -33,6 +33,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
+from agents import investigator
 from agents.llm_planner import GuardedLLMPlanner
 from agents.planning import Planner, RuleBasedPlanner
 from common import config, llm, logs
@@ -126,12 +127,18 @@ def recall_at_5(g: Any, embedder: Any, t: truth.Truth) -> dict[str, Any]:
                                               or (kind != "service" and b["kind"] == kind))
                  for b in books)
 
-    def hit(found: Sequence[recall.Recalled]) -> bool:
-        return any(families.get(r.memory_id) == t.family and r.target == t.root for r in found)
+    def rank(found: Sequence[recall.Recalled]) -> int | None:
+        """1-based position of the first pair that gives the right answer."""
+        return next((i for i, r in enumerate(found, 1)
+                     if families.get(r.memory_id) == t.family and r.target == t.root), None)
 
     graph_top = recall.recall(g, alerting, sc.now_ms)
     text_top = text_recall.recall(g, embedder, alerting, texts, sc.now_ms)
-    return {"relevant_exists": exists, "graph_hit": hit(graph_top), "text_hit": hit(text_top)}
+    graph_rank, text_rank = rank(graph_top), rank(text_top)
+    return {"relevant_exists": exists, "graph_hit": graph_rank is not None,
+            "text_hit": text_rank is not None, "graph_rank": graph_rank, "text_rank": text_rank,
+            "graph_candidates": len(graph_top), "text_candidates": len(text_top),
+            "active_playbooks": len(books)}
 
 
 def score(arm: str, t: truth.Truth, g: Any, key: str, seconds: float,
@@ -213,6 +220,13 @@ def summarize(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
                                                 / len(measured), 3),
                      "text_recall_at_5": round(sum(m["text_hit"] for m in measured)
                                                / len(measured), 3)}
+        if all("graph_rank" in m for m in measured):  # runs from Oct 18 on record ranks
+            for arm in ("graph", "text"):
+                for k in (1, 3):
+                    out["m2"][f"{arm}_recall_at_{k}"] = round(
+                        sum((m[f"{arm}_rank"] or 99) <= k for m in measured) / len(measured), 3)
+            out["m2"]["mean_candidates"] = round(mean(m["graph_candidates"] for m in measured), 2)
+            out["m2"]["max_active_playbooks"] = max(m["active_playbooks"] for m in measured)
     for arm in sorted({r["arm"] for r in rows}):
         mine = [r for r in rows if r["arm"] == arm]
         cats: dict[str, Any] = {}
@@ -279,6 +293,13 @@ def markdown(summary: dict[str, Any], m5: dict[str, Any] | None, meta: dict[str,
                   f"already exists: graph retrieval finds it in its top 5 "
                   f"**{m2['graph_recall_at_5']:.0%}** of the time, text retrieval "
                   f"**{m2['text_recall_at_5']:.0%}**."]
+        if "graph_recall_at_1" in m2:
+            lines += ["", f"Ranked: graph recall@1 {m2['graph_recall_at_1']:.0%}, "
+                          f"@3 {m2['graph_recall_at_3']:.0%}; text recall@1 "
+                          f"{m2['text_recall_at_1']:.0%}, @3 {m2['text_recall_at_3']:.0%}. "
+                          f"Mean candidates returned: {m2['mean_candidates']}; at most "
+                          f"{m2['max_active_playbooks']} playbooks existed, so top-5 is a "
+                          "small pool here."]
     if m5:
         lines += ["", "## M5: a deliberately wrong playbook", "",
                   f"Misleading uses before retirement: **{m5['misleading_uses_before_retirement']}** "
@@ -320,8 +341,13 @@ def main() -> int:
     ap.add_argument("--only", nargs="*", help="run just these incident ids")
     ap.add_argument("--rule-based", action="store_true", help="ignore LLM_MODEL")
     ap.add_argument("--no-m5", action="store_true")
+    ap.add_argument("--max-steps", type=int, default=None,
+                    help="cap the investigator's step budget (default 12), e.g. to measure "
+                         "accuracy when steps are scarce")
     args = ap.parse_args()
     logs.setup("WARNING")
+    if args.max_steps:
+        investigator.MAX_STEPS = args.max_steps
 
     def model_factory() -> Any:
         return None if args.rule_based else llm.from_config()
@@ -349,6 +375,7 @@ def main() -> int:
     rows, summary, m5 = run_eval(args.arms, live_graph, model_factory, args.only,
                                  not args.no_m5, on_row=save)
     meta = {"name": name, "model": model_name, "at": at, "arms": args.arms,
+            "max_steps": investigator.MAX_STEPS,
             "embedder": embed.from_config().name,
             "cached": bool(config.LLM_CACHE_DIR) and not args.rule_based,
             "truth_ids": [r["id"] for r in rows]}

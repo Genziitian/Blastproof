@@ -15,7 +15,8 @@ from typing import Any
 from tools import evidence, topology
 from tools.context import ToolContext, ToolError
 
-__all__ = ["TOOLS", "Tool", "ToolContext", "ToolError", "ToolResult", "call", "validate"]
+__all__ = ["INVESTIGATOR_TOOLS", "TOOLS", "Tool", "ToolContext", "ToolError", "ToolResult", "call",
+           "validate"]
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,9 @@ class Tool:
     run: Callable[..., Any]
     source: str
     required: tuple[str, ...] = field(default=())
+    # False: served over MCP (and to people) but not offered to the investigator, so
+    # adding an analysis tool never changes how the benchmark's agent behaves.
+    investigator: bool = True
 
     def schema(self) -> dict[str, Any]:
         return {
@@ -114,8 +118,31 @@ TOOLS: dict[str, Tool] = {
             "cypher:tools/queries/who_to_page.cypher",
             required=("node",),
         ),
+        Tool(
+            "rank_suspects",
+            "Where to look first: nodes the alerting services depend on, ranked by how many "
+            "of them reach it, how close it is, then FalkorDB PageRank over DEPENDS_ON (how "
+            "much of the system leans on it). A ranking, not a diagnosis: evidence decides.",
+            {"alerting": {"type": "array", "items": _STRING, "minItems": 1}},
+            topology.rank_suspects,
+            "cypher:tools/queries/rank_suspects.cypher",
+            required=("alerting",),
+            investigator=False,
+        ),
+        Tool(
+            "explain_path",
+            "Why a node matters to these alerts: the shortest DEPENDS_ON path from each "
+            "alerting service to it (FalkorDB algo.SPpaths, at most 4 hops).",
+            {"alerting": {"type": "array", "items": _STRING, "minItems": 1}, "node": _SERVICE},
+            topology.explain_path,
+            "cypher:tools/queries/explain_path.cypher",
+            required=("alerting", "node"),
+            investigator=False,
+        ),
     ]
 }
+# The tools the investigating agent may call (in-process and LLM-planned).
+INVESTIGATOR_TOOLS: dict[str, Tool] = {n: t for n, t in TOOLS.items() if t.investigator}
 
 _TYPES: dict[str, type | tuple[type, ...]] = {
     "string": str,
@@ -132,9 +159,21 @@ def validate(tool: Tool, args: dict[str, Any]) -> None:
     if missing:
         raise ToolError(f"{tool.name}: missing argument(s) {missing}")
     for name, value in args.items():
-        expected = _TYPES[tool.parameters[name]["type"]]
+        spec = tool.parameters[name]
+        expected = _TYPES[spec["type"]]
         if not isinstance(value, expected) or isinstance(value, bool):
-            raise ToolError(f"{tool.name}: {name} must be {tool.parameters[name]['type']}")
+            raise ToolError(f"{tool.name}: {name} must be {spec['type']}")
+        # The bounds the schema advertises are enforced too (a model asking for
+        # hours=100000 or an empty alert list is told so, not obeyed).
+        if "minimum" in spec and value < spec["minimum"]:
+            raise ToolError(f"{tool.name}: {name} must be at least {spec['minimum']}")
+        if "maximum" in spec and value > spec["maximum"]:
+            raise ToolError(f"{tool.name}: {name} must be at most {spec['maximum']}")
+        if "minItems" in spec and isinstance(value, list) and len(value) < spec["minItems"]:
+            raise ToolError(f"{tool.name}: {name} needs at least {spec['minItems']} item(s)")
+        item = spec.get("items", {}).get("type")
+        if item and isinstance(value, list) and not all(isinstance(v, _TYPES[item]) for v in value):
+            raise ToolError(f"{tool.name}: every {name} item must be {item}")
 
 
 def call(ctx: ToolContext, name: str, args: dict[str, Any]) -> ToolResult:

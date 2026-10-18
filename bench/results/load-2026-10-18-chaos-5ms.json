@@ -1,0 +1,31 @@
+[
+  {
+    "companies": [
+      "a",
+      "b"
+    ],
+    "worker_pairs_per_company": 4,
+    "incidents": 20,
+    "completed": 18,
+    "seconds": 120.072,
+    "incidents_per_minute": 9.0,
+    "memory_reads": {
+      "p50_ms": 2.37,
+      "p95_ms": 4.69,
+      "n": 210
+    },
+    "memory_writes": {
+      "p50_ms": 1.83,
+      "p95_ms": 3.63,
+      "n": 92543
+    },
+    "duplicate_notifications": 0,
+    "duplicate_sends_absorbed": 0,
+    "takeovers": 2,
+    "lost_leases": 6,
+    "errors": [],
+    "chaos_ms": 5,
+    "leases_expired_by_chaos": 7690,
+    "stuck_for_a_human": 2
+  }
+]
