@@ -164,12 +164,10 @@ figcaption b { color: var(--t2); font-weight: 600; }
 .dm .el { font: 400 11px var(--mono); fill: var(--t3); opacity: 0; transition: opacity .25s; pointer-events: none; } .dm .el.on { opacity: 1; fill: var(--sig); }
 .dm .layer { font: 600 11px var(--sans); fill: var(--t3); letter-spacing: .07em; text-transform: uppercase; }
 .dminfo { margin-top: 10px; font-size: 14.5px; color: var(--t2); min-height: 44px; }
-/* video placeholder */
-.vid { position: relative; display: block; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow2); background: var(--ink); }
-.vid img { display: block; width: 100%; opacity: .32; filter: blur(1.5px) grayscale(.3); }
-.vid .play { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: #fff; }
-.vid .play i { width: 76px; height: 76px; border-radius: 50%; background: #fff; display: grid; place-items: center; margin: 0 auto 14px; font-style: normal; color: var(--ink); font-size: 26px; padding-left: 5px; }
-.vid .play b { font-size: 20px; font-weight: 600; display: block; } .vid .play span { font-size: 14px; color: #eee; text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+/* Responsive inline video: playback stays on the article. */
+.video-player { aspect-ratio: 16 / 9; width: 100%; overflow: hidden; border: 1px solid var(--line2); border-radius: 16px; background: #111; box-shadow: var(--shadow2); }
+.video-player iframe { display: block; width: 100%; height: 100%; border: 0; }
+
 /* lessons */
 .lessons { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 26px; }
 .lesson { padding: 20px 24px; min-width: 0; } .lesson .n { font: 500 12.5px var(--mono); color: var(--sig); } .lesson h4 { margin: 6px 0 0; font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
@@ -287,12 +285,6 @@ html[lang=ur] article p, html[lang=ur] article li, html[lang=ur] .beat span { li
 .jumpnav a { font-size: 13px; color: var(--t2); text-decoration: underline; text-underline-offset: 5px; text-decoration-color: transparent; }
 .jumpnav a:hover { color: var(--ink); text-decoration-color: var(--sig); }
 article p.benchmark-label { font: 500 12px/1.6 var(--mono); color: var(--t2); margin-top: 20px; }
-.portal-preview { background: #161615; }
-.portal-preview img { opacity: .42; filter: none; }
-.portal-preview .play > span { padding: 24px; }
-.portal-preview .play i { width: 54px; height: 54px; padding: 0; color: #111; font-size: 25px; }
-.portal-preview .play b { font-size: 23px; margin-bottom: 8px; }
-.portal-preview .play span { line-height: 1.5; }
 @media (max-width: 700px) {
   header.hero { padding-block: 36px 22px; }
   h1 { font-size: clamp(34px, 8.8vw, 44px); letter-spacing: -.035em; }
@@ -306,8 +298,6 @@ article p.benchmark-label { font: 500 12px/1.6 var(--mono); color: var(--t2); ma
   .btns .pill.dark { flex: 1 1 100%; text-align: center; justify-content: center; }
   .beat { display: block; } .beat .tl { display: block; margin-bottom: 6px; }
   .part { margin-top: 64px; } .part h2 { font-size: 36px; }
-  .portal-preview .play b { font-size: 19px; } .portal-preview .play span { font-size: 12px; }
-  .portal-preview .play i { width: 42px; height: 42px; margin-bottom: 8px; }
 }
 </style>
 </head>
@@ -339,7 +329,7 @@ article p.benchmark-label { font: 500 12px/1.6 var(--mono); color: var(--t2); ma
     <div data-i18n="k2" class="kicker">FalkorDB Graph Hacks · Agent Memory and Coordination</div>
     <h1 data-i18n="k3">Agents that remember<br>and recover.</h1>
     <p data-i18n="k4" class="dek">How we built Blast Radius: four on-call agents that share persistent graph memory, check past fixes against current evidence, and hand off work when a worker fails.</p>
-    <div class="btns"><a data-i18n="k8" class="pill dark" href="https://blast.genziitian.in/mission-control" target="_blank" rel="noopener">Open live mission control ↗</a><a data-i18n="k9" class="pill" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">Read the code</a><a data-i18n="k10" class="pill" href="https://youtu.be/ubFTOB0ZIh0" target="_blank" rel="noopener">Watch demo ↗</a></div>
+    <div class="btns"><a data-i18n="k8" class="pill dark" href="https://blast.genziitian.in/mission-control" target="_blank" rel="noopener">Open live mission control ↗</a><a data-i18n="k9" class="pill" href="https://github.com/Genziitian/Blastproof" target="_blank" rel="noopener">Read the code</a><a data-i18n="k10" class="pill" href="#demo">Watch demo</a></div>
     <div class="byline"><span class="avs"><span>SR</span><span>AA</span></span><span data-i18n="k5">By <b>sri ram</b> and <b>Aditi Akansha</b> · team Blastproof · Oct 18, 2026</span></div>
     <div class="tags"><span class="chip">FalkorDB</span><span class="chip">agent memory</span><span class="chip">multi-agent coordination</span></div>
     <div class="depth" role="radiogroup" aria-label="Reading depth"><button data-i18n="k6" role="radio" data-depth="quick">Quick read · <span id="min-quick">5</span> min</button><button data-i18n="k7" role="radio" data-depth="full">Full read · <span id="min-full">14</span> min</button></div>
@@ -379,8 +369,10 @@ article p.benchmark-label { font: 500 12px/1.6 var(--mono); color: var(--t2); ma
     <p data-i18n="k26" class="demo-context">The agents and FalkorDB are running on our VPS. Incident inputs come from a synthetic company; this is a working system, not production monitoring. The recorded clips below also show the local persistence test.</p>
   </section>
   <figure class="wide">
-    <a class="vid portal-preview" id="vid" href="https://youtu.be/ubFTOB0ZIh0" target="_blank" rel="noopener" aria-label="Watch the Blast Radius demo on YouTube"><img data-i18n-alt="a211" src="media/landing.jpg" alt="The Blast Radius landing page">
-      <span class="play"><span><i aria-hidden="true">▶</i><b data-i18n="k27">Watch the demo</b><span data-i18n="k28" id="vidnote">Watch on YouTube</span></span></span></a>
+    <div class="video-player">
+      <iframe id="vid" src="https://www.youtube-nocookie.com/embed/ubFTOB0ZIh0?rel=0" title="Blast Radius demo: agents that remember and recover" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+    </div>
+    <figcaption data-i18n="k28" id="vidnote">Play the demo here without leaving this page.</figcaption>
   </figure>
 
   <div class="part col" id="night"><span data-i18n="k29">Part 1</span><h2 data-i18n="k30">The night</h2><p data-i18n="k31">What follows is the recorded demo run (scenario s04), told second by second. The clock times are ours; the order of events, the checks, the kill and the numbers are exactly what the agents did. On a wide screen, the graph on the right follows you down the page.</p></div>
@@ -661,7 +653,6 @@ make ui                 <span class="g"># http://localhost:8000</span></div><but
 "use strict";
 // The blog is static: the hero replays a recorded run (assets/example.json) with
 // the app's own code (assets/core.js); the other figures are self-contained.
-const YOUTUBE_URL = "https://youtu.be/ubFTOB0ZIh0";
 const qs = (s) => document.querySelector(s);
 /* translation hooks (see the language switcher at the end): tr/tf look a string up in the
    loaded language, T only marks a string for extraction by scripts/blog_i18n.py */
@@ -680,9 +671,6 @@ addEventListener("scroll", () => {
   let cur = secs2[0]?.id; secs2.forEach((s) => { if (s.offsetParent && s.getBoundingClientRect().top < 160) cur = s.id; });
   document.querySelectorAll(".toc a").forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + cur));
 }, {passive: true});
-
-/* video link */
-if (YOUTUBE_URL) { qs("#vid").href = YOUTUBE_URL; qs("#vid").target = "_blank"; qs("#vidnote").textContent = tr("Watch on YouTube"); }
 
 /* the recorded night: a looping replay in the hero (narrow screens) and, on wide
    screens, a rail that moves to the moment of the section being read */
@@ -951,7 +939,6 @@ function restore() {
 }
 function done(lang) {
   setDoc(lang); langUI(); redraw.forEach((f) => f());
-  if (YOUTUBE_URL) qs("#vidnote").textContent = tr("Watch on YouTube");
   const u = new URL(location.href); if (lang === "en") u.searchParams.delete("lang"); else u.searchParams.set("lang", lang);
   history.replaceState(null, "", u);
 }

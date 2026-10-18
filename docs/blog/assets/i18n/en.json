@@ -11,7 +11,7 @@
   "k4": "How we built Blast Radius: four on-call agents that share persistent graph memory, check past fixes against current evidence, and hand off work when a worker fails.",
   "k8": "Open live mission control ↗",
   "k9": "Read the code",
-  "k10": "Watch demo ↗",
+  "k10": "Watch demo",
   "k5": "By <b>sri ram</b> and <b>Aditi Akansha</b> · team Blastproof · Oct 18, 2026",
   "k6": "Quick read · <span id=\"min-quick\">5</span> min",
   "k7": "Full read · <span id=\"min-full\">14</span> min",
@@ -37,8 +37,7 @@
   "k24": "In short",
   "k25": "The public portal runs a real agent loop: learn a fix, kill a worker, resume its task, and reject a memory that does not apply.",
   "k26": "The agents and FalkorDB are running on our VPS. Incident inputs come from a synthetic company; this is a working system, not production monitoring. The recorded clips below also show the local persistence test.",
-  "k27": "Watch the demo",
-  "k28": "Watch on YouTube",
+  "k28": "Play the demo here without leaving this page.",
   "k29": "Part 1",
   "k30": "The night",
   "k31": "What follows is the recorded demo run (scenario s04), told second by second. The clock times are ours; the order of events, the checks, the kill and the numbers are exactly what the agents did. On a wide screen, the graph on the right follows you down the page.",
@@ -218,7 +217,6 @@
   "k210": "Blast Radius · FalkorDB Graph Hacks · team Blastproof"
  },
  "alt": {
-  "a211": "The Blast Radius landing page",
   "a212": "Checking the playbook: one of three checks passed",
   "a213": "The investigator was killed; its lease is draining",
   "a214": "The other investigator took over at step 4",
@@ -229,7 +227,6 @@
   "a219": "The next ticket cites her request"
  },
  "dyn": {
-  "Watch on YouTube": "Watch on YouTube",
   "Open this page through a web server (GitHub Pages or make ui) to see the replay.": "Open this page through a web server (GitHub Pages or make ui) to see the replay.",
   "The morning after": "The morning after",
   "reached by the walk": "reached by the walk",

@@ -14,7 +14,7 @@
   "k7": "Lecture complète · <span id=\"min-full\">14</span> min",
   "k8": "Ouvrir le centre de contrôle ↗",
   "k9": "Lire le code",
-  "k10": "Voir la démo ↗",
+  "k10": "Voir la démo",
   "k11": "Graphe des services",
   "k12": "· s04 · Saturation de la base Payments",
   "k13": "rejeu d'une exécution enregistrée · même code que l'application",
@@ -31,8 +31,7 @@
   "k24": "En bref",
   "k25": "Le portail public exécute une vraie boucle d’agents : apprendre une solution, arrêter un processus, reprendre sa tâche et rejeter un souvenir qui ne s’applique pas.",
   "k26": "Les agents et FalkorDB tournent sur notre VPS. Les incidents proviennent d’une entreprise synthétique : le système fonctionne réellement, sans surveiller de production. Les clips ci-dessous montrent aussi le test local de persistance.",
-  "k27": "Voir la démo",
-  "k28": "Voir sur YouTube",
+  "k28": "Regardez la démo ici sans quitter cette page.",
   "k29": "1re partie",
   "k30": "La nuit",
   "k31": "Ce qui suit est le déroulé enregistré de la démo (scénario s04), raconté seconde par seconde. Les heures sont de notre fait ; l'ordre des événements, les contrôles, le kill et les chiffres sont exactement ce qu'ont fait les agents. Sur grand écran, le graphe à droite vous suit le long de la page.",
@@ -218,7 +217,6 @@
   "k300": "Benchmark enregistré · 16 octobre 2026"
  },
  "alt": {
-  "a211": "La page d'accueil de Blast Radius",
   "a212": "Vérification du playbook : un contrôle sur trois validé",
   "a213": "L'investigateur a été tué ; son bail s'écoule",
   "a214": "L'autre investigateur a repris à l'étape 4",
@@ -320,7 +318,6 @@
   "Result file": "Fichier de résultats",
   "Measured with": "Mesuré avec",
   "Rerun it": "Le relancer",
-  "No API key? make eval-rules runs the same benchmark with the rule-based planner.": "Pas de clé d'API ? make eval-rules lance le même benchmark avec le planificateur à base de règles.",
-  "Watch on YouTube": "Voir sur YouTube"
+  "No API key? make eval-rules runs the same benchmark with the rule-based planner.": "Pas de clé d'API ? make eval-rules lance le même benchmark avec le planificateur à base de règles."
  }
 }
