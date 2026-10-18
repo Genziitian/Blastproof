@@ -1,6 +1,7 @@
 // A3 step 2: create one new version (safe to retry) and close older ones.
 // Run only after fact_check says scope and source exist and the id is new
-// or carries the same payload_hash.
+// or carries the same payload_hash. The agent's own (unconfirmed) reading
+// never closes a version the engineer approved; only another approval does.
 MATCH (scope {key: $scope_key}), (src {key: $source_key})
 MERGE (new:Memory:Fact {id: $id})
 ON CREATE SET new.lineage_id = $lineage, new.version = $version,
@@ -15,5 +16,6 @@ WITH new
 MATCH (old:Memory:Fact {lineage_id: $lineage})
 WHERE old.id <> new.id AND old.status = 'active'
   AND (old.valid_to IS NULL OR old.valid_to > $valid_from)
+  AND ($source_kind = 'human' OR old.source <> 'human')
 SET old.valid_to = $valid_from
 MERGE (new)-[:SUPERSEDES]->(old)

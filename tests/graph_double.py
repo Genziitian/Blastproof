@@ -795,10 +795,23 @@ def _fact_supersede(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
     g.merge_edge(new, "LEARNED_FROM", src)
     for old in g.find("Fact", lineage_id=p["lineage"]):
         if old.get("id") != new.get("id") and old.get("status") == "active" and (
-                old.get("valid_to") is None or old.get("valid_to") > p["valid_from"]):
+                old.get("valid_to") is None or old.get("valid_to") > p["valid_from"]) and (
+                p["source_kind"] == "human" or old.get("source") != "human"):
             g.set(old, {"valid_to": p["valid_from"]})
             g.merge_edge(new, "SUPERSEDES", old)
     return []
+
+
+@implements("memory/queries/fact_retract.cypher")
+def _fact_retract(g: GraphDouble, p: dict[str, Any]) -> list[dict[str, Any]]:
+    out = []
+    for f in g.find("Fact"):
+        if ("Memory" in f.labels and f.get("id") in p["ids"] and f.get("source") == "agent"
+                and f.get("status") == "active"
+                and (f.get("valid_to") is None or f.get("valid_to") > p["at"])):
+            g.set(f, {"valid_to": p["at"]})
+            out.append({"id": f.get("id")})
+    return out
 
 
 # ====================================================================== chat/

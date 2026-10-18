@@ -2,7 +2,7 @@
 
 Every query the product runs lives in a `.cypher` file; this index is generated from each file's leading comment (`python -m scripts.query_index`). Comment lines are stripped before a query is sent (`common/db.py`).
 
-73 queries.
+74 queries.
 
 ## Memory: recall (A1, A1b), trust (A2), facts (A3), playbooks (A4)
 
@@ -12,7 +12,8 @@ Every query the product runs lives in a `.cypher` file; this index is generated 
 | [`memory/queries/bind_path.cypher`](../memory/queries/bind_path.cypher) | Arm B binding only: routes from an alerting service to a target, so the shared precondition executor can bind $alerting and $caller. |
 | [`memory/queries/datastores_of_kind.cypher`](../memory/queries/datastores_of_kind.cypher) | Arm B targets: every datastore of a kind (text retrieval has no notion of "nearby"). |
 | [`memory/queries/fact_check.cypher`](../memory/queries/fact_check.cypher) | A3 step 1 (read-only): validate scope, source and any existing version first, and count earlier versions of this lineage. |
-| [`memory/queries/fact_supersede.cypher`](../memory/queries/fact_supersede.cypher) | A3 step 2: create one new version (safe to retry) and close older ones. Run only after fact_check says scope and source exist and the id is new or carries the same payload_hash. |
+| [`memory/queries/fact_retract.cypher`](../memory/queries/fact_retract.cypher) | A3: the engineer did not confirm the agent's reading of their message, so close it. Nothing is deleted or rewritten; the version just stops being valid from the moment they answered (it stays in the history, struck through). |
+| [`memory/queries/fact_supersede.cypher`](../memory/queries/fact_supersede.cypher) | A3 step 2: create one new version (safe to retry) and close older ones. Run only after fact_check says scope and source exist and the id is new or carries the same payload_hash. The agent's own (unconfirmed) reading never closes a version the engineer approved; only another approval does. |
 | [`memory/queries/feedback.cypher`](../memory/queries/feedback.cypher) | A2: one verdict per USED edge, applied once; a retried call changes nothing. $verdicts = [{id, target, verdict: 'helped' / 'misled' / 'not_applicable'}] Only memories that were followed can be credited or blamed. |
 | [`memory/queries/playbook_by_signature.cypher`](../memory/queries/playbook_by_signature.cypher) | Learner: the oldest active playbook with this signature, so a repeat adds a source instead of a duplicate playbook. |
 | [`memory/queries/playbook_texts.cypher`](../memory/queries/playbook_texts.cypher) | Arm B indexing: what each active playbook says, where it is pinned and which alerts it was learned from, to embed as text. |

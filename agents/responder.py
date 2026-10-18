@@ -125,6 +125,12 @@ class Responder(Worker):
             room.remember(handle, said, prefs, approved_by=handle, scenario_now=now,
                           version_key=confirmed, valid_from=now + 4)
             self.log.info("%s: %s confirmed %d preference(s)", key, handle, len(prefs))
+        else:
+            # Not a yes: the reading must not steer the next incident.
+            room.forget_reading(said, prefs, at=now + 4)
+            room.say(session, 5, "agent",
+                     "Not saved. Tell me again in your own words and I'll read it back.", now)
+            self.log.info("%s: %s did not confirm; %d reading(s) closed", key, handle, len(prefs))
 
     def _close(self, lease: Lease, decision_id: str, verdict: Verdict, now: int) -> None:
         params = {
