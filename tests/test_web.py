@@ -411,6 +411,16 @@ class ResultsTests(unittest.TestCase):
             {"meta": {"arms": ["A", "B", "C"], "invalid": "no model"}, "summary": {}}))
         self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
         self.assertIsNone(latest_results(root)["load"])
+        # Newer deterministic runs (named or labelled rule-based) and capped-budget
+        # experiments never replace the model run on the Results tab.
+        for name, meta in (("2026-01-05-rule-based-ranked", {"model": "rule-based"}),
+                           ("2026-01-06-x", {"model": "rule-based"}),
+                           ("2026-01-07-m", {"model": "m", "max_steps": 8})):
+            d = root / "eval" / "results" / name
+            d.mkdir()
+            (d / "summary.json").write_text(json.dumps(
+                {"meta": {"arms": ["A", "B", "C"], **meta}, "summary": {}}))
+        self.assertEqual(latest_results(root)["eval"]["name"], "2026-01-02-m")
 
 
 if __name__ == "__main__":

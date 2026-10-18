@@ -73,17 +73,25 @@ class MoveOwner(BaseModel):
 def latest_results(root: Path = ROOT) -> dict[str, Any]:
     """The newest model-run eval summary and the load benchmark, if present."""
     out: dict[str, Any] = {"eval": None, "load": None}
-    runs = sorted((root / "eval" / "results").glob("*/summary.json"))
-    model_runs = [p for p in runs if not p.parent.name.endswith("rule-based")]
-    for path in reversed(model_runs or runs):
+    runs: list[tuple[str, dict[str, Any]]] = []
+    for path in sorted((root / "eval" / "results").glob("*/summary.json")):
         with contextlib.suppress(ValueError, OSError):
-            data = json.loads(path.read_text(encoding="utf-8"))
-            meta = data.get("meta", {})
-            if meta.get("invalid") or "INVALID" in path.parent.name:
-                continue
-            if len(meta.get("arms", [])) >= 2:
-                out["eval"] = {"name": path.parent.name, **data}
-                break
+            runs.append((path.parent.name, json.loads(path.read_text(encoding="utf-8"))))
+
+    def shown(name: str, data: dict[str, Any]) -> bool:
+        meta = data.get("meta", {})
+        return (not meta.get("invalid") and "INVALID" not in name
+                and len(meta.get("arms", [])) >= 2
+                and meta.get("max_steps", 12) == 12)  # not a capped-budget experiment
+
+    def rule_based(name: str, data: dict[str, Any]) -> bool:
+        return data.get("meta", {}).get("model") == "rule-based" or "rule-based" in name
+
+    candidates = [r for r in runs if shown(*r)]
+    model_runs = [r for r in candidates if not rule_based(*r)]
+    for name, data in reversed(model_runs or candidates):
+        out["eval"] = {"name": name, **data}
+        break
     load = root / "bench" / "results" / "load.json"
     if load.exists():
         with contextlib.suppress(ValueError, OSError):
