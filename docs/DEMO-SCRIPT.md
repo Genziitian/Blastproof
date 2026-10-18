@@ -13,8 +13,8 @@ make ui                                   # Terminal A, keep visible in a corner
 curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 ```
 
-- Open http://localhost:8000 (the landing page) and refresh after the reset. Scenes 1–2 are recorded there; **Enter the war room** opens http://localhost:8000/war-room for the rest.
-- In the war room's **Director**: *scripted engineer* off (you play Priya), kill switch off for now.
+- Open http://localhost:8000 (the landing page) and refresh after the reset. Scenes 1–2 are recorded there; **Enter mission control** opens http://localhost:8000/mission-control for the rest.
+- In mission control's **Director**: *scripted engineer* off (you play Priya), kill switch off for now.
 - Header shows `FalkorDB 4.22.1 · connected`, `claude-haiku-5-5`, *demo timing*.
 - Second tab: the FalkorDB Browser (http://localhost:3000), for scene 7.
 - If anything misbehaves, `/classic` is the old all-panels view on the same data.
@@ -30,7 +30,7 @@ curl -X POST localhost:8000/api/reset     # Terminal B: clean company_a
 
 ### Scene 2 · The idea (0:25–0:50)
 
-**Screen:** scroll to *01 · Recall* (the walk) and *02 · Check* (the two check cards), then click **Enter the war room**: *Break something and watch the agents work.*
+**Screen:** scroll to *01 · Recall* (the walk) and *02 · Check* (the two check cards), then click **Enter mission control**: *Break something and watch the agents work.*
 
 **Say:**
 > "Blast Radius is a team of on-call agents that share one FalkorDB graph. Every confirmed fix becomes a playbook pinned to the service that failed. On the next incident, agents find it by walking the dependency graph, check it against live evidence before trusting it, and coordinate through leased tasks in the same graph, so a crash is just a handover. This is a synthetic company: nine services, six datastores. Let's break it."

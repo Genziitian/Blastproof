@@ -112,16 +112,16 @@ footer { display: flex; justify-content: space-between; gap: 16px; padding-block
 <header class="nav">
   <a class="brand" href="/"><span class="logo"><i></i></span>Blast Radius</a>
   <nav class="links"><a href="#how">How it works</a><a href="#memory">Memory</a><a href="#results">Results</a><a href="#hood">Under the hood</a></nav>
-  <a class="pill dark" href="/war-room">Enter the war room <span>→</span></a>
+  <a class="pill dark" href="/mission-control">Enter mission control <span>→</span></a>
 </header>
 
 <main>
 <div class="wrap hero" id="top">
   <div>
-    <a class="live" href="/war-room"><span class="dot" id="livedot"></span><span id="livetext">Live demo on company_a · FalkorDB Graph Hacks</span><span>→</span></a>
+    <a class="live" href="/mission-control"><span class="dot" id="livedot"></span><span id="livetext">Live demo on company_a · FalkorDB Graph Hacks</span><span>→</span></a>
     <h1>On-call agents that remember every incident.</h1>
     <p class="lead">Playbooks live on the service graph. Agents recall them by walking dependencies, check them against live evidence, and page one engineer, once.</p>
-    <div class="ctas"><a class="pill dark" href="/war-room">Enter the war room <span>→</span></a><a class="pill" href="#how">How it works</a></div>
+    <div class="ctas"><a class="pill dark" href="/mission-control">Enter mission control <span>→</span></a><a class="pill" href="#how">How it works</a></div>
     <p class="built">Built on FalkorDB, for on-call teams and their agents.</p>
   </div>
   <div class="stagecard frame">
@@ -180,7 +180,7 @@ footer { display: flex; justify-content: space-between; gap: 16px; padding-block
   <div class="card tablecard" id="pbtable"></div>
   <h3 style="margin:64px 0 0;font-size:24px;font-weight:600;letter-spacing:-.015em">Engineer preferences are versioned facts. <span style="font-weight:400;color:var(--t2);font-size:16px;letter-spacing:0">What the engineer approved supersedes what the agent assumed. Both stay on record.</span></h3>
   <div class="facts" id="facts"></div>
-  <div class="band"><div><h3>Memory survives a database restart.</h3><p>Restart FalkorDB mid-demo. The war room dims, reconnects, and reads everything back from the graph.</p></div>
+  <div class="band"><div><h3>Memory survives a database restart.</h3><p>Restart FalkorDB mid-demo. Mission control dims, reconnects, and reads everything back from the graph.</p></div>
     <div class="toast2"><span class="dot ok"></span><span id="survive"></span></div></div>
 </section>
 
@@ -188,14 +188,14 @@ footer { display: flex; justify-content: space-between; gap: 16px; padding-block
 
 <section class="wrap split top" id="hood">
   <div><div class="eyebrow">Under the hood</div><h2>One graph. Every step is a query you can read.</h2>
-    <p class="body">Services, playbooks, incidents, leases, checkpoints and conversations all live in FalkorDB. Every part of the war room has a query button that shows the Cypher behind it. Every step is stored, so any incident can be replayed.</p>
+    <p class="body">Services, playbooks, incidents, leases, checkpoints and conversations all live in FalkorDB. Every panel in mission control has a query button that shows the Cypher behind it. Every step is stored, so any incident can be replayed.</p>
     <div class="facttbl" id="facttbl"></div></div>
   <div class="card qcard"><div class="qh"><b>Recall playbooks</b><span id="q-meta"></span></div><pre class="code" id="q-code"></pre><div class="qf" id="q-foot"></div></div>
 </section>
 
 <section class="wrap"><div class="cta"><h2>Watch the agents work an incident.</h2>
   <p>Five scenarios. Kill an agent, restart the database, or answer the war room yourself.</p>
-  <a class="pill dark" href="/war-room">Enter the war room <span>→</span></a></div>
+  <a class="pill dark" href="/mission-control">Enter mission control <span>→</span></a></div>
   <footer><span>Blast Radius · FalkorDB Graph Hacks · Agent Memory and Coordination · team Blastproof</span><span class="mono" id="foot-db"></span></footer>
 </section>
 </main>

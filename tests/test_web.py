@@ -322,7 +322,7 @@ class WebCases:
         api = TestClient(create_app(self.demo))
         self.assertIn("Blast Radius", api.get("/").text)
         self.assertIn("Blast Radius", api.get("/classic").text)
-        for path in ("/war-room", "/dark", "/static/core.js", "/static/v2.css", "/static/example.json"):
+        for path in ("/mission-control", "/war-room", "/dark", "/static/core.js", "/static/v2.css", "/static/example.json"):
             self.assertEqual(api.get(path).status_code, 200, path)
         self.assertEqual(api.get("/static/app.py").status_code, 404)
         font = api.get("/fonts/inter-400.woff2")

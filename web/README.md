@@ -22,12 +22,12 @@ The UI plays only the two outside roles: the world (break a service, change the 
 | Address | Page |
 |---|---|
 | `/` | **Landing page.** The idea in five stages (remember, recall, check, act, learn), told with live data: the hero replays a real incident from the graph, the check cards, playbooks, preferences and results are read from the API, and the Cypher card shows the real recall query. Until this machine has run its own incidents, a recorded run (`web/static/example.json`) stands in and is labelled *recorded run*. |
-| `/war-room` | **The live demo.** Break a service and watch the agents work. |
+| `/mission-control` | **Mission control, the live demo.** Break a service and watch the agents work. (`/war-room` redirects here.) |
 | `/dark`, `/classic` | Earlier views on the same API, kept as fallbacks. |
 
 Shared code: `web/static/core.js` turns an incident's stored records into what the pages show (steps, checks computed with the same measure rules as `memory/playbook.py`, captions, takeovers, trust, and a replay of any moment); `web/static/v2.css` is the look.
 
-## The war room
+## Mission control
 
 The incident is told in the order of the learning loop in the plan: **alerts → recall → check → diagnose → page → engineer confirms → learn**. Every animation is a real event appearing in the graph for the first time (a checkpoint, a claim, a sent action, a trust change); with `prefers-reduced-motion`, things appear in their final state.
 
@@ -41,7 +41,7 @@ The incident is told in the order of the learning loop in the plan: **alerts →
 
 ## The demo, from the UI
 
-1. Open `/`, then **Enter the war room**. **s01** (Director): the investigator works from scratch. Confirm in the war room, keeping Priya's line ("for DB saturation, open a ticket with the raw slow-query lines"), then send yes to the read-back.
+1. Open `/`, then **Enter mission control**. **s01** (Director): the investigator works from scratch. Confirm in the war room, keeping Priya's line ("for DB saturation, open a ticket with the raw slow-query lines"), then send yes to the read-back.
 2. The learner writes a playbook: a pin appears on `postgres-orders` (Memory tab for details).
 3. Optional: restart FalkorDB (`docker compose down && docker compose up -d falkordb`); the page dims and recovers.
 4. **s04**: switch on *Kill the investigator after step 3* in Director first. The playbook is recalled by kind for `postgres-payments` and checked; after step 3 the holder is SIGKILLed, its lease drains, and the other worker resumes at step 4 under epoch 2. One ticket, citing s01; trust 0.50 → 0.67.

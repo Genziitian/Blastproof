@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from common import config, llm, logs
@@ -103,10 +103,15 @@ def create_app(demo: Demo, supervisor: Supervisor | None = None) -> FastAPI:
         """The landing page: the idea, told with live data from the graph."""
         return page("landing.html")
 
+    @app.get("/mission-control")
+    def mission_control() -> FileResponse:
+        """Mission control, the live demo: break a service and watch the agents work."""
+        return page("mission.html")
+
     @app.get("/war-room")
-    def war_room() -> FileResponse:
-        """The live war room: break a service and watch the agents work."""
-        return page("warroom.html")
+    def war_room() -> RedirectResponse:
+        """The page's earlier name."""
+        return RedirectResponse("/mission-control")
 
     @app.get("/dark")
     def dark() -> FileResponse:

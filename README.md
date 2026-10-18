@@ -250,14 +250,14 @@ cp .env.example .env     # settings are read from .env automatically
 make db          # FalkorDB 4.22.1, pinned by digest (Browser on http://localhost:3000)
 make schema      # indexes + unique constraints; waits until all are OPERATIONAL
 make seed        # explicit; nothing reseeds on startup
-make ui          # http://localhost:8000 (landing page) and /war-room (the live demo)
+make ui          # http://localhost:8000 (landing page) and /mission-control (the live demo)
 ```
 
 ![The landing page: the idea, told with a replay of a real incident read from the graph](docs/img/landing.png)
 
 If something else already listens on port 6379 (a local Redis), set `FALKORDB_PORT=6380` in `.env`; Docker Compose and the Python client both read it.
 
-**The UI** has two pages. The **landing page** (`/`) explains the idea with live data: its hero replays a real incident from the graph, and every number, check and playbook on it is read from the API (a labelled recorded run stands in until this machine has run its own). **Enter the war room** (`/war-room`) is the live demo: it runs two investigators as separate processes (Kill sends a real SIGKILL), plus the responder and learner, and reads everything back from FalkorDB. You play the on-call engineer, or switch on "scripted engineer" in Director. Each incident is told as the learning loop, step by step, every animation driven by a real event in the graph, and **← ▶ →** replays any incident from its stored steps. `/dark` and `/classic` keep the earlier views. Demo timing (6 s lease, 2 s heartbeat; production 30 s / 10 s) is labelled on screen. Panels and the demo walkthrough: [`web/README.md`](web/README.md).
+**The UI** has two pages. The **landing page** (`/`) explains the idea with live data: its hero replays a real incident from the graph, and every number, check and playbook on it is read from the API (a labelled recorded run stands in until this machine has run its own). **Mission control** (`/mission-control`) is the live demo: it runs two investigators as separate processes (Kill sends a real SIGKILL), plus the responder and learner, and reads everything back from FalkorDB. You play the on-call engineer in the war room, or switch on "scripted engineer" in Director. Each incident is told as the learning loop, step by step, every animation driven by a real event in the graph, and **← ▶ →** replays any incident from its stored steps. `/dark` and `/classic` keep the earlier views. Demo timing (6 s lease, 2 s heartbeat; production 30 s / 10 s) is labelled on screen. Panels and the demo walkthrough: [`web/README.md`](web/README.md).
 
 **The acceptance test** (seven checks, real process kill, full restart):
 
